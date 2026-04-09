@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+python-socketio
+groq
+deepgram-sdk
+elevenlabs
+scikit-learn
+python-multipart
+fpdf
+numpy
+python-dotenv
+aiohttp

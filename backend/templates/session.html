@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Interview Session | MockHire</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f9fafb;
+            color: #111827;
+        }
+
+        .clean-card {
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+
+        .video-placeholder {
+            background: #f3f4f6;
+            position: relative;
+            overflow: hidden;
+            border-radius: 12px;
+            border: 1px solid #e5e7eb;
+        }
+
+        .video-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #input-video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 12px;
+            transform: scaleX(-1);
+        }
+
+        #output-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            transform: scaleX(-1);
+        }
+
+        .proctoring-badge {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            padding: 0.5rem 1rem;
+            border-radius: 99px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            backdrop-filter: blur(10px);
+            z-index: 10;
+        }
+
+        .status-safe {
+            background: rgba(16, 185, 129, 0.1);
+            color: #059669;
+            border: 1px solid rgba(16, 185, 129, 0.2);
+        }
+
+        .status-warning {
+            background: rgba(245, 158, 11, 0.1);
+            color: #d97706;
+            border: 1px solid rgba(245, 158, 11, 0.2);
+            animation: pulse-ring 1.25s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+        }
+
+        .status-danger {
+            background: rgba(239, 68, 68, 0.1);
+            color: #dc2626;
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            animation: shake 0.5s cubic-bezier(.36, .07, .19, .97) both;
+        }
+
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-1px, 0, 0); }
+            20%, 80% { transform: translate3d(2px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+            40%, 60% { transform: translate3d(4px, 0, 0); }
+        }
+
+        @keyframes pulse-ring {
+            0% { transform: scale(.95); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); }
+            70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(245, 158, 11, 0); }
+            100% { transform: scale(.95); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+        }
+
+        .pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .5; }
+        }
+
+        .mic-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 50;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .mic-bar-btn {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid #e5e7eb;
+            background: #ffffff;
+            color: #4b5563;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .mic-bar-btn:hover {
+            background: #f3f4f6;
+            border-color: #d1d5db;
+            transform: scale(1.05);
+            color: #111827;
+        }
+        .mic-bar-btn.recording {
+            background: #fee2e2;
+            border-color: #fca5a5;
+            color: #dc2626;
+        }
+        .mic-bar-btn.recording::before {
+            content: '';
+            position: absolute;
+            inset: -6px;
+            border-radius: 50%;
+            border: 2px solid rgba(239, 68, 68, 0.3);
+            animation: mic-pulse 1.5s ease-in-out infinite;
+        }
+        @keyframes mic-pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.15); opacity: 0; }
+        }
+    </style>
+</head>
+
+<body class="min-h-screen flex flex-col pt-16">
+    <nav class="fixed top-0 left-0 w-full bg-white border-b border-gray-200 z-40">
+        <div class="max-w-7xl mx-auto px-6 h-16 flex justify-between items-center">
+            <a href="/dashboard/" class="flex items-center gap-2 group text-gray-500 hover:text-gray-900 transition-colors">
+                <i data-lucide="chevron-left" class="w-4 h-4"></i>
+                <span class="text-sm font-medium">Dashboard</span>
+            </a>
+            <div class="flex items-center gap-2">
+                <div id="conn-indicator" class="w-2 h-2 rounded-full bg-yellow-500 pulse"></div>
+                <span id="conn-text"
+                    class="text-xs font-bold uppercase tracking-widest text-yellow-600">Connecting...</span>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-6xl mx-auto py-8 px-4 pb-32 w-full grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <!-- Main Interface -->
+        <div class="lg:col-span-2 space-y-6">
+            <div class="clean-card overflow-hidden">
+                <div class="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="shield-check" class="text-blue-600 w-4 h-4"></i>
+                        <span class="text-xs font-bold uppercase tracking-wider text-gray-700">AI Proctoring Active</span>
+                    </div>
+                    <div id="cheating-status-text"
+                        class="text-[10px] font-mono text-gray-500 uppercase tracking-widest">Gaze: Tracking...</div>
+                </div>
+                <div class="aspect-video video-placeholder flex items-center justify-center bg-gray-100">
+                    <div id="camera-setup" class="text-center space-y-4 p-6">
+                        <div
+                            class="w-16 h-16 bg-white rounded-full mx-auto flex items-center justify-center shadow-sm border border-gray-200">
+                            <i data-lucide="video" class="text-gray-400 w-8 h-8"></i>
+                        </div>
+                        <p class="text-gray-500 text-sm font-medium">Permissions required for eye tracking</p>
+                        <button id="enable-camera-btn"
+                            class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full text-sm font-bold transition-all shadow-sm">
+                            Enable Camera
+                        </button>
+                    </div>
+                    <div id="video-wrapper" class="hidden video-container">
+                        <video id="input-video" playsinline></video>
+                        <canvas id="output-canvas"></canvas>
+                        <div id="proctoring-badge" class="proctoring-badge status-safe shadow-sm">
+                            <i data-lucide="eye" class="inline-block w-3 h-3 mr-1"></i> Eye Tracking: Secure
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="clean-card p-6 flex flex-col gap-4">
+                <div class="flex items-center gap-6">
+                    <div class="flex-1 space-y-1">
+                        <h3 id="prompt-label" class="text-[10px] font-bold uppercase tracking-widest text-gray-400">
+                            Currently Prompting</h3>
+                        <p id="prompt-text" class="text-lg font-semibold text-gray-900">"Ready to start? Enable your mic and say hello."
+                        </p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button id="toggle-input-btn"
+                            class="w-10 h-10 bg-gray-50 hover:bg-gray-100 rounded-lg flex items-center justify-center transition-all border border-gray-200 text-gray-500 hover:text-blue-600"
+                            title="Switch to Text Input">
+                            <i data-lucide="keyboard" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div id="text-input-container" class="hidden">
+                    <div class="relative">
+                        <input type="text" id="manual-answer" placeholder="Type your answer here..."
+                            class="w-full bg-white border border-gray-300 rounded-xl p-4 pr-14 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all text-sm text-gray-900 shadow-sm">
+                        <button id="send-text-btn"
+                            class="absolute right-2 top-2 w-10 h-10 bg-blue-600 hover:bg-blue-700 rounded-lg flex items-center justify-center transition-all shadow-sm">
+                            <i data-lucide="send" class="text-white w-4 h-4"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div id="next-btn"
+                    class="hidden w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl cursor-pointer transition-all shadow-sm flex items-center justify-center gap-2 group mt-2">
+                    <span>Next Question</span>
+                    <i data-lucide="arrow-right" class="w-4 h-4 group-hover:translate-x-1 transition-transform"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar / Analysis -->
+        <div class="space-y-6">
+            <div class="clean-card p-6 space-y-6">
+                <h3 class="text-sm font-bold text-gray-900 border-b border-gray-100 pb-3">Real-time Insights</h3>
+                <div class="space-y-5 mt-4">
+                    <div class="space-y-2">
+                        <div class="flex justify-between text-[10px] font-bold uppercase tracking-wider">
+                            <span class="text-gray-500">Confidence Score</span>
+                            <span id="confidence-val" class="text-blue-600">0%</span>
+                        </div>
+                        <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                            <div id="confidence-bar" class="h-full bg-blue-500 w-0 transition-all duration-1000">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="space-y-2">
+                        <div class="flex justify-between text-[10px] font-bold uppercase tracking-wider">
+                            <span class="text-gray-500">Speaking Clarity</span>
+                            <span id="clarity-val" class="text-purple-600">0%</span>
+                        </div>
+                        <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                            <div id="clarity-bar" class="h-full bg-purple-500 w-0 transition-all duration-1000"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="pt-2">
+                    <div class="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg border border-gray-100">
+                        <i data-lucide="brain" class="text-blue-500 w-4 h-4"></i>
+                        <span id="tone-display" class="text-xs font-medium text-gray-600">Tone: Detecting...</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="clean-card flex flex-col h-64 border-blue-100 bg-blue-50/30">
+                <div class="p-4 border-b border-gray-100 bg-white rounded-t-xl">
+                    <h4 class="text-xs font-bold uppercase tracking-widest text-blue-600">Live Transcript</h4>
+                </div>
+                <div id="transcript-area" class="p-4 flex-1 overflow-y-auto space-y-3 custom-scrollbar text-sm text-gray-600">
+                    <p class="text-xs italic text-gray-400">Listening for input...</p>
+                </div>
+            </div>
+
+            <button id="end-btn" onclick="endSessionAndDownload()"
+                class="w-full py-3 bg-white border border-gray-300 text-gray-900 font-bold rounded-xl hover:bg-gray-50 transition-all shadow-sm gap-2 flex items-center justify-center text-sm mt-4">
+                <i data-lucide="file-down" class="w-4 h-4"></i> End Session & Report
+            </button>
+        </div>
+    </main>
+
+    <!-- Fixed Bottom Mic Bar -->
+    <div class="mic-bar mt-auto">
+        <div class="flex flex-col items-center gap-2">
+            <button id="mic-btn" class="mic-bar-btn">
+                <i data-lucide="mic" class="w-6 h-6"></i>
+            </button>
+            <span id="mic-status" class="text-[10px] font-bold uppercase tracking-widest text-gray-500">Tap to Speak</span>
+        </div>
+    </div>
+
+    <script>
+        lucide.createIcons();
+
+        const socket = io('/', { transports: ['websocket'] });
+        const micBtn = document.getElementById('mic-btn');
+        const micStatus = document.getElementById('mic-status');
+        const promptText = document.getElementById('prompt-text');
+        const transcriptArea = document.getElementById('transcript-area');
+        const endBtn = document.getElementById('end-btn');
+        const nextBtn = document.getElementById('next-btn');
+        const promptLabel = document.getElementById('prompt-label');
+
+        let isListening = false;
+        let recognition;
+        let currentAudio = null; // Track currently playing AI audio
+        
+        // Track conversation history for PDF generation
+        let conversationHistory = [];
+        let currentRound = { question: "", answer: "", feedback: "" };
+        let proctoringEvents = []; // Track security alerts
+
+        // Stop any AI text-to-speech audio that's currently playing
+        function stopAIAudio() {
+            if (currentAudio) {
+                currentAudio.pause();
+                currentAudio.currentTime = 0;
+                currentAudio = null;
+            }
+        }
+
+        const toggleInputBtn = document.getElementById('toggle-input-btn');
+        const textInputContainer = document.getElementById('text-input-container');
+        const manualAnswerInput = document.getElementById('manual-answer');
+        const sendTextBtn = document.getElementById('send-text-btn');
+
+        toggleInputBtn.onclick = () => {
+            textInputContainer.classList.toggle('hidden');
+            if (!textInputContainer.classList.contains('hidden')) {
+                manualAnswerInput.focus();
+            }
+        };
+
+        const submitAnswer = (text) => {
+            if (!text.trim()) return;
+            currentRound.answer = text; // Track user answer for PDF
+            stopAIAudio(); // Stop AI audio when user submits an answer
+            addTranscript('You', text);
+            socket.emit('submit_answer', { answer: text });
+            promptText.innerText = "Analyzing your answer...";
+            manualAnswerInput.value = '';
+            textInputContainer.classList.add('hidden');
+        };
+
+        sendTextBtn.onclick = () => submitAnswer(manualAnswerInput.value);
+        manualAnswerInput.onkeydown = (e) => {
+            if (e.key === 'Enter') submitAnswer(manualAnswerInput.value);
+        };
+
+        let mediaRecorder;
+        let audioChunks = [];
+        let activeStream = null;
+
+        // Determine a supported MIME type for MediaRecorder
+        function getSupportedMimeType() {
+            const types = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/ogg', 'audio/mp4'];
+            for (const type of types) {
+                if (MediaRecorder.isTypeSupported(type)) return type;
+            }
+            return ''; // browser default
+        }
+
+        async function startRecording() {
+            if (isListening) return; // guard against double-start
+            stopAIAudio(); // Immediately stop AI audio so user can speak
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                activeStream = stream;
+                const mimeType = getSupportedMimeType();
+                const options = mimeType ? { mimeType } : {};
+                mediaRecorder = new MediaRecorder(stream, options);
+                audioChunks = [];
+
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data && event.data.size > 0) {
+                        audioChunks.push(event.data);
+                    }
+                };
+
+                mediaRecorder.onstop = async () => {
+                    const actualType = mediaRecorder.mimeType || mimeType || 'audio/webm';
+                    const audioBlob = new Blob(audioChunks, { type: actualType });
+
+                    if (audioBlob.size === 0) {
+                        console.warn('Recording produced no audio data.');
+                        return;
+                    }
+
+                    const reader = new FileReader();
+                    reader.readAsDataURL(audioBlob);
+                    reader.onloadend = () => {
+                        const base64Audio = reader.result.split(',')[1];
+                        socket.emit('submit_audio', { audio: base64Audio, mimeType: actualType });
+                        promptText.innerText = "Deepgram is transcribing...";
+                    };
+
+                    // Stop all tracks to release the mic
+                    if (activeStream) {
+                        activeStream.getTracks().forEach(track => track.stop());
+                        activeStream = null;
+                    }
+                };
+
+                // Use timeslice (250ms) so ondataavailable fires periodically
+                mediaRecorder.start(250);
+                isListening = true;
+                micBtn.classList.add('recording');
+                micBtn.innerHTML = `<i data-lucide="mic-off" class="text-red-400 w-7 h-7"></i>`;
+                micStatus.innerText = '● Recording...';
+                micStatus.classList.add('text-red-400');
+                micStatus.classList.remove('text-gray-500');
+                lucide.createIcons();
+            } catch (err) {
+                console.error('Microphone error:', err);
+                alert('Could not access microphone. Please allow microphone permissions and try again.');
+            }
+        }
+
+        function stopRecording() {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+            }
+            isListening = false;
+            micBtn.classList.remove('recording');
+            micBtn.innerHTML = `<i data-lucide="mic" class="text-gray-300 w-7 h-7"></i>`;
+            micStatus.innerText = 'Tap to Speak';
+            micStatus.classList.remove('text-red-400');
+            micStatus.classList.add('text-gray-500');
+            lucide.createIcons();
+        }
+
+        micBtn.onclick = () => isListening ? stopRecording() : startRecording();
+
+        function addTranscript(role, text) {
+            const p = document.createElement('p');
+            p.className = 'text-xs leading-relaxed text-gray-400';
+            p.innerHTML = `<span class="${role === 'You' ? 'text-indigo-400' : 'text-purple-400'} font-bold">${role}:</span> ${text}`;
+            transcriptArea.prepend(p);
+        }
+
+        socket.on('connect', () => {
+            document.getElementById('conn-indicator').classList.replace('bg-yellow-500', 'bg-green-500');
+            document.getElementById('conn-indicator').classList.remove('pulse');
+            document.getElementById('conn-text').innerText = 'AI Online';
+            document.getElementById('conn-text').classList.replace('text-yellow-400', 'text-green-400');
+
+            const data = {
+                jd: localStorage.getItem('interview_jd') || '1st Grade Basic Mathematics (Addition, Subtraction, Shapes)',
+                role: localStorage.getItem('interview_role') || '1st Grade Student',
+                company: localStorage.getItem('interview_company') || 'Elementary School'
+            };
+            socket.emit('start_interview', data);
+        });
+
+        socket.on('transcription_result', (data) => {
+            if (data.text && data.text.trim()) {
+                currentRound.answer = data.text; // Track user transcription for PDF
+                addTranscript('You', data.text);
+            }
+        });
+
+        socket.on('insights_update', (data) => {
+            document.getElementById('confidence-val').innerText = `${data.confidence}%`;
+            document.getElementById('confidence-bar').style.width = `${data.confidence}%`;
+            document.getElementById('clarity-val').innerText = `${data.clarity}%`;
+            document.getElementById('clarity-bar').style.width = `${data.clarity}%`;
+            document.getElementById('tone-display').innerText = `Tone: ${data.tone}`;
+        });
+
+        socket.on('interview_message', (data) => {
+            if (data.type === 'question' || data.type === 'feedback') {
+                promptLabel.innerText = data.type === 'question' ? "Current Question" : "AI Feedback";
+                
+                // Track Q&A rounds
+                if (data.type === 'question') {
+                    currentRound.question = data.text;
+                } else if (data.type === 'feedback') {
+                    currentRound.feedback = data.text;
+                    conversationHistory.push({...currentRound});
+                    currentRound = { question: "", answer: "", feedback: "" }; // Reset for next round
+                }
+
+                promptText.innerText = data.text;
+                addTranscript('AI', data.text);
+                data.type === 'feedback' ? nextBtn.classList.remove('hidden') : nextBtn.classList.add('hidden');
+
+                if (data.audio) {
+                    stopAIAudio(); // Stop any previous AI audio before playing new one
+                    currentAudio = new Audio(`data:audio/mpeg;base64,${data.audio}`);
+                    currentAudio.onended = () => { currentAudio = null; };
+                    currentAudio.play();
+                }
+            } else if (data.type === 'summary') {
+                showSummary(data.text);
+            }
+        });
+
+        nextBtn.onclick = () => {
+            stopAIAudio(); // Stop current AI audio immediately
+            nextBtn.classList.add('hidden');
+            socket.emit('request_next_question', {});
+            promptText.innerText = "Thinking...";
+        };
+
+        function showSummary(text) {
+            document.querySelector('main').innerHTML = `
+                <div class="max-w-3xl mx-auto py-12 px-4">
+                    <div class="clean-card p-12 space-y-8 shadow-lg">
+                        <div class="text-center space-y-4">
+                            <h2 class="text-4xl font-bold text-gray-900 tracking-tight">Interview Summary</h2>
+                            <p class="text-gray-600 text-lg leading-relaxed italic">"${text}"</p>
+                        </div>
+                        <div class="flex flex-col gap-4">
+                            <button onclick="endSessionAndDownload()" class="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-all shadow-sm flex items-center justify-center gap-2">
+                                <i data-lucide="file-down" class="w-5 h-5"></i> Download PDF Report
+                            </button>
+                            <button onclick="window.location.href='/dashboard/'" class="w-full py-4 bg-white hover:bg-gray-50 text-gray-900 font-bold rounded-xl transition-all border border-gray-300 shadow-sm">Return to Dashboard</button>
+                        </div>
+                    </div>
+                </div>`;
+            lucide.createIcons();
+            
+            // Hide mic bar
+            const micBar = document.querySelector('.mic-bar');
+            if (micBar) micBar.style.display = 'none';
+        }
+
+        async function endSessionAndDownload() {
+            const endBtnEl = document.getElementById('end-btn');
+            if (endBtnEl) {
+                endBtnEl.innerText = "Generating PDF...";
+                endBtnEl.disabled = true;
+            }
+
+            // Capture the current round if user answered but AI hasn't given feedback yet
+            if (currentRound.question && currentRound.answer && !currentRound.feedback) {
+                currentRound.feedback = "(Session ended before AI provided feedback)";
+                conversationHistory.push({...currentRound});
+            }
+
+            try {
+                const response = await fetch('/ai/generate-session-pdf/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        company: localStorage.getItem('interview_company') || 'Company',
+                        role: localStorage.getItem('interview_role') || 'Role',
+                        conversations: conversationHistory,
+                        proctoring_events: proctoringEvents
+                    })
+                });
+
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    
+                    let filename = "MockHire_Report.pdf";
+                    const disposition = response.headers.get('Content-Disposition');
+                    if (disposition && disposition.indexOf('filename=') !== -1) {
+                        const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
+                        const matches = filenameRegex.exec(disposition);
+                        if (matches != null && matches[1]) {
+                            filename = matches[1].replace(/['"]/g, '');
+                        }
+                    }
+                    
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                    
+                    setTimeout(() => {
+                        window.location.href = '/dashboard/';
+                    }, 1500);
+                } else {
+                    alert('Failed to generate PDF');
+                    window.location.href = '/dashboard/';
+                }
+            } catch (e) {
+                console.error('Error generating PDF:', e);
+                window.location.href = '/dashboard/';
+            }
+        }
+        // Drawing helpers
+        function drawIris(ctx, landmark, width, height) {
+            const x = landmark.x * width;
+            const y = landmark.y * height;
+            ctx.beginPath();
+            ctx.arc(x, y, 4, 0, 2 * Math.PI);
+            ctx.fillStyle = '#2563eb';
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = '#2563eb';
+            ctx.fill();
+            ctx.shadowBlur = 0;
+
+            // Add a small white shine for visibility
+            ctx.beginPath();
+            ctx.arc(x - 1, y - 1, 1, 0, 2 * Math.PI);
+            ctx.fillStyle = 'white';
+            ctx.fill();
+        }
+
+        function drawConnectors(ctx, landmarks, indices, width, height) {
+            ctx.beginPath();
+            ctx.strokeStyle = 'rgba(37, 99, 235, 0.4)';
+            ctx.lineWidth = 1;
+            for (let i = 0; i < indices.length; i++) {
+                const p = landmarks[indices[i]];
+                if (i === 0) ctx.moveTo(p.x * width, p.y * height);
+                else ctx.lineTo(p.x * width, p.y * height);
+            }
+            ctx.closePath();
+            ctx.stroke();
+        }
+        // Eye Tracking Logic
+        const videoElement = document.getElementById('input-video');
+        const canvasElement = document.getElementById('output-canvas');
+        const canvasCtx = canvasElement.getContext('2d');
+        const proctoringBadge = document.getElementById('proctoring-badge');
+        const cheatingStatusText = document.getElementById('cheating-status-text');
+        const enableCameraBtn = document.getElementById('enable-camera-btn');
+        const cameraSetup = document.getElementById('camera-setup');
+        const videoWrapper = document.getElementById('video-wrapper');
+
+        let lastGazeTime = Date.now();
+        let cheatingWarnings = 0;
+        let isGazingAtScreen = true;
+
+        const faceMesh = new FaceMesh({
+            locateFile: (file) => {
+                return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`;
+            }
+        });
+
+        faceMesh.setOptions({
+            maxNumFaces: 1,
+            refineLandmarks: true,
+            minDetectionConfidence: 0.5,
+            minTrackingConfidence: 0.5
+        });
+
+        faceMesh.onResults(onResults);
+
+        function onResults(results) {
+            // Ensure canvas matches video resolution for perfect alignment
+            if (videoElement.videoWidth > 0 && (canvasElement.width !== videoElement.videoWidth)) {
+                canvasElement.width = videoElement.videoWidth;
+                canvasElement.height = videoElement.videoHeight;
+            }
+
+            canvasCtx.save();
+            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+
+            const w = canvasElement.width;
+            const h = canvasElement.height;
+
+            if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
+                const landmarks = results.multiFaceLandmarks[0];
+
+                // Iris indices: 468 (L), 473 (R)
+                const leftIris = landmarks[468];
+                const rightIris = landmarks[473];
+
+                // Eye landmarks for visualization (contours)
+                const leftEyeIndices = [33, 7, 163, 144, 145, 153, 154, 155, 133, 173, 157, 158, 159, 160, 161, 246];
+                const rightEyeIndices = [362, 382, 381, 380, 374, 373, 390, 249, 263, 466, 388, 387, 386, 385, 384, 398];
+
+                drawConnectors(canvasCtx, landmarks, leftEyeIndices, w, h);
+                drawConnectors(canvasCtx, landmarks, rightEyeIndices, w, h);
+
+                // Gaze Calculation logic
+                const lOuter = landmarks[33];
+                const lInner = landmarks[133];
+                const rInner = landmarks[362];
+                const rOuter = landmarks[263];
+                const lTop = landmarks[159];
+                const lBottom = landmarks[145];
+
+                // Horizontal: 0.5 is middle. <0.4 is one side, >0.6 is other.
+                const lHoriz = (leftIris.x - lOuter.x) / (lInner.x - lOuter.x);
+                const rHoriz = (rightIris.x - rInner.x) / (rOuter.x - rInner.x);
+                const hRatio = (lHoriz + rHoriz) / 2;
+
+                // Vertical: 0.5 is middle.
+                const vRatio = (leftIris.y - lTop.y) / (lBottom.y - lTop.y);
+
+                const hMin = 0.35, hMax = 0.65;
+                const vMin = 0.30, vMax = 0.70;
+
+                const isAway = hRatio < hMin || hRatio > hMax || vRatio < vMin || vRatio > vMax;
+
+                cheatingStatusText.innerText = `Gaze: H=${hRatio.toFixed(2)} V=${vRatio.toFixed(2)}`;
+
+                if (isAway) {
+                    updateProctoringStatus('warning', 'Security Warning: Looking Away');
+                    isGazingAtScreen = false;
+                } else {
+                    updateProctoringStatus('safe', 'Secure');
+                    isGazingAtScreen = true;
+                }
+
+                drawIris(canvasCtx, leftIris, w, h);
+                drawIris(canvasCtx, rightIris, w, h);
+            } else {
+                updateProctoringStatus('danger', 'CRITICAL: Face Not Detected');
+            }
+            canvasCtx.restore();
+        }
+
+        // Inline SVGs so we never need to call lucide.createIcons() per frame
+        const eyeSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block mr-1"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg>`;
+        const alertSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block mr-1"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>`;
+
+        let lastProctoringStatus = '';
+        let lastAlertTime = 0;
+
+        function updateProctoringStatus(status, message) {
+            // Only update DOM if status actually changed (avoid thrashing)
+            const statusKey = status + message;
+            if (statusKey === lastProctoringStatus) return;
+            lastProctoringStatus = statusKey;
+
+            proctoringBadge.className = `proctoring-badge status-${status}`;
+            proctoringBadge.innerHTML = `${status === 'safe' ? eyeSvg : alertSvg} Eye Tracking: ${message}`;
+            cheatingStatusText.innerText = `Gaze: ${message}`;
+
+            if (status === 'warning' || status === 'danger') {
+                cheatingStatusText.classList.add('text-red-400');
+                if (status === 'danger') {
+                    // Throttle alerts to max 1 per second
+                    const now = Date.now();
+                    if (now - lastAlertTime > 1000) {
+                        lastAlertTime = now;
+                        const alertData = { type: message, timestamp: new Date().toISOString() };
+                        socket.emit('proctoring_alert', alertData);
+                        proctoringEvents.push(alertData); // Push to array for PDF
+                    }
+                }
+            } else {
+                cheatingStatusText.classList.remove('text-red-400');
+            }
+            // DO NOT call lucide.createIcons() here — it runs ~30x/sec and destroys other icons
+        }
+
+        enableCameraBtn.onclick = async () => {
+            cameraSetup.classList.add('hidden');
+            videoWrapper.classList.remove('hidden');
+
+            const camera = new Camera(videoElement, {
+                onFrame: async () => {
+                    await faceMesh.send({ image: videoElement });
+                },
+                width: 640,
+                height: 480
+            });
+
+            canvasElement.width = videoElement.clientWidth;
+            canvasElement.height = videoElement.clientHeight;
+
+            camera.start();
+        };
+
+        window.addEventListener('resize', () => {
+            canvasElement.width = videoElement.clientWidth;
+            canvasElement.height = videoElement.clientHeight;
+        });
+
+    </script>
+</body>
+
+</html>
