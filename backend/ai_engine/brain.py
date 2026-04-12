@@ -57,12 +57,16 @@ class InterviewBrain:
         )
         return response.choices[0].message.content
 
-    async def get_next_question(self, history, jd):
+    async def get_next_question(self, history, jd, context=""):
         history_text = "\n".join([f"Q: {h['q']}\nA: {h['a']}" for h in history])
+        context_string = f"Relevant Candidate Context:\n{context}\n\n" if context else ""
         prompt = (
             f"Job Description: {jd}\n"
+            f"{context_string}"
             f"Interview History:\n{history_text}\n\n"
-            "Based on the history, ask the next challenging technical or behavioral question. Just the question."
+            "Based on the history and relevant candidate context, ask the next challenging technical or behavioral question. "
+            "CRITICAL: Do NOT ask about the exact same project from the immediate previous question. Explicitly shift the focus to a NEW project, language, or concept mentioned in the 'Relevant Candidate Context'. "
+            "Just the question."
         )
         response = await self.client.chat.completions.create(
             messages=[
@@ -119,6 +123,26 @@ class InterviewBrain:
             ],
             model=self.model,
             max_tokens=500,
+            response_format={"type": "json_object"}
+        )
+    async def get_session_skills(self, transcript):
+        prompt = (
+            f"Review the following interview transcript:\n{transcript}\n\n"
+            "Evaluate the candidate holistically across the entire session out of 100 on these three metrics. "
+            "Return ONLY a valid JSON object with EXACT keys:\n"
+            "{\n"
+            "  \"tech_knowledge\": <0-100 score>,\n"
+            "  \"behavioral_iq\": <0-100 score>,\n"
+            "  \"problem_solving\": <0-100 score>\n"
+            "}"
+        )
+        response = await self.client.chat.completions.create(
+            messages=[
+                {"role": "system", "content": "You are a senior technical evaluator. Output purely valid JSON."},
+                {"role": "user", "content": prompt},
+            ],
+            model=self.model,
+            max_tokens=200,
             response_format={"type": "json_object"}
         )
         return response.choices[0].message.content

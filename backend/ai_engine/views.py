@@ -7,7 +7,6 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib import messages
 from django.views.decorators.csrf import csrf_exempt
 import json
-import io
 from datetime import datetime
 
 
@@ -150,53 +149,88 @@ def generate_session_pdf(request):
     pdf_output = pdf.output(dest='S')
     pdf_bytes = pdf_output.encode('latin-1') if isinstance(pdf_output, str) else pdf_output
 
-    response = HttpResponse(pdf_bytes, content_type='application/pdf')
-    safe_company = ''.join(c for c in company if c.isalnum() or c in ' _-').strip().replace(' ', '_')
-    safe_role = ''.join(c for c in role if c.isalnum() or c in ' _-').strip().replace(' ', '_')
-    response['Content-Disposition'] = f'attachment; filename="MockHire_{safe_company}_{safe_role}_Report.pdf"'
-    return response
+    if request.user.is_authenticated:
+        from ai_engine.models import InterviewSession
+        
+        valid_conf = [c.get('confidence', 0) for c in conversations if c.get('confidence', 0) > 0]
+        avg_conf = int(sum(valid_conf) / len(valid_conf)) if valid_conf else 0
+        
+        valid_clar = [c.get('clarity', 0) for c in conversations if c.get('clarity', 0) > 0]
+        avg_clarity = int(sum(valid_clar) / len(valid_clar)) if valid_clar else 0
+        
+        transcript = "\n".join([f"Q: {c.get('question')}\nA: {c.get('answer')}" for c in conversations])
+        tech_k = 0
+        behav = 0
+        prob = 0
+        
+        if transcript:
+            from ai_engine.brain import InterviewBrain
+            from asgiref.sync import async_to_sync
+            brain = InterviewBrain()
+            try:
+                skills_json = async_to_sync(brain.get_session_skills)(transcript)
+                skills = json.loads(skills_json)
+                tech_k = skills.get('tech_knowledge', 0)
+                behav = skills.get('behavioral_iq', 0)
+                prob = skills.get('problem_solving', 0)
+            except:
+                pass
 
-def health_check(request):
-    return JsonResponse({"status": "healthy", "engine": "Django-AI"})
+        InterviewSession.objects.create(
+            user=request.user,
+            company=company,
+            role=role,
+            pdf_report=pdf_bytes,
+            avg_confidence=avg_conf,
+            avg_clarity=avg_clarity,
+            tech_knowledge=tech_k,
+            behavioral_iq=behav,
+            problem_solving=prob
+        )
 
-@api_view(['POST'])
-def upload_jd(request):
-    return Response({"status": "success", "message": "JD processed via Django"})
+    return JsonResponse({"status": "success", "message": "PDF saved to database successfully"})
 
-@api_view(['POST'])
-def check_resume(request):
-    return Response({
-        "status": "success", 
-        "score": 82, 
-        "feedback": "Great focus on technical skills. Consider adding more quantifiable achievements."
-    })
+def download_session_pdf(request, session_id):
+    if not request.user.is_authenticated:
+        return redirect('login')
+    
+    from ai_engine.models import InterviewSession
+    try:
+        session = InterviewSession.objects.get(id=session_id, user=request.user)
+        if session.pdf_report:
+            response = HttpResponse(session.pdf_report, content_type='application/pdf')
+            safe_company = ''.join(c for c in session.company if c.isalnum() or c in ' _-').strip().replace(' ', '_')
+            safe_role = ''.join(c for c in session.role if c.isalnum() or c in ' _-').strip().replace(' ', '_')
+            response['Content-Disposition'] = f'attachment; filename="MockHire_{safe_company}_{safe_role}_Report.pdf"'
+            return response
+    except InterviewSession.DoesNotExist:
+        pass
+    return redirect('dashboard')
 
-@api_view(['POST'])
-def match_resume(request):
-    resume = request.FILES.get('resume')
-    jd = request.data.get('jd')
-    return Response({
-        "status": "success",
-        "score": 75,
-        "feedback": f"Your resume matches 75% of the JD. Focus more on {jd[:20]}... specific keywords mentioned."
-    })
 
-@api_view(['POST'])
+from django.views.decorators.csrf import csrf_exempt
+
+@csrf_exempt
 def generate_interview_analysis(request):
     from ai_engine.brain import InterviewBrain
     import json
     from asgiref.sync import async_to_sync
     
-    company = request.data.get('company', 'Tech Company')
-    role = request.data.get('role', 'Candidate')
-    jd = request.data.get('jd', 'General Job Description')
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+    
+    company = data.get('company', 'Tech Company')
+    role = data.get('role', 'Candidate')
+    jd = data.get('jd', 'General Job Description')
     
     brain = InterviewBrain()
     # Run the async analysis method safely
     analysis_json = async_to_sync(brain.generate_analysis)(company, role, jd)
     analysis = json.loads(analysis_json)
     
-    return Response(analysis)
+    return JsonResponse(analysis)
 
 def register_view(request):
     if request.user.is_authenticated:
@@ -240,15 +274,151 @@ def logout_view(request):
     logout(request)
     return redirect('login')
 
+def delete_session(request, session_id):
+    if not request.user.is_authenticated:
+        return redirect('login')
+    
+    from ai_engine.models import InterviewSession
+    
+    try:
+        session = InterviewSession.objects.get(id=session_id, user=request.user)
+        session.delete()
+    except InterviewSession.DoesNotExist:
+        pass
+        
+    return redirect('dashboard')
+
 def dashboard_view(request):
     if not request.user.is_authenticated:
         return redirect('login')
-    return render(request, 'dashboard.html', {'username': request.user.username})
+        
+    from ai_engine.models import UserProfile, InterviewSession
+    profile, created = UserProfile.objects.get_or_create(user=request.user)
+    
+    all_sessions = InterviewSession.objects.filter(user=request.user).order_by('-date_completed')
+    recent_sessions = all_sessions[:5]
+    
+    total_count = all_sessions.count()
+    if total_count > 0:
+        global_avg_conf = int(sum(s.avg_confidence for s in all_sessions) / total_count)
+        global_avg_clar = int(sum(s.avg_clarity for s in all_sessions) / total_count)
+    else:
+        global_avg_conf = 0
+        global_avg_clar = 0
+    
+    return render(request, 'dashboard.html', {
+        'username': request.user.username,
+        'has_resume': bool(profile.resume_text),
+        'recent_sessions': recent_sessions,
+        'total_interviews': total_count,
+        'global_avg_conf': global_avg_conf,
+        'global_avg_clar': global_avg_clar
+    })
+
+def profile_view(request):
+    if not request.user.is_authenticated:
+        return redirect('login')
+        
+    from ai_engine.models import UserProfile
+    from django.contrib import messages
+    from django.contrib.auth import update_session_auth_hash
+    
+    profile, created = UserProfile.objects.get_or_create(user=request.user)
+    
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        if action == 'update_profile':
+            request.user.email = request.POST.get('email', request.user.email)
+            request.user.first_name = request.POST.get('first_name', request.user.first_name)
+            request.user.last_name = request.POST.get('last_name', request.user.last_name)
+            request.user.save()
+            messages.success(request, 'Your profile has been updated successfully.')
+            return redirect('profile')
+            
+        elif action == 'change_password':
+            new_password = request.POST.get('new_password')
+            if new_password and len(new_password) >= 6:
+                request.user.set_password(new_password)
+                request.user.save()
+                update_session_auth_hash(request, request.user)
+                messages.success(request, 'Your password was successfully updated.')
+            else:
+                messages.error(request, 'Password must be at least 6 characters.')
+            return redirect('profile')
+
+    return render(request, 'profile.html', {
+        'has_resume': bool(profile.resume_text)
+    })
+
+@csrf_exempt
+def upload_profile_resume(request):
+    if request.method == 'POST' and request.user.is_authenticated:
+        if 'resume' in request.FILES:
+            resume_file = request.FILES['resume']
+            
+            from ai_engine.models import UserProfile
+            import PyPDF2
+            
+            profile, _ = UserProfile.objects.get_or_create(user=request.user)
+            profile.resume_pdf = resume_file.read()
+            
+            # Extract Text
+            resume_text = ""
+            try:
+                # Seek back to 0 because we just read it to save the binary output
+                resume_file.seek(0)
+                reader = PyPDF2.PdfReader(resume_file)
+                for page in reader.pages:
+                    extracted = page.extract_text()
+                    if extracted:
+                        resume_text += extracted + "\n"
+                profile.resume_text = resume_text
+                profile.save()
+                
+                if request.POST.get('redirect_to') == 'profile':
+                    from django.contrib import messages
+                    messages.success(request, 'Resume successfully verified and parsed.')
+                    return redirect('profile')
+                return JsonResponse({"status": "success", "message": "Resume uploaded and parsed successfully."})
+            except Exception as e:
+                if request.POST.get('redirect_to') == 'profile':
+                    from django.contrib import messages
+                    messages.error(request, f'Failed to process PDF: {str(e)}')
+                    return redirect('profile')
+                return JsonResponse({"status": "error", "message": str(e)}, status=400)
+    
+    return JsonResponse({"status": "error", "message": "Invalid request"}, status=400)
 
 def scores_view(request):
     if not request.user.is_authenticated:
         return redirect('login')
-    return render(request, 'scores.html')
+        
+    from ai_engine.models import InterviewSession
+    
+    all_sessions = InterviewSession.objects.filter(user=request.user)
+    total_count = all_sessions.count()
+    
+    if total_count > 0:
+        global_avg_conf = int(sum(s.avg_confidence for s in all_sessions) / total_count)
+        global_avg_clar = int(sum(s.avg_clarity for s in all_sessions) / total_count)
+        global_tech = int(sum(s.tech_knowledge for s in all_sessions) / total_count)
+        global_behav = int(sum(s.behavioral_iq for s in all_sessions) / total_count)
+        global_prob = int(sum(s.problem_solving for s in all_sessions) / total_count)
+    else:
+        global_avg_conf = 0
+        global_avg_clar = 0
+        global_tech = 0
+        global_behav = 0
+        global_prob = 0
+
+    return render(request, 'scores.html', {
+        'total_count': total_count,
+        'global_avg_conf': global_avg_conf,
+        'global_avg_clar': global_avg_clar,
+        'global_tech': global_tech,
+        'global_behav': global_behav,
+        'global_prob': global_prob
+    })
 
 def home(request):
     return render(request, 'landing.html')
@@ -256,7 +426,13 @@ def home(request):
 def session_view(request):
     if not request.user.is_authenticated:
         return redirect('login')
-    return render(request, 'session.html')
+    
+    from ai_engine.models import UserProfile
+    profile, _ = UserProfile.objects.get_or_create(user=request.user)
+    
+    return render(request, 'session.html', {
+        'resume_text': profile.resume_text
+    })
 
 def setup_view(request):
     if not request.user.is_authenticated:
@@ -273,33 +449,25 @@ def score_resume_api(request):
     from ai_engine.brain import InterviewBrain
     from asgiref.sync import async_to_sync
     import json
-    import PyPDF2
     from django.http import JsonResponse
+    from ai_engine.models import UserProfile
 
     if request.method != 'POST':
         return JsonResponse({'error': 'POST required'}, status=405)
 
-    if 'resume' not in request.FILES:
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': 'Authentication required'}, status=401)
+
+    profile, created = UserProfile.objects.get_or_create(user=request.user)
+    resume_text = profile.resume_text
+
+    if not resume_text:
         return JsonResponse(
-            {'score': 0, 'feedback': 'No resume uploaded.', 'missing_keywords': [], 'matching_keywords': []}, 
+            {'score': 0, 'feedback': 'No resume uploaded to your profile. Please upload one first.', 'missing_keywords': [], 'matching_keywords': []}, 
             status=400
         )
     
-    resume_file = request.FILES['resume']
     jd_text = request.POST.get('jd', 'No JD provided.')
-    
-    resume_text = ""
-    try:
-        reader = PyPDF2.PdfReader(resume_file)
-        for page in reader.pages:
-            extracted = page.extract_text()
-            if extracted:
-                resume_text += extracted + "\n"
-    except Exception as e:
-        return Response(
-            {'score': 0, 'feedback': f"PDF Parsing Error: {str(e)}", 'missing_keywords': [], 'matching_keywords': []}, 
-            status=400
-        )
 
     brain = InterviewBrain()
     try:

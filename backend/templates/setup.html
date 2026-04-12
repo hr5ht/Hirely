@@ -129,6 +129,10 @@
             const role = document.getElementById('setup-role').value || "Candidate";
             const jd = document.getElementById('setup-jd').value || "General Job Description";
 
+            localStorage.setItem('interview_company', company);
+            localStorage.setItem('interview_role', role);
+            localStorage.setItem('interview_jd', jd);
+
             // Show loading state
             analyzeBtn.disabled = true;
             analyzeBtn.innerHTML = `<div class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div> Analyzing...`;
@@ -176,6 +180,12 @@
         proceedBtn.onclick = () => {
             const company = document.getElementById('setup-company').value || "Tech Company";
             const role = document.getElementById('setup-role').value || "Candidate";
+            const jd = document.getElementById('setup-jd').value || "General Job Description";
+            
+            localStorage.setItem('interview_company', company);
+            localStorage.setItem('interview_role', role);
+            localStorage.setItem('interview_jd', jd);
+            
             window.location.href = `/session/?company=${encodeURIComponent(company)}&role=${encodeURIComponent(role)}`;
         };
     </script>

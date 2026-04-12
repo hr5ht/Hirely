@@ -10,3 +10,6 @@ fpdf
 numpy
 python-dotenv
 aiohttp
+faiss-cpu
+sentence-transformers
+torch

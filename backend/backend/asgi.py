@@ -4,6 +4,7 @@ from django.core.asgi import get_asgi_application
 import socketio
 from ai_engine.brain import InterviewBrain
 from ai_engine.audio_service import AudioService
+from ai_engine.rag import RAGRetriever
 import json
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'backend.settings')
@@ -50,19 +51,29 @@ async def start_interview(sid, data):
     jd = data.get('jd') or '1st Grade Basic Mathematics (Addition, Subtraction, Shapes)'
     role = data.get('role') or '1st Grade Student'
     company = data.get('company') or 'Elementary School'
+    resume = data.get('resume') or 'Strong foundation in basics.'
     
     print(f"Starting interview for {sid} - Role: {role} at {company}")
+    
+    # Initialize RAG for this session
+    rag = RAGRetriever()
+    rag.build_index(resume, jd)
     
     # Store session context
     interview_sessions[sid] = {
         "jd": jd,
         "role": role,
         "company": company,
+        "resume": resume,
+        "rag": rag,
         "history": [],
         "last_question": ""
     }
     
-    context_prompt = f"Conducting interview for {role} role at {company}. JD: {jd}"
+    # Generate initial context using the role as query
+    initial_context = rag.retrieve(f"{role} key qualifications and experience", top_k=5)
+    
+    context_prompt = f"Conducting interview for {role} role at {company}. JD: {jd}\nCandidate Context:\n{initial_context}"
     initial_question = await brain.generate_initial_question(context_prompt)
     interview_sessions[sid]["last_question"] = initial_question
     
@@ -106,17 +117,18 @@ async def submit_answer(sid, data):
             'tone': 'Detected'
         }
 
-    # Generate Audio for feedback
-    audio_b64 = await audio_service.text_to_speech(feedback_text)
+    # Remove TTS generation for feedback since it goes to sidebar only
     
     # Emit insights separately for the HUD
     await sio.emit('insights_update', insights, room=sid)
 
     await sio.emit('interview_message', {
-        'type': 'feedback',
-        'text': feedback_text,
-        'audio': audio_b64
+        'type': 'silent_feedback',
+        'text': feedback_text
     }, room=sid)
+
+    # Immediately trigger the next question
+    await request_next_question(sid, {})
 
 @sio.event
 async def request_next_question(sid, data):
@@ -144,7 +156,25 @@ async def request_next_question(sid, data):
         }, room=sid)
         del interview_sessions[sid]
     else:
-        next_q = await brain.get_next_question(session['history'], session['jd'])
+        # Retrieve context from RAG based on the job description/role
+        rag = session.get('rag')
+        context = ""
+        if rag:
+            # Shift the semantic search vector dynamically to pull diverse constraints
+            round_num = len(session['history'])
+            if round_num == 1:
+                query = f"Role: {session['role']}. Core technical skills, languages, and frameworks."
+            elif round_num == 2:
+                query = f"Role: {session['role']}. System architecture, databases, or deployment."
+            elif round_num == 3:
+                query = f"Role: {session['role']}. Testing, edge cases, collaboration, or teamwork."
+            else:
+                # Randomize slightly using the previous answer but asking for a new challenge
+                query = f"Role: {session['role']}. Leadership, scaling challenges, open source."
+            
+            context = rag.retrieve(query, top_k=5)
+            
+        next_q = await brain.get_next_question(session['history'], session['jd'], context)
         session['last_question'] = next_q
         
         audio_b64 = await audio_service.text_to_speech(next_q)

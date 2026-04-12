@@ -153,18 +153,15 @@
             transform: scale(1.05);
             color: #111827;
         }
-        .mic-bar-btn.recording {
+        .mic-btn-compact.recording {
             background: #fee2e2;
             border-color: #fca5a5;
             color: #dc2626;
+            animation: pulse-recording 1.5s infinite;
         }
-        .mic-bar-btn.recording::before {
-            content: '';
-            position: absolute;
-            inset: -6px;
-            border-radius: 50%;
-            border: 2px solid rgba(239, 68, 68, 0.3);
-            animation: mic-pulse 1.5s ease-in-out infinite;
+        @keyframes pulse-recording {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+            50% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
         }
         @keyframes mic-pulse {
             0%, 100% { transform: scale(1); opacity: 1; }
@@ -231,6 +228,12 @@
                         </p>
                     </div>
                     <div class="flex items-center gap-2">
+                        <span id="mic-status" class="text-[10px] font-bold uppercase tracking-widest text-gray-400 mr-2">Tap to speak</span>
+                        <button id="mic-btn"
+                            class="mic-btn-compact w-10 h-10 bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 rounded-lg flex items-center justify-center transition-all"
+                            title="Tap to Speak">
+                            <i data-lucide="mic" class="w-4 h-4"></i>
+                        </button>
                         <button id="toggle-input-btn"
                             class="w-10 h-10 bg-gray-50 hover:bg-gray-100 rounded-lg flex items-center justify-center transition-all border border-gray-200 text-gray-500 hover:text-blue-600"
                             title="Switch to Text Input">
@@ -300,22 +303,13 @@
                 </div>
             </div>
 
-            <button id="end-btn" onclick="endSessionAndDownload()"
+            <button id="end-btn" onclick="endSessionAndSave()"
                 class="w-full py-3 bg-white border border-gray-300 text-gray-900 font-bold rounded-xl hover:bg-gray-50 transition-all shadow-sm gap-2 flex items-center justify-center text-sm mt-4">
-                <i data-lucide="file-down" class="w-4 h-4"></i> End Session & Report
+                <i data-lucide="stop-circle" class="w-4 h-4 text-red-500"></i> End Session Early
             </button>
         </div>
     </main>
 
-    <!-- Fixed Bottom Mic Bar -->
-    <div class="mic-bar mt-auto">
-        <div class="flex flex-col items-center gap-2">
-            <button id="mic-btn" class="mic-bar-btn">
-                <i data-lucide="mic" class="w-6 h-6"></i>
-            </button>
-            <span id="mic-status" class="text-[10px] font-bold uppercase tracking-widest text-gray-500">Tap to Speak</span>
-        </div>
-    </div>
 
     <script>
         lucide.createIcons();
@@ -475,7 +469,8 @@
             const data = {
                 jd: localStorage.getItem('interview_jd') || '1st Grade Basic Mathematics (Addition, Subtraction, Shapes)',
                 role: localStorage.getItem('interview_role') || '1st Grade Student',
-                company: localStorage.getItem('interview_company') || 'Elementary School'
+                company: localStorage.getItem('interview_company') || 'Elementary School',
+                resume: "{{ resume_text|escapejs }}" || "Strong foundation in basics."
             };
             socket.emit('start_interview', data);
         });
@@ -488,6 +483,9 @@
         });
 
         socket.on('insights_update', (data) => {
+            currentRound.confidence = data.confidence;
+            currentRound.clarity = data.clarity;
+
             document.getElementById('confidence-val').innerText = `${data.confidence}%`;
             document.getElementById('confidence-bar').style.width = `${data.confidence}%`;
             document.getElementById('clarity-val').innerText = `${data.clarity}%`;
@@ -496,21 +494,12 @@
         });
 
         socket.on('interview_message', (data) => {
-            if (data.type === 'question' || data.type === 'feedback') {
-                promptLabel.innerText = data.type === 'question' ? "Current Question" : "AI Feedback";
+            if (data.type === 'question') {
+                promptLabel.innerText = "Current Question";
+                currentRound.question = data.text;
                 
-                // Track Q&A rounds
-                if (data.type === 'question') {
-                    currentRound.question = data.text;
-                } else if (data.type === 'feedback') {
-                    currentRound.feedback = data.text;
-                    conversationHistory.push({...currentRound});
-                    currentRound = { question: "", answer: "", feedback: "" }; // Reset for next round
-                }
-
                 promptText.innerText = data.text;
                 addTranscript('AI', data.text);
-                data.type === 'feedback' ? nextBtn.classList.remove('hidden') : nextBtn.classList.add('hidden');
 
                 if (data.audio) {
                     stopAIAudio(); // Stop any previous AI audio before playing new one
@@ -518,6 +507,16 @@
                     currentAudio.onended = () => { currentAudio = null; };
                     currentAudio.play();
                 }
+            } else if (data.type === 'silent_feedback') {
+                // Background processing: record feedback for Transcript & PDF only.
+                currentRound.feedback = data.text;
+                conversationHistory.push({...currentRound});
+                currentRound = { question: "", answer: "", feedback: "", confidence: 0, clarity: 0 }; // Reset for next round
+                addTranscript('AI Feedback', data.text);
+                
+                // Show thinking status momentarily while generating next question
+                promptLabel.innerText = "AI Processing...";
+                promptText.innerText = "Analyzing your answer and generating the next question...";
             } else if (data.type === 'summary') {
                 showSummary(data.text);
             }
@@ -539,8 +538,8 @@
                             <p class="text-gray-600 text-lg leading-relaxed italic">"${text}"</p>
                         </div>
                         <div class="flex flex-col gap-4">
-                            <button onclick="endSessionAndDownload()" class="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-all shadow-sm flex items-center justify-center gap-2">
-                                <i data-lucide="file-down" class="w-5 h-5"></i> Download PDF Report
+                            <button onclick="endSessionAndSave()" class="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-all shadow-sm flex items-center justify-center gap-2">
+                                <i data-lucide="check-circle" class="w-5 h-5"></i> Finish & Return to Dashboard
                             </button>
                             <button onclick="window.location.href='/dashboard/'" class="w-full py-4 bg-white hover:bg-gray-50 text-gray-900 font-bold rounded-xl transition-all border border-gray-300 shadow-sm">Return to Dashboard</button>
                         </div>
@@ -553,10 +552,10 @@
             if (micBar) micBar.style.display = 'none';
         }
 
-        async function endSessionAndDownload() {
+        async function endSessionAndSave() {
             const endBtnEl = document.getElementById('end-btn');
             if (endBtnEl) {
-                endBtnEl.innerText = "Generating PDF...";
+                endBtnEl.innerHTML = `<div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block mr-1"></div> Saving...`;
                 endBtnEl.disabled = true;
             }
 
@@ -579,32 +578,9 @@
                 });
 
                 if (response.ok) {
-                    const blob = await response.blob();
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    
-                    let filename = "MockHire_Report.pdf";
-                    const disposition = response.headers.get('Content-Disposition');
-                    if (disposition && disposition.indexOf('filename=') !== -1) {
-                        const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
-                        const matches = filenameRegex.exec(disposition);
-                        if (matches != null && matches[1]) {
-                            filename = matches[1].replace(/['"]/g, '');
-                        }
-                    }
-                    
-                    a.download = filename;
-                    document.body.appendChild(a);
-                    a.click();
-                    window.URL.revokeObjectURL(url);
-                    document.body.removeChild(a);
-                    
-                    setTimeout(() => {
-                        window.location.href = '/dashboard/';
-                    }, 1500);
+                    window.location.href = '/dashboard/';
                 } else {
-                    alert('Failed to generate PDF');
+                    console.error('Failed to generate PDF');
                     window.location.href = '/dashboard/';
                 }
             } catch (e) {
