@@ -1,6 +1,7 @@
 import os
 import aiohttp
 import base64
+import time
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -32,13 +33,16 @@ class AudioService:
             }
         }
 
+        start_time = time.perf_counter()
         async with aiohttp.ClientSession() as session:
             async with session.post(url, json=data, headers=headers) as response:
+                latency = time.perf_counter() - start_time
                 if response.status == 200:
+                    print(f"  [Latency] ElevenLabs TTS: {latency:.3f}s")
                     audio_data = await response.read()
                     return base64.b64encode(audio_data).decode('utf-8')
                 else:
-                    print(f"ElevenLabs Error: {response.status}")
+                    print(f"  [Latency] ElevenLabs Error ({response.status}) in {latency:.3f}s")
                     return None
 
     async def transcribe_audio(self, audio_data_b64, mime_type='audio/webm'):
@@ -57,12 +61,15 @@ class AudioService:
             "Content-Type": content_type
         }
 
+        start_time = time.perf_counter()
         async with aiohttp.ClientSession() as session:
             async with session.post(url, data=audio_data, headers=headers) as response:
+                latency = time.perf_counter() - start_time
                 if response.status == 200:
+                    print(f"  [Latency] Deepgram STT: {latency:.3f}s")
                     result = await response.json()
                     return result['results']['channels'][0]['alternatives'][0]['transcript']
                 else:
                     error_body = await response.text()
-                    print(f"Deepgram Error: {response.status} - {error_body}")
+                    print(f"  [Latency] Deepgram Error ({response.status}) in {latency:.3f}s - {error_body}")
                     return None

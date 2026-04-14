@@ -1,5 +1,6 @@
 import faiss
 import numpy as np
+import time
 from sentence_transformers import SentenceTransformer
 
 class RAGRetriever:
@@ -58,8 +59,11 @@ class RAGRetriever:
         query_embedding = self.encoder.encode([query])
         query_embedding = np.array(query_embedding).astype('float32')
         
+        start_time = time.perf_counter()
         # Search the index
         distances, indices = self.index.search(query_embedding, top_k)
+        latency = time.perf_counter() - start_time
+        print(f"  [Latency] FAISS Retrieval: {latency:.3f}s")
         
         results = []
         for idx in indices[0]:

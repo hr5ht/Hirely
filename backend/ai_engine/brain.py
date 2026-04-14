@@ -1,4 +1,5 @@
 import os
+import time
 from groq import AsyncGroq
 from dotenv import load_dotenv
 
@@ -20,6 +21,7 @@ class InterviewBrain:
 
     async def generate_initial_question(self, jd_text):
         prompt = f"Based on this JD: {jd_text}\n\nGenerate the first tough interview question. Just the question, no intro."
+        start_time = time.perf_counter()
         response = await self.client.chat.completions.create(
             messages=[
                 {"role": "system", "content": self.system_prompt},
@@ -28,6 +30,8 @@ class InterviewBrain:
             model=self.model,
             max_tokens=150,
         )
+        latency = time.perf_counter() - start_time
+        print(f"  [Latency] Groq (Initial Q): {latency:.3f}s")
         return response.choices[0].message.content
 
     async def get_feedback(self, question, answer, non_verbal_flags=None):
@@ -46,6 +50,7 @@ class InterviewBrain:
             "  \"tone\": \"<describe their tone in 2-3 words, e.g. Hesitant, Confident, Rambling>\"\n"
             "}"
         )
+        start_time = time.perf_counter()
         response = await self.client.chat.completions.create(
             messages=[
                 {"role": "system", "content": self.system_prompt + " You must ONLY output the JSON object."},
@@ -55,6 +60,8 @@ class InterviewBrain:
             max_tokens=300,
             response_format={"type": "json_object"}
         )
+        latency = time.perf_counter() - start_time
+        print(f"  [Latency] Groq (Feedback): {latency:.3f}s")
         return response.choices[0].message.content
 
     async def get_next_question(self, history, jd, context=""):
@@ -68,6 +75,7 @@ class InterviewBrain:
             "CRITICAL: Do NOT ask about the exact same project from the immediate previous question. Explicitly shift the focus to a NEW project, language, or concept mentioned in the 'Relevant Candidate Context'. "
             "Just the question."
         )
+        start_time = time.perf_counter()
         response = await self.client.chat.completions.create(
             messages=[
                 {"role": "system", "content": self.system_prompt},
@@ -76,6 +84,8 @@ class InterviewBrain:
             model=self.model,
             max_tokens=150,
         )
+        latency = time.perf_counter() - start_time
+        print(f"  [Latency] Groq (Next Q): {latency:.3f}s")
         return response.choices[0].message.content
 
     async def generate_analysis(self, company, role, jd):
@@ -91,6 +101,7 @@ class InterviewBrain:
             "  \"company_vibe\": \"A short description of the company's interview culture\"\n"
             "}"
         )
+        start_time = time.perf_counter()
         response = await self.client.chat.completions.create(
             messages=[
                 {"role": "system", "content": "You are a senior technical recruiter analyst. Return ONLY JSON."},
@@ -100,6 +111,8 @@ class InterviewBrain:
             max_tokens=400,
             response_format={"type": "json_object"}
         )
+        latency = time.perf_counter() - start_time
+        print(f"  [Latency] Groq (Analysis): {latency:.3f}s")
         return response.choices[0].message.content
 
     async def get_resume_score(self, resume_text, jd_text):
@@ -116,6 +129,7 @@ class InterviewBrain:
             "  \"matching_keywords\": [\"keyword1\", \"keyword2\"...]\n"
             "}"
         )
+        start_time = time.perf_counter()
         response = await self.client.chat.completions.create(
             messages=[
                 {"role": "system", "content": "You are an ATS parsing system. Output purely valid JSON."},
@@ -125,6 +139,10 @@ class InterviewBrain:
             max_tokens=500,
             response_format={"type": "json_object"}
         )
+        latency = time.perf_counter() - start_time
+        print(f"  [Latency] Groq (Resume Score): {latency:.3f}s")
+        return response.choices[0].message.content
+
     async def get_session_skills(self, transcript):
         prompt = (
             f"Review the following interview transcript:\n{transcript}\n\n"
@@ -136,6 +154,7 @@ class InterviewBrain:
             "  \"problem_solving\": <0-100 score>\n"
             "}"
         )
+        start_time = time.perf_counter()
         response = await self.client.chat.completions.create(
             messages=[
                 {"role": "system", "content": "You are a senior technical evaluator. Output purely valid JSON."},
@@ -145,4 +164,6 @@ class InterviewBrain:
             max_tokens=200,
             response_format={"type": "json_object"}
         )
+        latency = time.perf_counter() - start_time
+        print(f"  [Latency] Groq (Session Skills): {latency:.3f}s")
         return response.choices[0].message.content

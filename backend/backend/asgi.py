@@ -2,6 +2,7 @@ import os
 import django
 from django.core.asgi import get_asgi_application
 import socketio
+import time
 from ai_engine.brain import InterviewBrain
 from ai_engine.audio_service import AudioService
 from ai_engine.rag import RAGRetriever
@@ -154,6 +155,16 @@ async def request_next_question(sid, data):
             'text': summary,
             'audio': audio_b64
         }, room=sid)
+
+        # Print Latency Report for final turn
+        turn_start = session.get('turn_start_time')
+        if turn_start:
+            total_latency = time.perf_counter() - turn_start
+            print(f"\n[LATENCY REPORT] Session Finalized")
+            print(f"------------------------------------")
+            print(f"Total Pipeline Latency: {total_latency:.3f}s")
+            print(f"------------------------------------\n")
+
         del interview_sessions[sid]
     else:
         # Retrieve context from RAG based on the job description/role
@@ -185,8 +196,22 @@ async def request_next_question(sid, data):
             'audio': audio_b64
         }, room=sid)
 
+        # Print Latency Report
+        turn_start = session.get('turn_start_time')
+        if turn_start:
+            total_latency = time.perf_counter() - turn_start
+            print(f"\n[LATENCY REPORT] Turnaround Complete")
+            print(f"------------------------------------")
+            print(f"Total Pipeline Latency: {total_latency:.3f}s")
+            print(f"------------------------------------\n")
+
 @sio.event
 async def submit_audio(sid, data):
+    print(f"\n--- New Turn Started ---")
+    start_time = time.perf_counter()
+    if sid in interview_sessions:
+        interview_sessions[sid]['turn_start_time'] = start_time
+
     audio_b64 = data.get('audio', '')
     mime_type = data.get('mimeType', 'audio/webm')
     if not audio_b64:
