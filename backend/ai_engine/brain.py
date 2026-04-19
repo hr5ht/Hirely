@@ -1,9 +1,19 @@
 import os
 import time
+import json
 from groq import AsyncGroq
 from dotenv import load_dotenv
 
+from .ats.text_preprocessing import preprocess_text
+from .ats.skill_extraction import load_skills, extract_skills
+from .ats.similarity import calculate_similarity
+from .ats.scorer import calculate_skill_score, generate_final_score, generate_heuristic_suggestions
+
 load_dotenv()
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+SKILLS_PATH = os.path.join(BASE_DIR, 'ats', 'skills_list.txt')
+GLOBAL_SKILLS = load_skills(SKILLS_PATH)
 
 class InterviewBrain:
     def __init__(self, model="llama-3.3-70b-versatile"):
@@ -116,32 +126,36 @@ class InterviewBrain:
         return response.choices[0].message.content
 
     async def get_resume_score(self, resume_text, jd_text):
-        prompt = (
-            f"You are an expert Applicant Tracking System (ATS). Analyze the following resume against the Job Description (JD).\n\n"
-            f"--- RESUME ---\n{resume_text}\n\n"
-            f"--- JOB DESCRIPTION ---\n{jd_text}\n\n"
-            "Provide an extremely strict analysis of how well the resume matches the JD.\n"
-            "Return ONLY a valid JSON object with the following EXACT keys:\n"
-            "{\n"
-            "  \"score\": <a dynamic overall ATS score out of 100>,\n"
-            "  \"feedback\": \"<a 2-3 sentence brutally honest summary of why they got this score>\",\n"
-            "  \"missing_keywords\": [\"keyword1\", \"keyword2\"...],\n"
-            "  \"matching_keywords\": [\"keyword1\", \"keyword2\"...]\n"
-            "}"
-        )
         start_time = time.perf_counter()
-        response = await self.client.chat.completions.create(
-            messages=[
-                {"role": "system", "content": "You are an ATS parsing system. Output purely valid JSON."},
-                {"role": "user", "content": prompt},
-            ],
-            model=self.model,
-            max_tokens=500,
-            response_format={"type": "json_object"}
-        )
+        
+        resume_clean = preprocess_text(resume_text)
+        jd_clean = preprocess_text(jd_text)
+        
+        resume_skills_found = extract_skills(resume_clean, GLOBAL_SKILLS)
+        jd_skills_found = extract_skills(jd_clean, GLOBAL_SKILLS)
+        
+        matched_skills = sorted(list(resume_skills_found.intersection(jd_skills_found)))
+        missing_skills = sorted(list(jd_skills_found - resume_skills_found))
+        
+        semantic_score = calculate_similarity(resume_clean, jd_clean)
+        skill_score = calculate_skill_score(jd_skills_found, resume_skills_found)
+        final_score = generate_final_score(semantic_score, skill_score)
+        
+        improvement_suggestions = generate_heuristic_suggestions(missing_skills, semantic_score, final_score)
+            
         latency = time.perf_counter() - start_time
-        print(f"  [Latency] Groq (Resume Score): {latency:.3f}s")
-        return response.choices[0].message.content
+        print(f"  [Latency] Native ATS Heuristics (Resume Score): {latency:.3f}s")
+        
+        result_dict = {
+            "score": final_score,
+            "feedback": " ".join(improvement_suggestions),
+            "missing_keywords": missing_skills,
+            "matching_keywords": matched_skills,
+            "semantic_score": semantic_score,
+            "skill_score": skill_score,
+            "improvement_suggestions": improvement_suggestions
+        }
+        return json.dumps(result_dict)
 
     async def get_session_skills(self, transcript):
         prompt = (

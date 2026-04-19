@@ -1,0 +1,103 @@
+python
+java
+c++
+c#
+javascript
+typescript
+golang
+rust
+ruby
+php
+swift
+kotlin
+scala
+r
+html
+css
+sql
+nosql
+shell scripting
+bash
+react
+angular
+vue.js
+next.js
+redux
+tailwind css
+bootstrap
+node.js
+express.js
+django
+flask
+fastapi
+spring boot
+asp.net
+ruby on rails
+laravel
+graphql
+rest api
+machine learning
+deep learning
+nlp
+natural language processing
+computer vision
+generative ai
+llm
+large language models
+langchain
+hugging face
+transformers
+pytorch
+tensorflow
+keras
+scikit-learn
+pandas
+numpy
+matplotlib
+seaborn
+opencv
+nltk
+spacy
+data analysis
+big data
+apache spark
+hadoop
+kafka
+tableau
+power bi
+postgresql
+mysql
+mongodb
+redis
+cassandra
+oracle
+sql server
+dynamodb
+elasticsearch
+firestore
+docker
+kubernetes
+aws
+amazon web services
+azure
+google cloud platform
+gcp
+terraform
+ansible
+jenkins
+gitlab ci
+github actions
+linux
+nginx
+git
+github
+jira
+agile
+scrum
+ci/cd
+microservices
+system design
+data structures
+algorithms
+object oriented programming
+test driven development

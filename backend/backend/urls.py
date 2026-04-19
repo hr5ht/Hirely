@@ -21,8 +21,15 @@ from ai_engine import views as ai_views
 
 from django.http import HttpResponse
 
+import os
+
 def dummy_favicon(request):
-    return HttpResponse(status=204)
+    img_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'ai_engine', 'static', 'img', 'favicon.png')
+    try:
+        with open(img_path, 'rb') as f:
+            return HttpResponse(f.read(), content_type='image/png')
+    except IOError:
+        return HttpResponse(status=204)
 
 urlpatterns = [
     path('favicon.ico', dummy_favicon),
