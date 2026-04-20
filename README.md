@@ -1,3 +1,12 @@
+---
+title: MockHire
+emoji: 💼
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+pinned: false
+---
+
 # MockHire
 
 MockHire is an intelligent interview preparation platform designed to help candidates practice and improve their interviewing skills through advanced AI technology. It combines ATS resume scanning, dynamic mock interview sessions, and comprehensive dashboard analytics into a single cohesive experience.
