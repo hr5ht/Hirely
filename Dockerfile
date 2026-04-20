@@ -1,4 +1,4 @@
-FROM python:3.9-slim
+FROM python:3.10-slim
 
 # Install system dependencies if required by postgres/psycopg2
 RUN apt-get update && apt-get install -y libpq-dev gcc && rm -rf /var/lib/apt/lists/*
@@ -22,7 +22,7 @@ COPY --chown=user . $HOME/app
 
 # Pre-compile static files and put them into the 'staticfiles' directory
 # (We pass dummy env variables so settings.py doesn't crash during this build step)
-RUN cd backend && SECRET_KEY=dummy HF_SPACE=1 python manage.py collectstatic --no-input
+RUN cd backend && SECRET_KEY=dummy HF_SPACE=1 python manage.py collectstatic --no-input --traceback
 
 # Expose port 7860 as requested by huggingface
 EXPOSE 7860
