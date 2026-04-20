@@ -25,12 +25,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-$5nnc&g39=udan6#10g0^_6m0426hc-k&yku+1e@c980b&*f@e')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('RENDER', '') == '' # True locally, False on Render unless overridden
+DEBUG = os.environ.get('HF_SPACE', '') == '' # True locally, False on HF unless overridden
 
-ALLOWED_HOSTS = []
-RENDER_EXTERNAL_HOSTNAME = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
-if RENDER_EXTERNAL_HOSTNAME:
-    ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
+ALLOWED_HOSTS = ['*'] # Hugging Face securely proxies the space independently
 
 
 # Application definition
