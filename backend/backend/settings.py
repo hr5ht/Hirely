@@ -28,6 +28,7 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-$5nnc&g39=udan6#10g0^
 DEBUG = os.environ.get('HF_SPACE', '') == '' # True locally, False on HF unless overridden
 
 ALLOWED_HOSTS = ['*'] # Hugging Face securely proxies the space independently
+CSRF_TRUSTED_ORIGINS = ['https://*.hf.space', 'https://*.huggingface.co']
 
 
 # Application definition
