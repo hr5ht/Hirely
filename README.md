@@ -1,12 +1,3 @@
----
-title: Hirely
-emoji: 💼
-colorFrom: blue
-colorTo: indigo
-sdk: docker
-pinned: false
----
-
 # Hirely
 
 Hirely is a multi-tenant B2B AI-powered recruitment marketplace and live conversational assessment platform. The project enables companies to list technical job openings and screen candidates using real-time conversational AI voice interviews. It features low-latency, stateful audio pipelines over WebSockets and client-side browser proctoring (gaze/face tracking) to verify candidate integrity during evaluations.
