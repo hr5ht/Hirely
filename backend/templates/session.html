@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Interview Session | MockHire</title>
+    <title>AI Interview Session | Hirely</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -315,7 +315,11 @@
     <script>
         lucide.createIcons();
 
-        const socket = io('/', { transports: ['websocket'] });
+        const session_id = "{{ session_id }}";
+        const wsScheme = window.location.protocol === "https:" ? "wss" : "ws";
+        const socketUrl = `${wsScheme}://${window.location.host}/ws/interview/${session_id}/`;
+        const socket = new WebSocket(socketUrl);
+
         const micBtn = document.getElementById('mic-btn');
         const micStatus = document.getElementById('mic-status');
         const promptText = document.getElementById('prompt-text');
@@ -359,18 +363,63 @@
             currentRound.answer = text; // Track user answer for PDF
             stopAIAudio(); // Stop AI audio when user submits an answer
             addTranscript('You', text);
-            socket.emit('submit_answer', { answer: text });
+            socket.send(JSON.stringify({
+                event_type: 'submit_answer',
+                data: { answer: text }
+            }));
             promptText.innerText = "Analyzing your answer...";
             manualAnswerInput.value = '';
             textInputContainer.classList.add('hidden');
         };
 
+        let lastKeyPressTime = 0;
+        let keypressIntervals = [];
+        let prevInputLength = 0;
+
         sendTextBtn.onclick = () => submitAnswer(manualAnswerInput.value);
+        
         manualAnswerInput.onkeydown = (e) => {
-            if (e.key === 'Enter') submitAnswer(manualAnswerInput.value);
+            if (e.key === 'Enter') {
+                submitAnswer(manualAnswerInput.value);
+            } else {
+                const now = Date.now();
+                if (lastKeyPressTime > 0) {
+                    const interval = now - lastKeyPressTime;
+                    keypressIntervals.push(interval);
+                    
+                    // Flag impossible typing velocity (average keypress speed < 15ms across last 5 inputs)
+                    if (keypressIntervals.length >= 5) {
+                        const lastFive = keypressIntervals.slice(-5);
+                        const avg = lastFive.reduce((a, b) => a + b, 0) / 5;
+                        if (avg < 15) {
+                            const alertData = { 
+                                type: "Excessive Keystroke Cadence Velocity (Impossible human typing speed)", 
+                                timestamp: new Date().toISOString() 
+                            };
+                            socket.send(JSON.stringify({ event_type: 'proctor_infraction', data: alertData }));
+                            proctoringEvents.push(alertData);
+                        }
+                    }
+                }
+                lastKeyPressTime = now;
+            }
+        };
+
+        manualAnswerInput.oninput = (e) => {
+            // Flag sudden block insertions (length increase > 10 chars in a single input tick) or standard paste events
+            if (e.inputType === 'insertFromPaste' || (manualAnswerInput.value.length - prevInputLength > 10 && prevInputLength > 0)) {
+                const alertData = { 
+                    type: "Sudden Block Insertion (Copy-Paste detected)", 
+                    timestamp: new Date().toISOString() 
+                };
+                socket.send(JSON.stringify({ event_type: 'proctor_infraction', data: alertData }));
+                proctoringEvents.push(alertData);
+            }
+            prevInputLength = manualAnswerInput.value.length;
         };
 
         let mediaRecorder;
+
         let audioChunks = [];
         let activeStream = null;
 
@@ -413,7 +462,10 @@
                     reader.readAsDataURL(audioBlob);
                     reader.onloadend = () => {
                         const base64Audio = reader.result.split(',')[1];
-                        socket.emit('submit_audio', { audio: base64Audio, mimeType: actualType });
+                        socket.send(JSON.stringify({
+                            event_type: 'submit_audio_chunk',
+                            data: { audio: base64Audio, mimeType: actualType }
+                        }));
                         promptText.innerText = "Deepgram is transcribing...";
                     };
 
@@ -461,72 +513,81 @@
             transcriptArea.prepend(p);
         }
 
-        socket.on('connect', () => {
+        socket.onopen = () => {
             document.getElementById('conn-indicator').classList.replace('bg-yellow-500', 'bg-green-500');
             document.getElementById('conn-indicator').classList.remove('pulse');
             document.getElementById('conn-text').innerText = 'AI Online';
             document.getElementById('conn-text').classList.replace('text-yellow-400', 'text-green-400');
 
             const data = {
-                jd: localStorage.getItem('interview_jd') || '1st Grade Basic Mathematics (Addition, Subtraction, Shapes)',
-                role: localStorage.getItem('interview_role') || '1st Grade Student',
-                company: localStorage.getItem('interview_company') || 'Elementary School',
+                jd: "{{ jd|escapejs }}" || localStorage.getItem('interview_jd'),
+                role: "{{ role|escapejs }}" || localStorage.getItem('interview_role'),
+                company: "{{ company|escapejs }}" || localStorage.getItem('interview_company'),
                 resume: "{{ resume_text|escapejs }}" || "Strong foundation in basics."
             };
-            socket.emit('start_interview', data);
-        });
+            socket.send(JSON.stringify({
+                event_type: 'start_interview',
+                data: data
+            }));
+        };
 
-        socket.on('transcription_result', (data) => {
-            if (data.text && data.text.trim()) {
-                currentRound.answer = data.text; // Track user transcription for PDF
-                addTranscript('You', data.text);
-            }
-        });
-
-        socket.on('insights_update', (data) => {
-            currentRound.confidence = data.confidence;
-            currentRound.clarity = data.clarity;
-
-            document.getElementById('confidence-val').innerText = `${data.confidence}%`;
-            document.getElementById('confidence-bar').style.width = `${data.confidence}%`;
-            document.getElementById('clarity-val').innerText = `${data.clarity}%`;
-            document.getElementById('clarity-bar').style.width = `${data.clarity}%`;
-            document.getElementById('tone-display').innerText = `Tone: ${data.tone}`;
-        });
-
-        socket.on('interview_message', (data) => {
-            if (data.type === 'question') {
-                promptLabel.innerText = "Current Question";
-                currentRound.question = data.text;
-                
-                promptText.innerText = data.text;
-                addTranscript('AI', data.text);
-
-                if (data.audio) {
-                    stopAIAudio(); // Stop any previous AI audio before playing new one
-                    currentAudio = new Audio(`data:audio/mpeg;base64,${data.audio}`);
-                    currentAudio.onended = () => { currentAudio = null; };
-                    currentAudio.play();
+        socket.onmessage = (event) => {
+            const message = JSON.parse(event.data);
+            const msgType = message.type;
+            
+            if (msgType === 'transcription_result') {
+                if (message.text && message.text.trim()) {
+                    currentRound.answer = message.text; // Track user transcription for PDF
+                    addTranscript('You', message.text);
                 }
-            } else if (data.type === 'silent_feedback') {
-                // Background processing: record feedback for Transcript & PDF only.
-                currentRound.feedback = data.text;
-                conversationHistory.push({...currentRound});
-                currentRound = { question: "", answer: "", feedback: "", confidence: 0, clarity: 0 }; // Reset for next round
-                addTranscript('AI Feedback', data.text);
-                
-                // Show thinking status momentarily while generating next question
-                promptLabel.innerText = "AI Processing...";
-                promptText.innerText = "Analyzing your answer and generating the next question...";
-            } else if (data.type === 'summary') {
-                showSummary(data.text);
+            } else if (msgType === 'insights_update') {
+                const data = message.insights;
+                currentRound.confidence = data.confidence;
+                currentRound.clarity = data.clarity;
+
+                document.getElementById('confidence-val').innerText = `${data.confidence}%`;
+                document.getElementById('confidence-bar').style.width = `${data.confidence}%`;
+                document.getElementById('clarity-val').innerText = `${data.clarity}%`;
+                document.getElementById('clarity-bar').style.width = `${data.clarity}%`;
+                document.getElementById('tone-display').innerText = `Tone: ${data.tone}`;
+            } else if (msgType === 'interview_message') {
+                const innerType = message.message_type;
+                if (innerType === 'question') {
+                    promptLabel.innerText = "Current Question";
+                    currentRound.question = message.text;
+                    
+                    promptText.innerText = message.text;
+                    addTranscript('AI', message.text);
+
+                    if (message.audio) {
+                        stopAIAudio(); // Stop any previous AI audio before playing new one
+                        currentAudio = new Audio(`data:audio/mpeg;base64,${message.audio}`);
+                        currentAudio.onended = () => { currentAudio = null; };
+                        currentAudio.play();
+                    }
+                } else if (innerType === 'silent_feedback') {
+                    currentRound.feedback = message.text;
+                    conversationHistory.push({...currentRound});
+                    currentRound = { question: "", answer: "", feedback: "", confidence: 0, clarity: 0 }; // Reset for next round
+                    addTranscript('AI Feedback', message.text);
+                    
+                    promptLabel.innerText = "AI Processing...";
+                    promptText.innerText = "Analyzing your answer and generating the next question...";
+                } else if (innerType === 'summary') {
+                    showSummary(message.text);
+                }
+            } else if (msgType === 'session_completed') {
+                window.location.href = '/dashboard/';
             }
-        });
+        };
 
         nextBtn.onclick = () => {
             stopAIAudio(); // Stop current AI audio immediately
             nextBtn.classList.add('hidden');
-            socket.emit('request_next_question', {});
+            socket.send(JSON.stringify({
+                event_type: 'request_next_question',
+                data: {}
+            }));
             promptText.innerText = "Thinking...";
         };
 
@@ -566,29 +627,13 @@
                 conversationHistory.push({...currentRound});
             }
 
-            try {
-                const response = await fetch('/ai/generate-session-pdf/', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        company: localStorage.getItem('interview_company') || 'Company',
-                        role: localStorage.getItem('interview_role') || 'Role',
-                        conversations: conversationHistory,
-                        proctoring_events: proctoringEvents
-                    })
-                });
-
-                if (response.ok) {
-                    window.location.href = '/dashboard/';
-                } else {
-                    console.error('Failed to generate PDF');
-                    window.location.href = '/dashboard/';
-                }
-            } catch (e) {
-                console.error('Error generating PDF:', e);
-                window.location.href = '/dashboard/';
-            }
+            // Send end session event via WebSockets
+            socket.send(JSON.stringify({
+                event_type: 'end_session',
+                data: {}
+            }));
         }
+
         // Drawing helpers
         function drawIris(ctx, landmark, width, height) {
             const x = landmark.x * width;
@@ -628,11 +673,27 @@
         const cheatingStatusText = document.getElementById('cheating-status-text');
         const enableCameraBtn = document.getElementById('enable-camera-btn');
         const cameraSetup = document.getElementById('camera-setup');
-        const videoWrapper = document.getElementById('video-wrapper');
-
-        let lastGazeTime = Date.now();
+        const videoWrapper = document.getElementById('video-wrapper');        let lastGazeTime = Date.now();
         let cheatingWarnings = 0;
         let isGazingAtScreen = true;
+
+        let lastGazeAwayTime = 0;
+        let lastFaceMissingTime = 0;
+        let lastGazeInfractionTime = 0;
+        let lastFaceInfractionTime = 0;
+
+        function safeSendProctorInfraction(alertData) {
+            try {
+                if (socket && socket.readyState === WebSocket.OPEN) {
+                    socket.send(JSON.stringify({ event_type: 'proctor_infraction', data: alertData }));
+                    console.log("[Proctor Telemetry] Infraction transmitted successfully:", alertData);
+                } else {
+                    console.warn("[Proctor Telemetry] WebSocket is not in OPEN state (readyState: " + (socket ? socket.readyState : 'null') + "). Infraction cached locally.");
+                }
+            } catch (err) {
+                console.error("[Proctor Telemetry] Failed to transmit infraction:", err);
+            }
+        }
 
         const faceMesh = new FaceMesh({
             locateFile: (file) => {
@@ -650,69 +711,108 @@
         faceMesh.onResults(onResults);
 
         function onResults(results) {
-            // Ensure canvas matches video resolution for perfect alignment
-            if (videoElement.videoWidth > 0 && (canvasElement.width !== videoElement.videoWidth)) {
-                canvasElement.width = videoElement.videoWidth;
-                canvasElement.height = videoElement.videoHeight;
-            }
-
-            canvasCtx.save();
-            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-
-            const w = canvasElement.width;
-            const h = canvasElement.height;
-
-            if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
-                const landmarks = results.multiFaceLandmarks[0];
-
-                // Iris indices: 468 (L), 473 (R)
-                const leftIris = landmarks[468];
-                const rightIris = landmarks[473];
-
-                // Eye landmarks for visualization (contours)
-                const leftEyeIndices = [33, 7, 163, 144, 145, 153, 154, 155, 133, 173, 157, 158, 159, 160, 161, 246];
-                const rightEyeIndices = [362, 382, 381, 380, 374, 373, 390, 249, 263, 466, 388, 387, 386, 385, 384, 398];
-
-                drawConnectors(canvasCtx, landmarks, leftEyeIndices, w, h);
-                drawConnectors(canvasCtx, landmarks, rightEyeIndices, w, h);
-
-                // Gaze Calculation logic
-                const lOuter = landmarks[33];
-                const lInner = landmarks[133];
-                const rInner = landmarks[362];
-                const rOuter = landmarks[263];
-                const lTop = landmarks[159];
-                const lBottom = landmarks[145];
-
-                // Horizontal: 0.5 is middle. <0.4 is one side, >0.6 is other.
-                const lHoriz = (leftIris.x - lOuter.x) / (lInner.x - lOuter.x);
-                const rHoriz = (rightIris.x - rInner.x) / (rOuter.x - rInner.x);
-                const hRatio = (lHoriz + rHoriz) / 2;
-
-                // Vertical: 0.5 is middle.
-                const vRatio = (leftIris.y - lTop.y) / (lBottom.y - lTop.y);
-
-                const hMin = 0.35, hMax = 0.65;
-                const vMin = 0.30, vMax = 0.70;
-
-                const isAway = hRatio < hMin || hRatio > hMax || vRatio < vMin || vRatio > vMax;
-
-                cheatingStatusText.innerText = `Gaze: H=${hRatio.toFixed(2)} V=${vRatio.toFixed(2)}`;
-
-                if (isAway) {
-                    updateProctoringStatus('warning', 'Security Warning: Looking Away');
-                    isGazingAtScreen = false;
-                } else {
-                    updateProctoringStatus('safe', 'Secure');
-                    isGazingAtScreen = true;
+            try {
+                // Ensure canvas matches video resolution for perfect alignment
+                if (videoElement.videoWidth > 0 && (canvasElement.width !== videoElement.videoWidth)) {
+                    canvasElement.width = videoElement.videoWidth;
+                    canvasElement.height = videoElement.videoHeight;
                 }
 
-                drawIris(canvasCtx, leftIris, w, h);
-                drawIris(canvasCtx, rightIris, w, h);
-            } else {
-                updateProctoringStatus('danger', 'CRITICAL: Face Not Detected');
+                canvasCtx.save();
+                canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+
+                const w = canvasElement.width;
+                const h = canvasElement.height;
+
+                if (results && results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
+                    // Reset face missing timer
+                    lastFaceMissingTime = 0;
+
+                    const landmarks = results.multiFaceLandmarks[0];
+
+                    // Iris indices: 468 (L), 473 (R)
+                    const leftIris = landmarks[468];
+                    const rightIris = landmarks[473];
+
+                    // Eye landmarks for visualization (contours)
+                    const leftEyeIndices = [33, 7, 163, 144, 145, 153, 154, 155, 133, 173, 157, 158, 159, 160, 161, 246];
+                    const rightEyeIndices = [362, 382, 381, 380, 374, 373, 390, 249, 263, 466, 388, 387, 386, 385, 384, 398];
+
+                    drawConnectors(canvasCtx, landmarks, leftEyeIndices, w, h);
+                    drawConnectors(canvasCtx, landmarks, rightEyeIndices, w, h);
+
+                    // Gaze Calculation logic
+                    const lOuter = landmarks[33];
+                    const lInner = landmarks[133];
+                    const rInner = landmarks[362];
+                    const rOuter = landmarks[263];
+                    const lTop = landmarks[159];
+                    const lBottom = landmarks[145];
+
+                    // Horizontal: 0.5 is middle. <0.4 is one side, >0.6 is other.
+                    const lHoriz = (leftIris.x - lOuter.x) / (lInner.x - lOuter.x);
+                    const rHoriz = (rightIris.x - rInner.x) / (rOuter.x - rInner.x);
+                    const hRatio = (lHoriz + rHoriz) / 2;
+
+                    // Vertical: 0.5 is middle.
+                    const vRatio = (leftIris.y - lTop.y) / (lBottom.y - lTop.y);
+
+                    const hMin = 0.35, hMax = 0.65;
+                    const vMin = 0.30, vMax = 0.70;
+
+                    const isAway = hRatio < hMin || hRatio > hMax || vRatio < vMin || vRatio > vMax;
+
+                    cheatingStatusText.innerText = `Gaze: H=${hRatio.toFixed(2)} V=${vRatio.toFixed(2)}`;
+
+                    if (isAway) {
+                        updateProctoringStatus('warning', 'Security Warning: Looking Away');
+                        isGazingAtScreen = false;
+
+                        // Start timer if looking away
+                        if (lastGazeAwayTime === 0) {
+                            lastGazeAwayTime = Date.now();
+                        } else if (Date.now() - lastGazeAwayTime > 3000) {
+                            // 3 seconds exceeded, send infraction
+                            if (Date.now() - lastGazeInfractionTime > 5000) {
+                                lastGazeInfractionTime = Date.now();
+                                const alertData = { 
+                                    type: "Gaze Deviation (Candidate focus drifted outside screen boundaries)", 
+                                    timestamp: new Date().toISOString() 
+                                };
+                                safeSendProctorInfraction(alertData);
+                            }
+                        }
+                    } else {
+                        updateProctoringStatus('safe', 'Secure');
+                        isGazingAtScreen = true;
+                        lastGazeAwayTime = 0; // reset looking away timer
+                    }
+
+                    drawIris(canvasCtx, leftIris, w, h);
+                    drawIris(canvasCtx, rightIris, w, h);
+                } else {
+                    updateProctoringStatus('danger', 'CRITICAL: Face Not Detected');
+                    lastGazeAwayTime = 0; // reset looking away timer
+
+                    // Start timer if face missing
+                    if (lastFaceMissingTime === 0) {
+                        lastFaceMissingTime = Date.now();
+                    } else if (Date.now() - lastFaceMissingTime > 3000) {
+                        // 3 seconds exceeded, send infraction
+                        if (Date.now() - lastFaceInfractionTime > 5000) {
+                            lastFaceInfractionTime = Date.now();
+                            const alertData = { 
+                                type: "Face Not Detected Anomalous Event", 
+                                timestamp: new Date().toISOString() 
+                            };
+                            safeSendProctorInfraction(alertData);
+                        }
+                    }
+                }
+                canvasCtx.restore();
+            } catch (err) {
+                console.error("[Proctoring error caught in callback]:", err);
             }
-            canvasCtx.restore();
         }
 
         // Inline SVGs so we never need to call lucide.createIcons() per frame
@@ -720,7 +820,6 @@
         const alertSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block mr-1"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>`;
 
         let lastProctoringStatus = '';
-        let lastAlertTime = 0;
 
         function updateProctoringStatus(status, message) {
             // Only update DOM if status actually changed (avoid thrashing)
@@ -734,20 +833,9 @@
 
             if (status === 'warning' || status === 'danger') {
                 cheatingStatusText.classList.add('text-red-400');
-                if (status === 'danger') {
-                    // Throttle alerts to max 1 per second
-                    const now = Date.now();
-                    if (now - lastAlertTime > 1000) {
-                        lastAlertTime = now;
-                        const alertData = { type: message, timestamp: new Date().toISOString() };
-                        socket.emit('proctoring_alert', alertData);
-                        proctoringEvents.push(alertData); // Push to array for PDF
-                    }
-                }
             } else {
                 cheatingStatusText.classList.remove('text-red-400');
             }
-            // DO NOT call lucide.createIcons() here — it runs ~30x/sec and destroys other icons
         }
 
         enableCameraBtn.onclick = async () => {

@@ -45,7 +45,7 @@ def generate_session_pdf(request):
     class SessionPDF(FPDF):
         def header(self):
             self.set_font('Helvetica', 'B', 20)
-            self.cell(0, 15, 'MockHire', ln=1, align='C')
+            self.cell(0, 15, 'Hirely', ln=1, align='C')
             self.set_font('Helvetica', '', 10)
             self.cell(0, 6, 'AI Interview Session Report', ln=1, align='C')
             self.ln(4)
@@ -201,14 +201,52 @@ def download_session_pdf(request, session_id):
             response = HttpResponse(session.pdf_report, content_type='application/pdf')
             safe_company = ''.join(c for c in session.company if c.isalnum() or c in ' _-').strip().replace(' ', '_')
             safe_role = ''.join(c for c in session.role if c.isalnum() or c in ' _-').strip().replace(' ', '_')
-            response['Content-Disposition'] = f'attachment; filename="MockHire_{safe_company}_{safe_role}_Report.pdf"'
+            response['Content-Disposition'] = f'attachment; filename="Hirely_{safe_company}_{safe_role}_Report.pdf"'
             return response
     except InterviewSession.DoesNotExist:
         pass
     return redirect('dashboard')
 
 
+def download_candidate_resume(request, application_id):
+    """Allow recruiters to download the PDF resume submitted by a candidate for a specific application."""
+    if not request.user.is_authenticated:
+        return redirect('login')
+
+    from ai_engine.models import Application
+
+    try:
+        profile = request.user.profile
+        if profile.role == 'recruiter' and profile.company:
+            app = Application.objects.get(id=application_id, job__company=profile.company)
+
+            if app.resume_pdf:
+                pdf_bytes = bytes(app.resume_pdf)
+                safe_name = ''.join(
+                    c for c in app.candidate.username if c.isalnum() or c in '_-'
+                ).strip()
+                response = HttpResponse(pdf_bytes, content_type='application/pdf')
+                response['Content-Disposition'] = (
+                    f'attachment; filename="Resume_{safe_name}_{app.job.title.replace(" ", "_")}.pdf"'
+                )
+                return response
+
+            # Fallback: return resume text as a plain-text download
+            if app.resume_text:
+                response = HttpResponse(app.resume_text, content_type='text/plain; charset=utf-8')
+                response['Content-Disposition'] = (
+                    f'attachment; filename="Resume_{app.candidate.username}.txt"'
+                )
+                return response
+
+    except Application.DoesNotExist:
+        pass
+
+    return redirect('dashboard')
+
+
 from django.views.decorators.csrf import csrf_exempt
+
 
 @csrf_exempt
 def generate_interview_analysis(request):
@@ -241,13 +279,29 @@ def register_view(request):
         username = request.POST.get('username')
         email = request.POST.get('email')
         password = request.POST.get('password')
+        role = request.POST.get('role', 'candidate')
+        company_name = request.POST.get('company_name')
+        
+        from ai_engine.models import Company, UserProfile
         
         if User.objects.filter(username=username).exists():
             error = "Username already exists."
         elif User.objects.filter(email=email).exists():
             error = "Email already registered."
+        elif role == 'recruiter' and not company_name:
+            error = "Company name is required for employers."
         else:
-            User.objects.create_user(username=username, email=email, password=password)
+            user = User.objects.create_user(username=username, email=email, password=password)
+            profile, _ = UserProfile.objects.get_or_create(user=user)
+            profile.role = role
+            
+            if role == 'recruiter':
+                # Automatically extract domain from email or construct domain from company name
+                domain = email.split('@')[-1] if '@' in email else f"{company_name.lower().replace(' ', '')}.com"
+                company, _ = Company.objects.get_or_create(domain=domain, defaults={'name': company_name})
+                profile.company = company
+                
+            profile.save()
             return redirect('login')
             
     return render(request, 'register.html', {'error': error})
@@ -281,7 +335,11 @@ def delete_session(request, session_id):
     from ai_engine.models import InterviewSession
     
     try:
-        session = InterviewSession.objects.get(id=session_id, user=request.user)
+        # Recruiters delete by application, candidates delete their own
+        if hasattr(request.user, 'profile') and request.user.profile.role == 'recruiter':
+            session = InterviewSession.objects.get(id=session_id, application__job__company=request.user.profile.company)
+        else:
+            session = InterviewSession.objects.get(id=session_id, application__candidate=request.user)
         session.delete()
     except InterviewSession.DoesNotExist:
         pass
@@ -292,28 +350,65 @@ def dashboard_view(request):
     if not request.user.is_authenticated:
         return redirect('login')
         
-    from ai_engine.models import UserProfile, InterviewSession
+    from ai_engine.models import UserProfile, Company, Job, Application, InterviewSession
     profile, created = UserProfile.objects.get_or_create(user=request.user)
     
-    all_sessions = InterviewSession.objects.filter(user=request.user).order_by('-date_completed')
-    recent_sessions = all_sessions[:5]
-    
-    total_count = all_sessions.count()
-    if total_count > 0:
-        global_avg_conf = int(sum(s.avg_confidence for s in all_sessions) / total_count)
-        global_avg_clar = int(sum(s.avg_clarity for s in all_sessions) / total_count)
+    if profile.role == 'recruiter':
+        company = profile.company
+        if not company:
+            # Fallback if company is missing
+            company, _ = Company.objects.get_or_create(domain='default.com', defaults={'name': 'General Business'})
+            profile.company = company
+            profile.save()
+            
+        jobs = Job.objects.filter(company=company).order_by('-created_at')
+        applications = Application.objects.filter(job__company=company).order_by('-ats_match_score')
+        
+        total_jobs = jobs.count()
+        total_candidates = applications.count()
+        
+        # Calculate average integrity score
+        completed_sessions = InterviewSession.objects.filter(application__job__company=company, session_status='completed')
+        avg_proctoring = int(sum(s.application.proctoring_score for s in completed_sessions) / completed_sessions.count()) if completed_sessions.exists() else None
+        
+        return render(request, 'recruiter_dashboard.html', {
+            'company': company,
+            'jobs': jobs,
+            'applications': applications,
+            'total_jobs': total_jobs,
+            'total_candidates': total_candidates,
+            'avg_proctoring_score': avg_proctoring
+        })
     else:
-        global_avg_conf = 0
-        global_avg_clar = 0
-    
-    return render(request, 'dashboard.html', {
-        'username': request.user.username,
-        'has_resume': bool(profile.resume_text),
-        'recent_sessions': recent_sessions,
-        'total_interviews': total_count,
-        'global_avg_conf': global_avg_conf,
-        'global_avg_clar': global_avg_clar
-    })
+        # Candidate Dashboard with Job Marketplace
+        from ai_engine.models import Job
+        applications = Application.objects.filter(candidate=request.user).order_by('-created_at')
+        applied_jobs = [app.job.id for app in applications]
+        # Exclude already applied positions from the active marketplace list
+        active_jobs = Job.objects.filter(is_active=True).exclude(id__in=applied_jobs).order_by('-created_at')
+        
+        all_sessions = InterviewSession.objects.filter(application__candidate=request.user).order_by('-created_at')
+        recent_sessions = all_sessions[:5]
+        
+        total_count = all_sessions.count()
+        if total_count > 0:
+            global_avg_conf = int(sum(s.avg_confidence for s in all_sessions) / total_count)
+            global_avg_clar = int(sum(s.avg_clarity for s in all_sessions) / total_count)
+        else:
+            global_avg_conf = 0
+            global_avg_clar = 0
+            
+        return render(request, 'dashboard.html', {
+            'username': request.user.username,
+            'has_resume': bool(profile.resume_text),
+            'recent_sessions': recent_sessions,
+            'total_interviews': total_count,
+            'global_avg_conf': global_avg_conf,
+            'global_avg_clar': global_avg_clar,
+            'applications': applications,
+            'jobs': active_jobs,
+            'applied_jobs': applied_jobs
+        })
 
 def profile_view(request):
     if not request.user.is_authenticated:
@@ -350,22 +445,19 @@ def profile_view(request):
         'has_resume': bool(profile.resume_text)
     })
 
-@csrf_exempt
 def upload_profile_resume(request):
+    # Backward compatibility helper for standard profile resume
     if request.method == 'POST' and request.user.is_authenticated:
         if 'resume' in request.FILES:
             resume_file = request.FILES['resume']
-            
             from ai_engine.models import UserProfile
             import PyPDF2
             
             profile, _ = UserProfile.objects.get_or_create(user=request.user)
             profile.resume_pdf = resume_file.read()
             
-            # Extract Text
             resume_text = ""
             try:
-                # Seek back to 0 because we just read it to save the binary output
                 resume_file.seek(0)
                 reader = PyPDF2.PdfReader(resume_file)
                 for page in reader.pages:
@@ -376,17 +468,11 @@ def upload_profile_resume(request):
                 profile.save()
                 
                 if request.POST.get('redirect_to') == 'profile':
-                    from django.contrib import messages
                     messages.success(request, 'Resume successfully verified and parsed.')
                     return redirect('profile')
-                return JsonResponse({"status": "success", "message": "Resume uploaded and parsed successfully."})
+                return JsonResponse({"status": "success", "message": "Resume uploaded successfully."})
             except Exception as e:
-                if request.POST.get('redirect_to') == 'profile':
-                    from django.contrib import messages
-                    messages.error(request, f'Failed to process PDF: {str(e)}')
-                    return redirect('profile')
                 return JsonResponse({"status": "error", "message": str(e)}, status=400)
-    
     return JsonResponse({"status": "error", "message": "Invalid request"}, status=400)
 
 def scores_view(request):
@@ -394,8 +480,7 @@ def scores_view(request):
         return redirect('login')
         
     from ai_engine.models import InterviewSession
-    
-    all_sessions = InterviewSession.objects.filter(user=request.user)
+    all_sessions = InterviewSession.objects.filter(application__candidate=request.user)
     total_count = all_sessions.count()
     
     if total_count > 0:
@@ -405,11 +490,7 @@ def scores_view(request):
         global_behav = int(sum(s.behavioral_iq for s in all_sessions) / total_count)
         global_prob = int(sum(s.problem_solving for s in all_sessions) / total_count)
     else:
-        global_avg_conf = 0
-        global_avg_clar = 0
-        global_tech = 0
-        global_behav = 0
-        global_prob = 0
+        global_avg_conf = global_avg_clar = global_tech = global_behav = global_prob = 0
 
     return render(request, 'scores.html', {
         'total_count': total_count,
@@ -427,12 +508,42 @@ def session_view(request):
     if not request.user.is_authenticated:
         return redirect('login')
     
-    from ai_engine.models import UserProfile
-    profile, _ = UserProfile.objects.get_or_create(user=request.user)
+    from ai_engine.models import Application, InterviewSession
+    app_id = request.GET.get('app_id')
     
-    return render(request, 'session.html', {
-        'resume_text': profile.resume_text
-    })
+    if not app_id:
+        # Fallback to B2C single session setup if no application exists
+        return redirect('setup')
+        
+    try:
+        app = Application.objects.get(id=app_id, candidate=request.user)
+        # Redirect to dashboard if application is already evaluated
+        if app.status == 'evaluated':
+            return redirect('dashboard')
+            
+        # Fetch or create stateful InterviewSession
+        session, created = InterviewSession.objects.get_or_create(
+            application=app,
+            defaults={'session_status': 'active'}
+        )
+        
+        # Redirect to dashboard if session is already completed
+        if session.session_status == 'completed':
+            return redirect('dashboard')
+            
+        if session.session_status == 'pending':
+            session.session_status = 'active'
+            session.save()
+            
+        return render(request, 'session.html', {
+            'session_id': session.id,
+            'resume_text': app.resume_text,
+            'role': app.job.title,
+            'company': app.job.company.name,
+            'jd': app.job.description
+        })
+    except Application.DoesNotExist:
+        return redirect('dashboard')
 
 def setup_view(request):
     if not request.user.is_authenticated:
@@ -449,33 +560,173 @@ def score_resume_api(request):
     from ai_engine.brain import InterviewBrain
     from asgiref.sync import async_to_sync
     import json
-    from django.http import JsonResponse
-    from ai_engine.models import UserProfile
-
+    
     if request.method != 'POST':
         return JsonResponse({'error': 'POST required'}, status=405)
-
     if not request.user.is_authenticated:
         return JsonResponse({'error': 'Authentication required'}, status=401)
-
-    profile, created = UserProfile.objects.get_or_create(user=request.user)
+        
+    from ai_engine.models import UserProfile
+    profile, _ = UserProfile.objects.get_or_create(user=request.user)
     resume_text = profile.resume_text
-
-    if not resume_text:
-        return JsonResponse(
-            {'score': 0, 'feedback': 'No resume uploaded to your profile. Please upload one first.', 'missing_keywords': [], 'matching_keywords': []}, 
-            status=400
-        )
     
+    if not resume_text:
+        return JsonResponse({'error': 'No resume uploaded to your profile.'}, status=400)
+        
     jd_text = request.POST.get('jd', 'No JD provided.')
-
     brain = InterviewBrain()
     try:
         analysis_json = async_to_sync(brain.get_resume_score)(resume_text, jd_text)
-        analysis = json.loads(analysis_json)
-        return JsonResponse(analysis)
+        return JsonResponse(json.loads(analysis_json))
     except Exception as e:
-        return JsonResponse(
-            {'score': 0, 'feedback': f"AI Error: {str(e)}", 'missing_keywords': [], 'matching_keywords': []}, 
-            status=500
-        )
+        return JsonResponse({'error': str(e)}, status=500)
+
+def download_session_pdf(request, session_id):
+    if not request.user.is_authenticated:
+        return redirect('login')
+    
+    from ai_engine.models import InterviewSession
+    try:
+        # Check permissions: candidate owns the session or recruiter employs it
+        if hasattr(request.user, 'profile') and request.user.profile.role == 'recruiter':
+            session = InterviewSession.objects.get(id=session_id, application__job__company=request.user.profile.company)
+        else:
+            session = InterviewSession.objects.get(id=session_id, application__candidate=request.user)
+            
+        if session.pdf_report:
+            response = HttpResponse(session.pdf_report, content_type='application/pdf')
+            safe_company = ''.join(c for c in session.application.job.company.name if c.isalnum() or c in ' _-').strip().replace(' ', '_')
+            safe_role = ''.join(c for c in session.application.job.title if c.isalnum() or c in ' _-').strip().replace(' ', '_')
+            response['Content-Disposition'] = f'attachment; filename="Hirely_{safe_company}_{safe_role}_Report.pdf"'
+            return response
+    except InterviewSession.DoesNotExist:
+        pass
+    return redirect('dashboard')
+
+# --- B2B MARKETPLACE RECRUITER / CANDIDATE ACTIONS ---
+
+def jobs_feed(request):
+    if not request.user.is_authenticated:
+        return redirect('login')
+        
+    from ai_engine.models import Job, Application
+    active_jobs = Job.objects.filter(is_active=True).order_by('-created_at')
+    applications = Application.objects.filter(candidate=request.user)
+    applied_jobs = [app.job.id for app in applications]
+    
+    return render(request, 'jobs_feed.html', {
+        'jobs': active_jobs,
+        'applications': applications,
+        'applied_jobs': applied_jobs
+    })
+
+def post_job(request):
+    if request.method == 'POST' and request.user.is_authenticated:
+        from ai_engine.models import UserProfile, Job
+        profile = request.user.profile
+        
+        if profile.role == 'recruiter' and profile.company:
+            title = request.POST.get('title')
+            description = request.POST.get('description')
+            exp = request.POST.get('experience_level')
+            
+            Job.objects.create(
+                company=profile.company,
+                title=title,
+                description=description,
+                experience_level=exp
+            )
+    return redirect('dashboard')
+
+def apply_to_job(request):
+    if request.method == 'POST' and request.user.is_authenticated:
+        if 'resume' in request.FILES:
+            job_id = request.POST.get('job_id')
+            resume_file = request.FILES['resume']
+            
+            from ai_engine.models import Job, Application
+            import PyPDF2
+            
+            try:
+                job = Job.objects.get(id=job_id)
+                resume_bytes = resume_file.read()
+                
+                # Parse PDF text
+                resume_file.seek(0)
+                reader = PyPDF2.PdfReader(resume_file)
+                resume_text = ""
+                for page in reader.pages:
+                    extracted = page.extract_text()
+                    if extracted:
+                        resume_text += extracted + "\n"
+                
+                # Run ATS scoring
+                from ai_engine.brain import InterviewBrain
+                from asgiref.sync import async_to_sync
+                
+                brain = InterviewBrain()
+                ats_json_raw = async_to_sync(brain.get_resume_score)(resume_text, job.description)
+                ats_data = json.loads(ats_json_raw)
+                ats_score = ats_data.get('score', 75)
+                
+                # Create Application
+                app = Application.objects.create(
+                    job=job,
+                    candidate=request.user,
+                    resume_pdf=resume_bytes,
+                    resume_text=resume_text,
+                    ats_match_score=ats_score
+                )
+                
+                return JsonResponse({
+                    'success': True,
+                    'app_id': app.id,
+                    'ats_score': float(ats_score),
+                    'job_title': job.title,
+                    'company_name': job.company.name
+                })
+            except Exception as e:
+                print(f"Error applying to job: {e}")
+                return JsonResponse({'success': False, 'error': str(e)}, status=400)
+                
+    return JsonResponse({'success': False, 'error': 'Invalid request'}, status=400)
+
+def candidate_detail(request, application_id):
+    if not request.user.is_authenticated:
+        return redirect('login')
+        
+    from ai_engine.models import Application, InterviewSession
+    
+    try:
+        # Recruiter permissions check
+        profile = request.user.profile
+        if profile.role == 'recruiter' and profile.company:
+            app = Application.objects.get(id=application_id, job__company=profile.company)
+            session = InterviewSession.objects.filter(application=app).first()
+            
+            return render(request, 'candidate_detail.html', {
+                'application': app,
+                'session': session
+            })
+    except Application.DoesNotExist:
+        pass
+        
+    return redirect('dashboard')
+
+def update_application_status(request, application_id, status_val):
+    if not request.user.is_authenticated:
+        return redirect('login')
+    
+    from ai_engine.models import Application
+    try:
+        profile = request.user.profile
+        if profile.role == 'recruiter' and profile.company:
+            app = Application.objects.get(id=application_id, job__company=profile.company)
+            if status_val in ['accepted', 'rejected', 'evaluated']:
+                app.status = status_val
+                app.save()
+    except Application.DoesNotExist:
+        pass
+        
+    return redirect('candidate_detail', application_id=application_id)
+

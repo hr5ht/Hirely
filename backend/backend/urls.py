@@ -44,8 +44,10 @@ urlpatterns = [
     path('profile/', ai_views.profile_view, name='profile'),
     path('scores/', ai_views.scores_view, name='scores'),
     path('session/', ai_views.session_view, name='session'),
+    path('jobs-feed/', ai_views.jobs_feed, name='jobs_feed'),
     path('resume-scanner/', ai_views.resume_scanner_view, name='resume_scanner'),
     path('upload-profile-resume/', ai_views.upload_profile_resume, name='upload_profile_resume'),
     path('admin/', admin.site.urls),
     path('ai/', include('ai_engine.urls')),
 ]
+

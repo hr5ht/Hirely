@@ -1,10 +1,11 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Profile | MockHire</title>
+    <title>Profile | Hirely</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -30,10 +31,8 @@
     <nav class="bg-white border-b border-gray-200">
         <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
             <a href="/dashboard/" class="flex items-center gap-3">
-                <div class="w-8 h-8 bg-blue-600 rounded flex items-center justify-center">
-                    <i data-lucide="briefcase" class="text-white w-4 h-4"></i>
-                </div>
-                <span class="text-lg font-bold text-gray-900">MockHire</span>
+                <img src="{% static 'ai_engine/logo.png' %}" alt="Hirely Logo" class="w-8 h-8 rounded-lg object-cover shadow-sm">
+                <span class="text-lg font-bold text-gray-900">Hirely</span>
             </a>
             <div class="flex items-center gap-6 text-sm font-medium">
                 <a href="/dashboard/" class="text-gray-500 hover:text-gray-900 transition-colors">Dashboard</a>
@@ -113,7 +112,7 @@
                         <i data-lucide="check-circle-2" class="w-5 h-5 mt-0.5 flex-shrink-0"></i>
                         <div>
                             <p class="font-bold text-sm">Active Resume Parsed</p>
-                            <p class="text-xs mt-1 text-green-600">Your resume is securely stored in MockHire's RAG database for context-aware questions.</p>
+                            <p class="text-xs mt-1 text-green-600">Your resume is securely stored in Hirely's RAG database for context-aware questions.</p>
                         </div>
                     </div>
                     {% else %}
@@ -161,7 +160,7 @@
 
     <footer class="bg-white border-t border-gray-200 py-6 mt-auto">
         <div class="max-w-7xl mx-auto px-6 text-center text-sm text-gray-500">
-            &copy; 2026 MockHire. All rights reserved.
+            &copy; 2026 Hirely. All rights reserved.
         </div>
     </footer>
 

@@ -74,16 +74,22 @@ class InterviewBrain:
         print(f"  [Latency] Groq (Feedback): {latency:.3f}s")
         return response.choices[0].message.content
 
-    async def get_next_question(self, history, jd, context=""):
-        history_text = "\n".join([f"Q: {h['q']}\nA: {h['a']}" for h in history])
+    async def get_next_question(self, history, jd, context="", resume_text=""):
+        history_text = "\n".join([f"Q: {h.get('question', h.get('q', 'N/A'))}\nA: {h.get('answer', h.get('a', 'N/A'))}" for h in history])
         context_string = f"Relevant Candidate Context:\n{context}\n\n" if context else ""
+        resume_string = f"Candidate Resume Claims:\n{resume_text}\n\n" if resume_text else ""
+        
         prompt = (
             f"Job Description: {jd}\n"
             f"{context_string}"
+            f"{resume_string}"
             f"Interview History:\n{history_text}\n\n"
-            "Based on the history and relevant candidate context, ask the next challenging technical or behavioral question. "
-            "CRITICAL: Do NOT ask about the exact same project from the immediate previous question. Explicitly shift the focus to a NEW project, language, or concept mentioned in the 'Relevant Candidate Context'. "
-            "Just the question."
+            "Based on the job description, interview history, and candidate resume claims, ask the next challenging cross-examination question. "
+            "CRITICAL SKILLS CROSS-EXAMINATION RULES:\n"
+            "1. Read the candidate's resume claims. Identify explicit technical skills or frameworks listed (e.g., Docker, Django, React, Redis).\n"
+            "2. Pick one of these explicit claims and construct a highly realistic, advanced debugging scenario or system constraint (e.g., 'Since you listed Docker, explain how you would resolve a bridge networking anomaly where a container exit-loops...').\n"
+            "3. Do NOT ask a generic question. Shift focus dynamically to test if they can contextually validate their explicit CV claims.\n"
+            "Just the question, no introductory fluff."
         )
         start_time = time.perf_counter()
         response = await self.client.chat.completions.create(
@@ -95,8 +101,9 @@ class InterviewBrain:
             max_tokens=150,
         )
         latency = time.perf_counter() - start_time
-        print(f"  [Latency] Groq (Next Q): {latency:.3f}s")
+        print(f"  [Latency] Groq (Next Q - Skills Cross-Exam): {latency:.3f}s")
         return response.choices[0].message.content
+
 
     async def generate_analysis(self, company, role, jd):
         prompt = (
@@ -157,15 +164,18 @@ class InterviewBrain:
         }
         return json.dumps(result_dict)
 
-    async def get_session_skills(self, transcript):
+    async def get_session_skills(self, transcript, jd=""):
+        jd_prompt = f" and target Job Description:\n{jd}\n" if jd else ""
         prompt = (
-            f"Review the following interview transcript:\n{transcript}\n\n"
+            f"Review the following interview transcript:\n{transcript}\n{jd_prompt}\n"
             "Evaluate the candidate holistically across the entire session out of 100 on these three metrics. "
+            "Additionally, isolate specific talent gaps and produce an Explainable AI (XAI) Gap Analysis Map showing exact areas where their answers lacked technical depth or keyword coverage (e.g. system partitioning, thread pooling) and suggest specific distributed systems/technical resources to study.\n"
             "Return ONLY a valid JSON object with EXACT keys:\n"
             "{\n"
             "  \"tech_knowledge\": <0-100 score>,\n"
             "  \"behavioral_iq\": <0-100 score>,\n"
-            "  \"problem_solving\": <0-100 score>\n"
+            "  \"problem_solving\": <0-100 score>,\n"
+            "  \"gap_analysis\": \"A detailed paragraph providing the structured talent gap analysis and recommended learning resources\"\n"
             "}"
         )
         start_time = time.perf_counter()
@@ -175,9 +185,10 @@ class InterviewBrain:
                 {"role": "user", "content": prompt},
             ],
             model=self.model,
-            max_tokens=200,
+            max_tokens=600, # Increased max_tokens to fit detailed gap analysis
             response_format={"type": "json_object"}
         )
         latency = time.perf_counter() - start_time
-        print(f"  [Latency] Groq (Session Skills): {latency:.3f}s")
+        print(f"  [Latency] Groq (Session Skills & XAI Gap): {latency:.3f}s")
         return response.choices[0].message.content
+

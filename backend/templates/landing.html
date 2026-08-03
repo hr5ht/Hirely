@@ -1,10 +1,11 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MockHire | The AI Career Co-Pilot</title>
+    <title>Hirely | The AI Career Co-Pilot</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -48,10 +49,8 @@
     <nav class="fixed top-0 left-0 w-full z-50 nav-glass">
         <div class="max-w-7xl mx-auto px-6 h-16 flex justify-between items-center">
             <div class="flex items-center gap-2">
-                <div class="w-8 h-8 bg-blue-600 rounded flex items-center justify-center shadow-sm">
-                    <i data-lucide="briefcase" class="text-white w-4 h-4"></i>
-                </div>
-                <span class="text-xl font-bold tracking-tight">MockHire</span>
+                <img src="{% static 'ai_engine/logo.png' %}" alt="Hirely Logo" class="w-8 h-8 rounded-lg object-cover shadow-sm">
+                <span class="text-xl font-bold tracking-tight">Hirely</span>
             </div>
             <div class="hidden md:flex items-center gap-8 text-sm font-medium text-gray-500">
                 <a href="#features" class="hover:text-gray-900 transition-colors">Features</a>
@@ -73,7 +72,7 @@
                     <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
                     <span class="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
                 </span>
-                <span class="text-xs font-bold uppercase tracking-widest">MockHire is now Live</span>
+                <span class="text-xs font-bold uppercase tracking-widest">Hirely is now Live</span>
             </div>
 
             <h1 class="text-5xl md:text-7xl font-extrabold tracking-tight leading-tight text-gray-900 animate-in fade-in slide-in-from-bottom-6 duration-1000">
@@ -172,8 +171,8 @@
     <footer class="bg-white border-t border-gray-200 py-12 px-6">
         <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
             <div class="flex items-center gap-2">
-                <i data-lucide="briefcase" class="text-blue-600 w-5 h-5"></i>
-                <span class="text-sm font-bold text-gray-900">MockHire © 2026</span>
+                <img src="{% static 'ai_engine/logo.png' %}" alt="Hirely Logo" class="w-5 h-5 rounded object-cover shadow-sm">
+                <span class="text-sm font-bold text-gray-900">Hirely © 2026</span>
             </div>
             <div class="flex gap-8 text-sm font-semibold text-gray-400">
                 <a href="#" class="hover:text-gray-900 transition-colors">Privacy</a>
