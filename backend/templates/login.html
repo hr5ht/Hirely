@@ -1,10 +1,11 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login | MockHire</title>
+    <title>Login | Hirely</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -29,11 +30,8 @@
     
     <div class="max-w-md w-full space-y-8 clean-card p-10 animate-in fade-in zoom-in duration-500">
         <div class="text-center space-y-2">
-            <div
-                class="w-16 h-16 bg-blue-600 rounded flex items-center justify-center mx-auto mb-6 shadow-sm">
-                <i data-lucide="briefcase" class="text-white w-8 h-8"></i>
-            </div>
-            <h1 class="text-3xl font-bold tracking-tight text-gray-900">Welcome to MockHire</h1>
+            <img src="{% static 'ai_engine/logo.png' %}" alt="Hirely Logo" class="w-16 h-16 rounded-xl object-cover mx-auto mb-6 shadow-sm">
+            <h1 class="text-3xl font-bold tracking-tight text-gray-900">Welcome to Hirely</h1>
             <p class="text-gray-500 text-sm">Sign in to your account to continue.</p>
         </div>
 

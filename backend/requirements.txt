@@ -96,3 +96,6 @@ yarl
 whitenoise
 dj-database-url
 psycopg2-binary
+channels
+daphne
+reportlab

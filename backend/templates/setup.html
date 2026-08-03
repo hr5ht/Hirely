@@ -1,10 +1,11 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Interview Setup | MockHire</title>
+    <title>Interview Setup | Hirely</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -34,10 +35,8 @@
                 <span class="text-sm font-medium">Dashboard</span>
             </a>
             <div class="flex items-center gap-2">
-                <div class="w-8 h-8 bg-blue-600 rounded flex items-center justify-center">
-                    <i data-lucide="briefcase" class="text-white w-4 h-4"></i>
-                </div>
-                <span class="text-lg font-bold text-gray-900">MockHire</span>
+                <img src="{% static 'ai_engine/logo.png' %}" alt="Hirely Logo" class="w-8 h-8 rounded-lg object-cover shadow-sm">
+                <span class="text-lg font-bold text-gray-900">Hirely</span>
             </div>
         </div>
     </nav>
@@ -113,7 +112,7 @@
 
     <footer class="bg-white border-t border-gray-200 py-6 mt-auto">
         <div class="max-w-7xl mx-auto px-6 text-center text-sm text-gray-500">
-            &copy; 2026 MockHire. All rights reserved.
+            &copy; 2026 Hirely. All rights reserved.
         </div>
     </footer>
 
