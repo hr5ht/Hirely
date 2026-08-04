@@ -70,7 +70,6 @@ class InterviewSession(models.Model):
     )
     application = models.ForeignKey(Application, on_delete=models.CASCADE, related_name='sessions')
     session_status = models.CharField(max_length=50, choices=SESSION_STATUS_CHOICES, default='pending')
-    current_question_index = models.IntegerField(default=0)
     transcript = models.JSONField(default=list, blank=True)
     proctoring_logs = models.JSONField(default=list, blank=True)
     pdf_report = models.BinaryField(blank=True, null=True)

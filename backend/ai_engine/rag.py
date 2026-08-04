@@ -1,73 +1,78 @@
-import faiss
-import numpy as np
-import time
-from sentence_transformers import SentenceTransformer
+"""RAG over the job description and resume, with nothing running locally.
 
-class RAGRetriever:
-    def __init__(self, model_name='all-MiniLM-L6-v2'):
-        """
-        Initialize the embedding model and the embedding properties.
-        'all-MiniLM-L6-v2' is a lightweight dense retrieval model ideal for FAISS.
-        """
-        self.encoder = SentenceTransformer(model_name)
-        self.dimension = self.encoder.get_embedding_dimension()
-        self.index = None
-        self.chunks = []
-        
-    def chunk_text(self, text, chunk_size=200, overlap=50):
-        """
-        Simple overlapping word chunking.
-        """
-        words = text.split()
-        chunks = []
-        for i in range(0, len(words), chunk_size - overlap):
-            chunk = " ".join(words[i:i + chunk_size])
-            chunks.append(chunk)
-            if i + chunk_size >= len(words):
-                break
-        return chunks
+Semantic: Gemini embeddings ranked by cosine similarity, rebuilt per request (two small docs, ~10 vectors,
+so no vector DB or numpy). Falls back to keyword ranking (simplified BM25) if Gemini is unset, rate-limited (free tier resets daily) or fails.
+ponytail: re-embeds both docs every round; cache vectors on the session if embedding calls get costly.
+"""
+import math
+import os
+import re
+from collections import Counter
 
-    def build_index(self, resume_text, jd_text):
-        """
-        Build a FAISS index from the Resume and JD texts.
-        """
-        resume_chunks = self.chunk_text(f"[RESUME CONTEXT] {resume_text}")
-        jd_chunks = self.chunk_text(f"[JD CONTEXT] {jd_text}")
-        
-        self.chunks = resume_chunks + jd_chunks
-        
-        if not self.chunks:
-            return
-            
-        # Generate embeddings for all chunks
-        embeddings = self.encoder.encode(self.chunks)
-        
-        # Convert to float32 numpy array as FAISS requires
-        embeddings = np.array(embeddings).astype('float32')
-        
-        # Initialize L2 distance based FAISS Index
-        self.index = faiss.IndexFlatL2(self.dimension)
-        self.index.add(embeddings)
-        
-    def retrieve(self, query, top_k=3):
-        """
-        Retrieve the top-K most relevant context chunks for a given query.
-        """
-        if not self.index or not self.chunks:
-            return "No context available."
-            
-        query_embedding = self.encoder.encode([query])
-        query_embedding = np.array(query_embedding).astype('float32')
-        
-        start_time = time.perf_counter()
-        # Search the index
-        distances, indices = self.index.search(query_embedding, top_k)
-        latency = time.perf_counter() - start_time
-        print(f"  [Latency] FAISS Retrieval: {latency:.3f}s")
-        
-        results = []
-        for idx in indices[0]:
-            if idx < len(self.chunks) and idx >= 0:
-                results.append(self.chunks[idx])
-                
-        return "\n\n".join(results)
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
+
+EMBED_MODEL = "gemini-embedding-001"
+
+STOP_WORDS = set("""
+a an and are as at be by for from has have in is it of on or that the this to was were will with you your
+we our they their i my me he she his her its not but if then than so such can could should would may
+""".split())
+
+
+def _tokens(text):
+    words = (w.strip('.') for w in re.findall(r"[a-z0-9+#.]+", text.lower()))
+    return [w for w in words if len(w) > 1 and w not in STOP_WORDS]
+
+
+def chunk_text(text, chunk_size=80, overlap=20):
+    words = text.split()
+    return [" ".join(words[i:i + chunk_size]) for i in range(0, max(len(words) - overlap, 1), chunk_size - overlap)] if words else []
+
+
+def _top_chunks(query_terms, text, top_k):
+    chunks = chunk_text(text)
+    docs = [Counter(_tokens(c)) for c in chunks]
+    df = Counter(t for d in docs for t in d)
+    n = len(docs)
+
+    def score(d):
+        return sum(d[t] / (d[t] + 1.2) * math.log(1 + n / df[t]) for t in query_terms if t in d)
+
+    ranked = sorted(range(n), key=lambda i: score(docs[i]), reverse=True)[:top_k]
+    # Keep document order so excerpts read naturally; fall back to the opening chunk if nothing matches
+    hits = sorted(i for i in ranked if score(docs[i]) > 0) or [0][:n]
+    return "\n...\n".join(chunks[i] for i in hits)
+
+
+def _semantic(query, resume_text, jd_text, top_k):
+    key = os.getenv("GOOGLE_API_KEY", "")
+    if not key or "your_" in key:
+        raise RuntimeError("GOOGLE_API_KEY not set")
+    chunks = {"resume": chunk_text(resume_text or ""), "jd": chunk_text(jd_text or "")}
+    texts = chunks["resume"] + chunks["jd"]
+    if not texts:
+        return "", ""
+
+    embeddings = GoogleGenerativeAIEmbeddings(model=EMBED_MODEL, google_api_key=key)
+    vectors = embeddings.embed_documents(texts)  # one batched call for both documents
+    query_vector = embeddings.embed_query(query)
+
+    def cosine(v):
+        return sum(a * b for a, b in zip(v, query_vector)) / ((math.hypot(*v) * math.hypot(*query_vector)) or 1)
+
+    split = len(chunks["resume"])
+    def best(source, vecs):
+        ranked = sorted(range(len(vecs)), key=lambda i: cosine(vecs[i]), reverse=True)[:top_k]
+        return "\n...\n".join(chunks[source][i] for i in sorted(ranked))  # document order reads naturally
+
+    return best("resume", vectors[:split]), best("jd", vectors[split:])
+
+
+def retrieve(query, resume_text, jd_text, top_k=2):
+    """Return (resume_excerpts, jd_excerpts): the chunks of each document most relevant to the query."""
+    try:
+        return _semantic(query, resume_text, jd_text, top_k)
+    except Exception as e:
+        print(f"[RAG] Semantic retrieval unavailable ({e}); using keyword ranking")
+    terms = set(_tokens(query))
+    return _top_chunks(terms, resume_text or "", top_k), _top_chunks(terms, jd_text or "", top_k)

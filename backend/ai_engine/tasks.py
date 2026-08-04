@@ -1,20 +1,19 @@
+import io
 import json
 from django.utils import timezone
 from ai_engine.models import InterviewSession
 from ai_engine.brain import InterviewBrain
-from asgiref.sync import async_to_sync
 
 # ReportLab imports for beautiful PDF generation
 from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
-from reportlab.lib.units import inch
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak, KeepTogether
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+from reportlab.lib.enums import TA_CENTER
 
 def evaluate_transcript_semantic_gaps(session_id):
     """
-    Celery task that compiles the transcript, evaluates semantic keyword coverage and technical depth
+    Compiles the transcript, evaluates semantic keyword coverage and technical depth
     vs target Job Description, and determines candidate competency scores.
     """
     try:
@@ -33,7 +32,7 @@ def evaluate_transcript_semantic_gaps(session_id):
         brain = InterviewBrain()
         
         # Holistically evaluate skills and identify gaps vs target JD
-        skills_json = async_to_sync(brain.get_session_skills)(transcript_text, jd)
+        skills_json = brain.get_session_skills(transcript_text, jd)
         skills = json.loads(skills_json)
         
         # Update session scores and isolated talent gaps
@@ -41,24 +40,15 @@ def evaluate_transcript_semantic_gaps(session_id):
         session.behavioral_iq = skills.get('behavioral_iq', 70)
         session.problem_solving = skills.get('problem_solving', 70)
         session.gap_analysis = skills.get('gap_analysis', 'Assessment evaluation completed successfully.')
-        session.save()
-
-        
-        # Set status as evaluated on the Application
-        app.status = 'evaluated'
-        app.save()
-        
-        # Instantly queue the PDF compilation task
-        compile_performance_report_pdf.delay(session_id)
+        session.save(update_fields=['tech_knowledge', 'behavioral_iq', 'problem_solving', 'gap_analysis'])
         
         return f"Successfully evaluated session {session_id}"
     except Exception as e:
         return f"Error evaluating session {session_id}: {str(e)}"
 
-@shared_task
 def compile_performance_report_pdf(session_id):
     """
-    Celery task that collates the ATS Match Score, Proctoring Integrity Level, and Transcript Metrics,
+    Collates the ATS Match Score, Proctoring Integrity Level, and Transcript Metrics,
     generating a beautifully styled ReportLab PDF.
     """
     try:
@@ -68,10 +58,6 @@ def compile_performance_report_pdf(session_id):
         job = app.job
         company = job.company
         
-        pdf_filename = f"Hirely_Session_{session_id}_Report.pdf"
-        
-        # Buffer to write PDF in memory
-        import io
         pdf_buffer = io.BytesIO()
         
         # Setup document template
@@ -235,15 +221,18 @@ def compile_performance_report_pdf(session_id):
                 Paragraph("Metric Category", ParagraphStyle('HCol', parent=meta_label_style, textColor=colors.white)),
                 Paragraph("Rating", ParagraphStyle('HColR', parent=meta_label_style, textColor=colors.white, alignment=TA_CENTER))
             ],
-            [Paragraph("ATS Resume Proximity Match", table_cell_bold), Paragraph(f"{app.ats_match_score if app.ats_match_score is not None else '--'}%", ParagraphStyle('C1', parent=table_cell_style, alignment=TA_CENTER))],
-
-            [Paragraph("AI Proctoring Integrity Index", table_cell_bold), Paragraph(f"{app.proctoring_score}%", ParagraphStyle('C2', parent=table_cell_style, alignment=TA_CENTER))],
-            [Paragraph("Technical Knowledge Coverage", table_cell_bold), Paragraph(f"{session.tech_knowledge}%", ParagraphStyle('C3', parent=table_cell_style, alignment=TA_CENTER))],
-            [Paragraph("Behavioral & Collaboration IQ", table_cell_bold), Paragraph(f"{session.behavioral_iq}%", ParagraphStyle('C4', parent=table_cell_style, alignment=TA_CENTER))],
-            [Paragraph("Architectural Problem Solving", table_cell_bold), Paragraph(f"{session.problem_solving}%", ParagraphStyle('C5', parent=table_cell_style, alignment=TA_CENTER))],
-            [Paragraph("Average Speech Confidence", table_cell_bold), Paragraph(f"{session.avg_confidence}%", ParagraphStyle('C6', parent=table_cell_style, alignment=TA_CENTER))],
-            [Paragraph("Average Speech Clarity", table_cell_bold), Paragraph(f"{session.avg_clarity}%", ParagraphStyle('C7', parent=table_cell_style, alignment=TA_CENTER))]
         ]
+        center = ParagraphStyle('Center', parent=table_cell_style, alignment=TA_CENTER)
+        for label, value in [
+            ("ATS Resume Proximity Match", app.ats_match_score if app.ats_match_score is not None else '--'),
+            ("AI Proctoring Integrity Index", app.proctoring_score),
+            ("Technical Knowledge Coverage", session.tech_knowledge),
+            ("Behavioral & Collaboration IQ", session.behavioral_iq),
+            ("Architectural Problem Solving", session.problem_solving),
+            ("Average Speech Confidence", session.avg_confidence),
+            ("Average Speech Clarity", session.avg_clarity),
+        ]:
+            metrics_data.append([Paragraph(label, table_cell_bold), Paragraph(f"{value}%", center)])
         
         metrics_table = Table(metrics_data, colWidths=[380, 140])
         metrics_table.setStyle(TableStyle([
@@ -330,7 +319,7 @@ def compile_performance_report_pdf(session_id):
         
         # Save compiled PDF bytes directly in InterviewSession
         session.pdf_report = pdf_buffer.getvalue()
-        session.save()
+        session.save(update_fields=['pdf_report'])
         
         return f"Successfully compiled PDF report for session {session_id}"
     except Exception as e:

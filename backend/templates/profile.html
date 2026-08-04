@@ -1,14 +1,7 @@
+{% extends "base.html" %}
 {% load static %}
-<!DOCTYPE html>
-<html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Profile | Hirely</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+{% block title %}Profile | Hirely{% endblock %}
+{% block head %}
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -23,10 +16,9 @@
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
         }
     </style>
-    <link rel="icon" type="image/png" href="/favicon.ico">
-</head>
-
-<body class="min-h-screen flex flex-col">
+{% endblock %}
+{% block body_class %}min-h-screen flex flex-col{% endblock %}
+{% block content %}
 
     <nav class="bg-white border-b border-gray-200">
         <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
@@ -165,6 +157,4 @@
     </footer>
 
     <script>lucide.createIcons();</script>
-</body>
-
-</html>
+{% endblock %}
