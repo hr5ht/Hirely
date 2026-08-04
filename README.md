@@ -1,61 +1,111 @@
 # Hirely
 
-Hirely is a multi-tenant B2B AI-powered recruitment marketplace and live conversational assessment platform. The project enables companies to list technical job openings and screen candidates using conversational AI voice interviews, with client-side browser proctoring (gaze/face tracking) to verify candidate integrity during evaluations. All AI runs on hosted APIs, so the app deploys to serverless hosts such as Vercel.
+An AI recruitment platform: companies post jobs, candidates apply with a resume, and every applicant gets an ATS match score and an AI-led technical interview with live proctoring. Recruiters review scores, transcripts and a PDF report for each candidate.
 
----
+**Live demo:** https://hirely-hr5ht.vercel.app
 
-## 🛠️ Tech Stack
+| Role | Username | Password |
+|---|---|---|
+| Candidate | `candidate` | `1234` |
+| Recruiter (Google) | `recruiter` | `1234` |
 
-* **Backend Framework**: Django (WSGI; gunicorn in production)
-* **Database**: Serverless PostgreSQL (Neon DB / configured via `dj_database_url`)
-* **Interview Pipeline**: stateless HTTP requests (start / answer / audio / proctor / end)
-* **Large Language Model (LLM)**: Groq API via LangChain (`qwen/qwen3.8-27b`) — interview questions, feedback and ATS resume scoring
-* **RAG**: Gemini embeddings (`gemini-embedding-001`) over resume and job description chunks, with keyword-ranking fallback
-* **Speech-to-Text (STT)**: Deepgram API
-* **Text-to-Speech (TTS)**: ElevenLabs API
-* **Client-side Proctoring**: MediaPipe Face Mesh (Edge gaze tracking/face anomaly detection)
+Demo data is shared and may be reset.
 
----
+## Features
 
-## ⚡ Installation & Setup Guide
+- **ATS resume scoring:** an LLM compares the resume with the job description and returns an overall score, skill and context sub-scores, matched and missing skills, and suggestions.
+- **Personalized AI interviews:** five rounds of questions generated from the candidate's own resume and the job description, with feedback, confidence and clarity scores after every answer.
+- **RAG:** each round retrieves the most relevant resume and job-description excerpts for its topic and the candidate's last answer, so questions dig into what the candidate actually claimed.
+- **Proctoring:** in-browser face and gaze tracking (MediaPipe) plus copy-paste and typing-speed checks; every alert lowers the integrity score and is listed in the report.
+- **Reports:** a PDF per interview with scores, a skills-gap analysis, the proctoring audit trail and the full transcript.
+- **Voice (optional):** questions read aloud and spoken answers transcribed.
 
-### 1. Environment Setup
-Navigate to the `backend` folder and create a `.env` file containing your credentials:
+## Tech Stack
+
+| Area | Technology |
+|---|---|
+| Backend | Django 5.2 (WSGI) |
+| LLM | Groq `qwen/qwen3.8-27b` via **LangChain** (`langchain-groq`) |
+| RAG embeddings | Google Gemini `gemini-embedding-001` via LangChain (`langchain-google-genai`), with a keyword-ranking fallback |
+| Database | PostgreSQL (Neon in production) |
+| Speech | Deepgram (speech-to-text), ElevenLabs (text-to-speech) |
+| Proctoring | MediaPipe Face Mesh (runs in the browser) |
+| Reports | ReportLab |
+| Frontend | Django templates, Tailwind CSS |
+| Hosting | Vercel (serverless); `render.yaml` included for Render |
+
+All AI runs on hosted APIs, so the server needs no GPU and very little memory.
+
+## How It Works
+
+1. **Apply:** the resume PDF's text is extracted and scored against the job by the LLM.
+2. **Interview:** each step (start, answer, voice answer, proctoring alert, end) is a stateless HTTP request, so the interview runs on serverless hosts and survives page reloads.
+3. **Retrieve:** both documents are split into chunks and embedded; the closest resume and job-description chunks go into each question prompt.
+4. **Evaluate:** when the interview ends, the LLM scores technical knowledge, behavioral IQ and problem solving, and the PDF report is generated.
+
+## Project Structure
+
+```
+backend/
+  ai_engine/
+    brain.py          LangChain + Groq prompts: questions, feedback, ATS score, evaluation
+    rag.py            Chunking, Gemini embeddings, cosine ranking, keyword fallback
+    interview.py      Interview steps (start / answer / audio / proctor / end)
+    audio_service.py  Deepgram and ElevenLabs clients
+    tasks.py          Final evaluation and PDF report
+    views.py          Pages and JSON endpoints
+    tests.py          Test suite (AI calls mocked)
+  templates/          Django templates
+  vercel.json         Vercel config
+render.yaml           Render config
+```
+
+## Local Setup
+
+Requires Python 3.11+ and PostgreSQL.
 
 ```bash
 cd backend
-touch .env
-```
-
-Define the required API keys and the PostgreSQL connection string in `.env`:
-```ini
-GROQ_API_KEY="your_groq_key"
-GOOGLE_API_KEY="your_google_key"
-ELEVENLABS_API_KEY="your_elevenlabs_key"
-DEEPGRAM_API_KEY="your_deepgram_key"
-DATABASE_URL="postgresql://user:password@host/dbname?sslmode=require"
-```
-
-### 2. Install & Migrate
-
-```bash
 python3 -m venv venv
-source venv/bin/activate  # Or venv\Scripts\activate on Windows
+source venv/bin/activate          # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-python manage.py migrate
 ```
 
-### 3. Start the Application
+Create `backend/.env`:
+
+```ini
+DATABASE_URL="postgresql://user:password@localhost:5432/hirely"
+GROQ_API_KEY="..."
+GOOGLE_API_KEY="..."        # optional: semantic RAG (falls back to keyword ranking)
+ELEVENLABS_API_KEY="..."    # optional: spoken questions
+DEEPGRAM_API_KEY="..."      # optional: spoken answers
+```
+
+Then:
+
 ```bash
-python manage.py runserver
+python manage.py migrate
+python manage.py runserver          # http://127.0.0.1:8000
+python manage.py test ai_engine     # run the tests
 ```
-The application will run locally at `http://127.0.0.1:8000`. Run the tests with `python manage.py test ai_engine`.
 
----
+| Key | Where to get it | Free tier |
+|---|---|---|
+| `GROQ_API_KEY` | console.groq.com | Yes |
+| `GOOGLE_API_KEY` | aistudio.google.com | Yes, resets daily |
+| `ELEVENLABS_API_KEY` | elevenlabs.io | Yes |
+| `DEEPGRAM_API_KEY` | deepgram.com | Free credits |
 
-## 🚀 Deployment
+## Deployment
 
-Production needs `SECRET_KEY` set in addition to the keys above.
+Production also needs `SECRET_KEY` (any long random string); the app refuses to start without it.
 
-* **Vercel**: import the repo with Root Directory `backend` (`vercel.json` is included). Use Neon's pooled connection string for `DATABASE_URL`, and run `python manage.py migrate` against it once from your machine.
-* **Render**: create a Blueprint from the repo; `render.yaml` runs migrations and gunicorn automatically.
+**Vercel**
+1. Import the GitHub repo and set **Root Directory** to `backend`.
+2. Add the environment variables above. For `DATABASE_URL`, use Neon's pooled connection string (hostname contains `-pooler`).
+3. Run migrations once from your machine: `DATABASE_URL="<neon url>" python manage.py migrate`.
+
+Every push to `main` then deploys automatically.
+
+**Render**
+Create a Blueprint from the repo; `render.yaml` installs dependencies, runs migrations and starts gunicorn. The free plan sleeps after about 15 minutes idle.
