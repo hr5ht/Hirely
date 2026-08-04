@@ -1,17 +1,9 @@
-<!DOCTYPE html>
-<html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Interview Session | Hirely</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+{% extends "base.html" %}
+{% load static %}
+{% block title %}AI Interview Session | Hirely{% endblock %}
+{% block head %}
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils"></script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -168,10 +160,9 @@
             50% { transform: scale(1.15); opacity: 0; }
         }
     </style>
-    <link rel="icon" type="image/png" href="/favicon.ico">
-</head>
-
-<body class="min-h-screen flex flex-col pt-16">
+{% endblock %}
+{% block body_class %}min-h-screen flex flex-col pt-16{% endblock %}
+{% block content %}
     <nav class="fixed top-0 left-0 w-full bg-white border-b border-gray-200 z-40">
         <div class="max-w-7xl mx-auto px-6 h-16 flex justify-between items-center">
             <a href="/dashboard/" class="flex items-center gap-2 group text-gray-500 hover:text-gray-900 transition-colors">
@@ -316,16 +307,31 @@
         lucide.createIcons();
 
         const session_id = "{{ session_id }}";
-        const wsScheme = window.location.protocol === "https:" ? "wss" : "ws";
-        const socketUrl = `${wsScheme}://${window.location.host}/ws/interview/${session_id}/`;
-        const socket = new WebSocket(socketUrl);
+        const csrfToken = "{{ csrf_token }}";
+
+        // Each interview step is a plain POST; the server replies with messages for handleMessage()
+        async function send(action, data = {}) {
+            try {
+                const res = await fetch(`/ai/interview/${session_id}/${action}/`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                    body: JSON.stringify(data),
+                });
+                const body = await res.json();
+                if (!res.ok) throw new Error(body.error || `Request failed (${res.status})`);
+                body.messages.forEach(handleMessage);
+                return true;
+            } catch (err) {
+                handleMessage({ type: 'error', message: err.message });
+                return false;
+            }
+        }
 
         const micBtn = document.getElementById('mic-btn');
         const micStatus = document.getElementById('mic-status');
         const promptText = document.getElementById('prompt-text');
         const transcriptArea = document.getElementById('transcript-area');
         const endBtn = document.getElementById('end-btn');
-        const nextBtn = document.getElementById('next-btn');
         const promptLabel = document.getElementById('prompt-label');
 
         let isListening = false;
@@ -363,11 +369,8 @@
             currentRound.answer = text; // Track user answer for PDF
             stopAIAudio(); // Stop AI audio when user submits an answer
             addTranscript('You', text);
-            socket.send(JSON.stringify({
-                event_type: 'submit_answer',
-                data: { answer: text }
-            }));
             promptText.innerText = "Analyzing your answer...";
+            send('answer', { answer: text });
             manualAnswerInput.value = '';
             textInputContainer.classList.add('hidden');
         };
@@ -396,7 +399,7 @@
                                 type: "Excessive Keystroke Cadence Velocity (Impossible human typing speed)", 
                                 timestamp: new Date().toISOString() 
                             };
-                            socket.send(JSON.stringify({ event_type: 'proctor_infraction', data: alertData }));
+                            safeSendProctorInfraction(alertData);
                             proctoringEvents.push(alertData);
                         }
                     }
@@ -412,7 +415,7 @@
                     type: "Sudden Block Insertion (Copy-Paste detected)", 
                     timestamp: new Date().toISOString() 
                 };
-                socket.send(JSON.stringify({ event_type: 'proctor_infraction', data: alertData }));
+                safeSendProctorInfraction(alertData);
                 proctoringEvents.push(alertData);
             }
             prevInputLength = manualAnswerInput.value.length;
@@ -462,11 +465,8 @@
                     reader.readAsDataURL(audioBlob);
                     reader.onloadend = () => {
                         const base64Audio = reader.result.split(',')[1];
-                        socket.send(JSON.stringify({
-                            event_type: 'submit_audio_chunk',
-                            data: { audio: base64Audio, mimeType: actualType }
-                        }));
                         promptText.innerText = "Deepgram is transcribing...";
+                        send('audio', { audio: base64Audio, mimeType: actualType });
                     };
 
                     // Stop all tracks to release the mic
@@ -513,26 +513,13 @@
             transcriptArea.prepend(p);
         }
 
-        socket.onopen = () => {
-            document.getElementById('conn-indicator').classList.replace('bg-yellow-500', 'bg-green-500');
-            document.getElementById('conn-indicator').classList.remove('pulse');
-            document.getElementById('conn-text').innerText = 'AI Online';
-            document.getElementById('conn-text').classList.replace('text-yellow-400', 'text-green-400');
+        document.getElementById('conn-indicator').classList.replace('bg-yellow-500', 'bg-green-500');
+        document.getElementById('conn-indicator').classList.remove('pulse');
+        document.getElementById('conn-text').innerText = 'AI Online';
+        document.getElementById('conn-text').classList.replace('text-yellow-400', 'text-green-400');
+        send('start');
 
-            const data = {
-                jd: "{{ jd|escapejs }}" || localStorage.getItem('interview_jd'),
-                role: "{{ role|escapejs }}" || localStorage.getItem('interview_role'),
-                company: "{{ company|escapejs }}" || localStorage.getItem('interview_company'),
-                resume: "{{ resume_text|escapejs }}" || "Strong foundation in basics."
-            };
-            socket.send(JSON.stringify({
-                event_type: 'start_interview',
-                data: data
-            }));
-        };
-
-        socket.onmessage = (event) => {
-            const message = JSON.parse(event.data);
+        function handleMessage(message) {
             const msgType = message.type;
             
             if (msgType === 'transcription_result') {
@@ -578,18 +565,11 @@
                 }
             } else if (msgType === 'session_completed') {
                 window.location.href = '/dashboard/';
+            } else if (msgType === 'error') {
+                promptLabel.innerText = "Error";
+                promptText.innerText = message.message;
             }
-        };
-
-        nextBtn.onclick = () => {
-            stopAIAudio(); // Stop current AI audio immediately
-            nextBtn.classList.add('hidden');
-            socket.send(JSON.stringify({
-                event_type: 'request_next_question',
-                data: {}
-            }));
-            promptText.innerText = "Thinking...";
-        };
+        }
 
         function showSummary(text) {
             document.querySelector('main').innerHTML = `
@@ -614,6 +594,15 @@
             if (micBar) micBar.style.display = 'none';
         }
 
+        // Closing or leaving the tab ends the session, like the old socket disconnect did
+        let sessionEnded = false;
+        window.addEventListener('pagehide', () => {
+            if (sessionEnded) return;
+            const form = new FormData();
+            form.append('csrfmiddlewaretoken', csrfToken);
+            navigator.sendBeacon(`/ai/interview/${session_id}/end/`, form);
+        });
+
         async function endSessionAndSave() {
             const endBtnEl = document.getElementById('end-btn');
             if (endBtnEl) {
@@ -627,11 +616,9 @@
                 conversationHistory.push({...currentRound});
             }
 
-            // Send end session event via WebSockets
-            socket.send(JSON.stringify({
-                event_type: 'end_session',
-                data: {}
-            }));
+            sessionEnded = true;
+            // The server replies with session_completed, which redirects to the dashboard
+            if (!await send('end')) window.location.href = '/dashboard/';
         }
 
         // Drawing helpers
@@ -679,20 +666,13 @@
 
         let lastGazeAwayTime = 0;
         let lastFaceMissingTime = 0;
+        let faceSeenSince = 0;
         let lastGazeInfractionTime = 0;
         let lastFaceInfractionTime = 0;
 
         function safeSendProctorInfraction(alertData) {
-            try {
-                if (socket && socket.readyState === WebSocket.OPEN) {
-                    socket.send(JSON.stringify({ event_type: 'proctor_infraction', data: alertData }));
-                    console.log("[Proctor Telemetry] Infraction transmitted successfully:", alertData);
-                } else {
-                    console.warn("[Proctor Telemetry] WebSocket is not in OPEN state (readyState: " + (socket ? socket.readyState : 'null') + "). Infraction cached locally.");
-                }
-            } catch (err) {
-                console.error("[Proctor Telemetry] Failed to transmit infraction:", err);
-            }
+            console.log("[Proctor Telemetry] Sending infraction:", alertData);
+            send('proctor', alertData);
         }
 
         const faceMesh = new FaceMesh({
@@ -725,8 +705,9 @@
                 const h = canvasElement.height;
 
                 if (results && results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
-                    // Reset face missing timer
-                    lastFaceMissingTime = 0;
+                    // Only clear the missing timer once the face is steadily back, so flicker can't reset it
+                    if (faceSeenSince === 0) faceSeenSince = Date.now();
+                    if (Date.now() - faceSeenSince > 1000) lastFaceMissingTime = 0;
 
                     const landmarks = results.multiFaceLandmarks[0];
 
@@ -793,12 +774,13 @@
                 } else {
                     updateProctoringStatus('danger', 'CRITICAL: Face Not Detected');
                     lastGazeAwayTime = 0; // reset looking away timer
+                    faceSeenSince = 0;
 
                     // Start timer if face missing
                     if (lastFaceMissingTime === 0) {
                         lastFaceMissingTime = Date.now();
-                    } else if (Date.now() - lastFaceMissingTime > 3000) {
-                        // 3 seconds exceeded, send infraction
+                    } else if (Date.now() - lastFaceMissingTime > 1500) {
+                        // 1.5 seconds exceeded, send infraction
                         if (Date.now() - lastFaceInfractionTime > 5000) {
                             lastFaceInfractionTime = Date.now();
                             const alertData = { 
@@ -862,6 +844,4 @@
         });
 
     </script>
-</body>
-
-</html>
+{% endblock %}

@@ -1,24 +1,15 @@
 import os
-import time
 import json
-from groq import AsyncGroq
+import time
+from langchain_groq import ChatGroq
 from dotenv import load_dotenv
-
-from .ats.text_preprocessing import preprocess_text
-from .ats.skill_extraction import load_skills, extract_skills
-from .ats.similarity import calculate_similarity
-from .ats.scorer import calculate_skill_score, generate_final_score, generate_heuristic_suggestions
 
 load_dotenv()
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-SKILLS_PATH = os.path.join(BASE_DIR, 'ats', 'skills_list.txt')
-GLOBAL_SKILLS = load_skills(SKILLS_PATH)
-
 class InterviewBrain:
-    def __init__(self, model="llama-3.3-70b-versatile"):
-        self.client = AsyncGroq(api_key=os.getenv("GROQ_API_KEY"))
-        self.model = model
+    def __init__(self, model="qwen/qwen3.8-27b"):
+        # Reasoning tokens count toward max_tokens and can leave short answers empty; "none" turns thinking off.
+        self.llm = ChatGroq(model=model, api_key=os.getenv("GROQ_API_KEY"), reasoning_effort="none")
         self.system_prompt = (
             "You are a 'Brutally Honest' evaluator. "
             "Your goal is to conduct a realistic, high-pressure assessment or interview. "
@@ -29,22 +20,25 @@ class InterviewBrain:
             "Keep responses concise to ensure low latency for voice conversion."
         )
 
-    async def generate_initial_question(self, jd_text):
-        prompt = f"Based on this JD: {jd_text}\n\nGenerate the first tough interview question. Just the question, no intro."
+    def _chat(self, label, system, prompt, max_tokens=None, json_mode=False):
+        llm = self.llm.bind(max_tokens=max_tokens) if max_tokens else self.llm
+        if json_mode:
+            llm = llm.bind(response_format={"type": "json_object"})
         start_time = time.perf_counter()
-        response = await self.client.chat.completions.create(
-            messages=[
-                {"role": "system", "content": self.system_prompt},
-                {"role": "user", "content": prompt},
-            ],
-            model=self.model,
-            max_tokens=150,
-        )
-        latency = time.perf_counter() - start_time
-        print(f"  [Latency] Groq (Initial Q): {latency:.3f}s")
-        return response.choices[0].message.content
+        response = llm.invoke([("system", system), ("human", prompt)])
+        print(f"  [Latency] Groq via LangChain ({label}): {time.perf_counter() - start_time:.3f}s")
+        return response.content
 
-    async def get_feedback(self, question, answer, non_verbal_flags=None):
+    def generate_initial_question(self, role, jd_excerpts, resume_excerpts=""):
+        prompt = (
+            f"Role: {role}\n"
+            f"Relevant Job Description excerpts:\n{jd_excerpts or 'Not provided.'}\n\n"
+            f"Relevant Candidate Resume excerpts:\n{resume_excerpts or 'Not provided.'}\n\n"
+            "Generate the first tough interview question, tied to something specific in these excerpts. Just the question, no intro."
+        )
+        return self._chat("Initial Q", self.system_prompt, prompt, max_tokens=150)
+
+    def get_feedback(self, question, answer, non_verbal_flags=None):
         flags_text = f"Non-verbal flags observed: {', '.join(non_verbal_flags)}" if non_verbal_flags else "No non-verbal flags."
         prompt = (
             f"Question: {question}\n"
@@ -60,28 +54,14 @@ class InterviewBrain:
             "  \"tone\": \"<describe their tone in 2-3 words, e.g. Hesitant, Confident, Rambling>\"\n"
             "}"
         )
-        start_time = time.perf_counter()
-        response = await self.client.chat.completions.create(
-            messages=[
-                {"role": "system", "content": self.system_prompt + " You must ONLY output the JSON object."},
-                {"role": "user", "content": prompt},
-            ],
-            model=self.model,
-            max_tokens=300,
-            response_format={"type": "json_object"}
-        )
-        latency = time.perf_counter() - start_time
-        print(f"  [Latency] Groq (Feedback): {latency:.3f}s")
-        return response.choices[0].message.content
+        return self._chat("Feedback", self.system_prompt + " You must ONLY output the JSON object.", prompt, max_tokens=300, json_mode=True)
 
-    async def get_next_question(self, history, jd, context="", resume_text=""):
+    def get_next_question(self, history, jd_excerpts, resume_excerpts=""):
         history_text = "\n".join([f"Q: {h.get('question', h.get('q', 'N/A'))}\nA: {h.get('answer', h.get('a', 'N/A'))}" for h in history])
-        context_string = f"Relevant Candidate Context:\n{context}\n\n" if context else ""
-        resume_string = f"Candidate Resume Claims:\n{resume_text}\n\n" if resume_text else ""
-        
+        resume_string = f"Candidate Resume Claims (relevant excerpts):\n{resume_excerpts}\n\n" if resume_excerpts else ""
+
         prompt = (
-            f"Job Description: {jd}\n"
-            f"{context_string}"
+            f"Job Description (relevant excerpts): {jd_excerpts}\n"
             f"{resume_string}"
             f"Interview History:\n{history_text}\n\n"
             "Based on the job description, interview history, and candidate resume claims, ask the next challenging cross-examination question. "
@@ -91,80 +71,37 @@ class InterviewBrain:
             "3. Do NOT ask a generic question. Shift focus dynamically to test if they can contextually validate their explicit CV claims.\n"
             "Just the question, no introductory fluff."
         )
-        start_time = time.perf_counter()
-        response = await self.client.chat.completions.create(
-            messages=[
-                {"role": "system", "content": self.system_prompt},
-                {"role": "user", "content": prompt},
-            ],
-            model=self.model,
-            max_tokens=150,
-        )
-        latency = time.perf_counter() - start_time
-        print(f"  [Latency] Groq (Next Q - Skills Cross-Exam): {latency:.3f}s")
-        return response.choices[0].message.content
+        return self._chat("Next Q - Skills Cross-Exam", self.system_prompt, prompt, max_tokens=150)
 
+    def get_summary(self, role, transcript_json):
+        prompt = f"Summarize the performance of the candidate for the {role} role based on history: {transcript_json}"
+        return self._chat("Summary", "You are a senior recruiter. Provide a concise, executive summary of the interview.", prompt)
 
-    async def generate_analysis(self, company, role, jd):
+    def get_resume_score(self, resume_text, jd_text):
         prompt = (
-            f"Analyze the following job application context:\n"
-            f"Company: {company}\n"
-            f"Role: {role}\n"
-            f"Job Description: {jd}\n\n"
-            "Provide a summary analysis as a JSON object with EXACTLY these keys:\n"
+            f"Job Description:\n{jd_text}\n\nResume:\n{resume_text}\n\n"
+            "Score this resume against the job description the way an ATS would.\n"
+            "Return ONLY a valid JSON object with EXACT keys:\n"
             "{\n"
-            "  \"company_focus\": \"e.g., 70% DSA, 30% System Design\",\n"
-            "  \"role_summary\": \"A short professional summary of the role expectations\",\n"
-            "  \"company_vibe\": \"A short description of the company's interview culture\"\n"
+            "  \"skill_score\": <0-100, share of the JD's required skills/tools present in the resume>,\n"
+            "  \"semantic_score\": <0-100, how well the experience and context match the role>,\n"
+            "  \"score\": <0-100 overall match>,\n"
+            "  \"matching_keywords\": [required skills/tools found in the resume],\n"
+            "  \"missing_keywords\": [required skills/tools missing from the resume],\n"
+            "  \"improvement_suggestions\": [up to 3 short, actionable suggestions]\n"
             "}"
         )
-        start_time = time.perf_counter()
-        response = await self.client.chat.completions.create(
-            messages=[
-                {"role": "system", "content": "You are a senior technical recruiter analyst. Return ONLY JSON."},
-                {"role": "user", "content": prompt},
-            ],
-            model=self.model,
-            max_tokens=400,
-            response_format={"type": "json_object"}
-        )
-        latency = time.perf_counter() - start_time
-        print(f"  [Latency] Groq (Analysis): {latency:.3f}s")
-        return response.choices[0].message.content
+        result = json.loads(self._chat("ATS Resume Score", "You are an ATS resume screener. Output purely valid JSON.", prompt, max_tokens=700, json_mode=True))
+        for key in ("score", "semantic_score", "skill_score"):
+            result[key] = round(min(max(float(result.get(key) or 0), 0), 100), 2)
+        suggestions = result.setdefault("improvement_suggestions", [])[:3]
+        result["improvement_suggestions"] = suggestions
+        result["feedback"] = " ".join(suggestions)
+        result.setdefault("matching_keywords", [])
+        result.setdefault("missing_keywords", [])
+        return result
 
-    async def get_resume_score(self, resume_text, jd_text):
-        start_time = time.perf_counter()
-        
-        resume_clean = preprocess_text(resume_text)
-        jd_clean = preprocess_text(jd_text)
-        
-        resume_skills_found = extract_skills(resume_clean, GLOBAL_SKILLS)
-        jd_skills_found = extract_skills(jd_clean, GLOBAL_SKILLS)
-        
-        matched_skills = sorted(list(resume_skills_found.intersection(jd_skills_found)))
-        missing_skills = sorted(list(jd_skills_found - resume_skills_found))
-        
-        semantic_score = calculate_similarity(resume_clean, jd_clean)
-        skill_score = calculate_skill_score(jd_skills_found, resume_skills_found)
-        final_score = generate_final_score(semantic_score, skill_score)
-        
-        improvement_suggestions = generate_heuristic_suggestions(missing_skills, semantic_score, final_score)
-            
-        latency = time.perf_counter() - start_time
-        print(f"  [Latency] Native ATS Heuristics (Resume Score): {latency:.3f}s")
-        
-        result_dict = {
-            "score": final_score,
-            "feedback": " ".join(improvement_suggestions),
-            "missing_keywords": missing_skills,
-            "matching_keywords": matched_skills,
-            "semantic_score": semantic_score,
-            "skill_score": skill_score,
-            "improvement_suggestions": improvement_suggestions
-        }
-        return json.dumps(result_dict)
-
-    async def get_session_skills(self, transcript, jd=""):
+    def get_session_skills(self, transcript, jd=""):
         jd_prompt = f" and target Job Description:\n{jd}\n" if jd else ""
         prompt = (
             f"Review the following interview transcript:\n{transcript}\n{jd_prompt}\n"
@@ -178,17 +115,4 @@ class InterviewBrain:
             "  \"gap_analysis\": \"A detailed paragraph providing the structured talent gap analysis and recommended learning resources\"\n"
             "}"
         )
-        start_time = time.perf_counter()
-        response = await self.client.chat.completions.create(
-            messages=[
-                {"role": "system", "content": "You are a senior technical evaluator. Output purely valid JSON."},
-                {"role": "user", "content": prompt},
-            ],
-            model=self.model,
-            max_tokens=600, # Increased max_tokens to fit detailed gap analysis
-            response_format={"type": "json_object"}
-        )
-        latency = time.perf_counter() - start_time
-        print(f"  [Latency] Groq (Session Skills & XAI Gap): {latency:.3f}s")
-        return response.choices[0].message.content
-
+        return self._chat("Session Skills & XAI Gap", "You are a senior technical evaluator. Output purely valid JSON.", prompt, max_tokens=600, json_mode=True)

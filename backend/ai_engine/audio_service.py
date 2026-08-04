@@ -1,5 +1,5 @@
 import os
-import aiohttp
+import httpx
 import base64
 import time
 from dotenv import load_dotenv
@@ -13,7 +13,7 @@ class AudioService:
         # Default ElevenLabs Voice ID (Josh - deep, professional)
         self.voice_id = "pNInz6obpgDQGcFmaJgB" 
 
-    async def text_to_speech(self, text):
+    def text_to_speech(self, text):
         """Converts text to speech using ElevenLabs and returns base64 audio."""
         if not self.elevenlabs_key or "your_" in self.elevenlabs_key:
             return None
@@ -34,18 +34,15 @@ class AudioService:
         }
 
         start_time = time.perf_counter()
-        async with aiohttp.ClientSession() as session:
-            async with session.post(url, json=data, headers=headers) as response:
-                latency = time.perf_counter() - start_time
-                if response.status == 200:
-                    print(f"  [Latency] ElevenLabs TTS: {latency:.3f}s")
-                    audio_data = await response.read()
-                    return base64.b64encode(audio_data).decode('utf-8')
-                else:
-                    print(f"  [Latency] ElevenLabs Error ({response.status}) in {latency:.3f}s")
-                    return None
+        response = httpx.post(url, json=data, headers=headers, timeout=30)
+        latency = time.perf_counter() - start_time
+        if response.status_code == 200:
+            print(f"  [Latency] ElevenLabs TTS: {latency:.3f}s")
+            return base64.b64encode(response.content).decode('utf-8')
+        print(f"  [Latency] ElevenLabs Error ({response.status_code}) in {latency:.3f}s")
+        return None
 
-    async def transcribe_audio(self, audio_data_b64, mime_type='audio/webm'):
+    def transcribe_audio(self, audio_data_b64, mime_type='audio/webm'):
         """Transcribes audio using Deepgram of base64 data."""
         if not self.deepgram_key or "your_" in self.deepgram_key:
             return None
@@ -62,14 +59,10 @@ class AudioService:
         }
 
         start_time = time.perf_counter()
-        async with aiohttp.ClientSession() as session:
-            async with session.post(url, data=audio_data, headers=headers) as response:
-                latency = time.perf_counter() - start_time
-                if response.status == 200:
-                    print(f"  [Latency] Deepgram STT: {latency:.3f}s")
-                    result = await response.json()
-                    return result['results']['channels'][0]['alternatives'][0]['transcript']
-                else:
-                    error_body = await response.text()
-                    print(f"  [Latency] Deepgram Error ({response.status}) in {latency:.3f}s - {error_body}")
-                    return None
+        response = httpx.post(url, content=audio_data, headers=headers, timeout=30)
+        latency = time.perf_counter() - start_time
+        if response.status_code == 200:
+            print(f"  [Latency] Deepgram STT: {latency:.3f}s")
+            return response.json()['results']['channels'][0]['alternatives'][0]['transcript']
+        print(f"  [Latency] Deepgram Error ({response.status_code}) in {latency:.3f}s - {response.text}")
+        return None

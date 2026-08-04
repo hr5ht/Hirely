@@ -1,14 +1,7 @@
+{% extends "base.html" %}
 {% load static %}
-<!DOCTYPE html>
-<html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Applicant Evaluation | Hirely</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+{% block title %}Applicant Evaluation | Hirely{% endblock %}
+{% block head %}
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -44,9 +37,9 @@
             scrollbar-width: none;
         }
     </style>
-</head>
-
-<body class="min-h-screen flex flex-col pt-16">
+{% endblock %}
+{% block body_class %}min-h-screen flex flex-col pt-16{% endblock %}
+{% block content %}
 
     <!-- Coherent Recruiter Portal Navigation -->
     <nav class="bg-white/80 backdrop-blur-md border-b border-gray-100 fixed top-0 w-full z-50">
@@ -332,6 +325,4 @@
     <script>
         lucide.createIcons();
     </script>
-</body>
-
-</html>
+{% endblock %}

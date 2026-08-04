@@ -1,14 +1,7 @@
+{% extends "base.html" %}
 {% load static %}
-<!DOCTYPE html>
-<html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Candidate Hub | Hirely</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+{% block title %}Candidate Hub | Hirely{% endblock %}
+{% block head %}
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -45,10 +38,9 @@
             100% { transform: rotate(360deg); }
         }
     </style>
-    <link rel="icon" type="image/png" href="/favicon.ico">
-</head>
-
-<body class="min-h-screen flex flex-col pt-16">
+{% endblock %}
+{% block body_class %}min-h-screen flex flex-col pt-16{% endblock %}
+{% block content %}
 
     <!-- Navigation -->
     <nav class="fixed top-0 left-0 w-full bg-white/80 backdrop-blur-md border-b border-slate-100 z-40">
@@ -588,6 +580,4 @@
             }, 300);
         }
     </script>
-</body>
-
-</html>
+{% endblock %}
