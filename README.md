@@ -32,7 +32,7 @@ Demo data is shared and may be reset.
 | Proctoring | MediaPipe Face Mesh (runs in the browser) |
 | Reports | ReportLab |
 | Frontend | Django templates, Tailwind CSS |
-| Hosting | Vercel (serverless); `render.yaml` included for Render |
+| Hosting | Vercel (serverless) |
 
 All AI runs on hosted APIs, so the server needs no GPU and very little memory.
 
@@ -57,7 +57,6 @@ backend/
     tests.py          Test suite (AI calls mocked)
   templates/          Django templates
   vercel.json         Vercel config
-render.yaml           Render config
 ```
 
 ## Local Setup
@@ -96,16 +95,12 @@ python manage.py test ai_engine     # run the tests
 | `ELEVENLABS_API_KEY` | elevenlabs.io | Yes |
 | `DEEPGRAM_API_KEY` | deepgram.com | Free credits |
 
-## Deployment
+## Deployment (Vercel)
 
 Production also needs `SECRET_KEY` (any long random string); the app refuses to start without it.
 
-**Vercel**
 1. Import the GitHub repo and set **Root Directory** to `backend`.
 2. Add the environment variables above. For `DATABASE_URL`, use Neon's pooled connection string (hostname contains `-pooler`).
 3. Run migrations once from your machine: `DATABASE_URL="<neon url>" python manage.py migrate`.
 
 Every push to `main` then deploys automatically.
-
-**Render**
-Create a Blueprint from the repo; `render.yaml` installs dependencies, runs migrations and starts gunicorn. The free plan sleeps after about 15 minutes idle.
