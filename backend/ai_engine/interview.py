@@ -33,7 +33,9 @@ def start(session, data):
     app = session.application
     transcript = session.transcript
     if transcript and 'answer' not in transcript[-1]:
-        # Page reload: re-serve the pending question instead of paying for a new one
+        # Page reload: re-serve the pending question instead of paying for a new one,
+        # and flag it so a reload can't be used to escape a question unnoticed
+        proctor(session, {"type": "Interview page reloaded"})
         return [_question(transcript[-1]['question'])]
 
     resume_ctx, jd_ctx = rag.retrieve(f"{app.job.title} {ROUND_TOPICS[0]}", app.resume_text, app.job.description)
