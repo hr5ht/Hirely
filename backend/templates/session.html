@@ -517,7 +517,9 @@
         document.getElementById('conn-indicator').classList.remove('pulse');
         document.getElementById('conn-text').innerText = 'AI Online';
         document.getElementById('conn-text').classList.replace('text-yellow-400', 'text-green-400');
-        send('start');
+        // The first question is only requested once the camera is running (see enableCameraBtn), so proctoring can't be skipped
+        promptLabel.innerText = "Camera required";
+        promptText.innerText = "Enable your camera to begin the interview.";
 
         function handleMessage(message) {
             const msgType = message.type;
@@ -594,15 +596,6 @@
             if (micBar) micBar.style.display = 'none';
         }
 
-        // Closing or leaving the tab ends the session, like the old socket disconnect did
-        let sessionEnded = false;
-        window.addEventListener('pagehide', () => {
-            if (sessionEnded) return;
-            const form = new FormData();
-            form.append('csrfmiddlewaretoken', csrfToken);
-            navigator.sendBeacon(`/ai/interview/${session_id}/end/`, form);
-        });
-
         async function endSessionAndSave() {
             const endBtnEl = document.getElementById('end-btn');
             if (endBtnEl) {
@@ -616,7 +609,6 @@
                 conversationHistory.push({...currentRound});
             }
 
-            sessionEnded = true;
             // The server replies with session_completed, which redirects to the dashboard
             if (!await send('end')) window.location.href = '/dashboard/';
         }
@@ -835,7 +827,18 @@
             canvasElement.width = videoElement.clientWidth;
             canvasElement.height = videoElement.clientHeight;
 
-            camera.start();
+            try {
+                await camera.start();
+            } catch (err) {
+                console.error('Camera error:', err);
+                videoWrapper.classList.add('hidden');
+                cameraSetup.classList.remove('hidden');
+                promptText.innerText = "Camera access is required for this interview. Allow it in your browser and try again.";
+                return;
+            }
+            promptLabel.innerText = "Starting";
+            promptText.innerText = "Preparing your first question...";
+            send('start');
         };
 
         window.addEventListener('resize', () => {

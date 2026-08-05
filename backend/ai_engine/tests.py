@@ -87,7 +87,7 @@ class PagesTest(TestCase):
 
 
 @patch("ai_engine.audio_service.AudioService.text_to_speech", return_value=None)
-@patch("ai_engine.brain.InterviewBrain.get_session_skills", return_value='{"tech_knowledge": 70}')
+@patch("ai_engine.brain.InterviewBrain.get_session_skills", return_value='{"tech_knowledge": 70, "gap_analysis": "Needs deeper Kafka partitioning."}')
 class InterviewFlowTest(TestCase):
     def post(self, action, data=None):
         return self.client.post(f"/ai/interview/{self.session.id}/{action}/", json.dumps(data or {}), content_type="application/json")
@@ -103,11 +103,11 @@ class InterviewFlowTest(TestCase):
              patch.object(InterviewBrain, "get_feedback", return_value=feedback), \
              patch.object(InterviewBrain, "get_next_question", return_value="Q2?") as next_q:
             self.assertEqual(self.post("start").json()["messages"][0]["text"], "Q1?")
-            self.assertEqual(self.post("start").json()["messages"][0]["text"], "Q1?")  # reload reuses it
+            self.assertEqual(self.post("start").json()["messages"][0]["text"], "Q1?")  # reload resumes the same question
             self.assertEqual(first_q.call_count, 1)
             self.assertIn("Kafka", first_q.call_args.args[1] + first_q.call_args.args[2])  # RAG context passed
 
-            types = [m.get("message_type", m["type"]) for m in self.post("answer", {"answer": "I used Kafka"}).json()["messages"]]
+            types = [m.get("message_type", m["type"]) for m in self.post("answer", {"answer": "I used Kafka when a<b and b>c"}).json()["messages"]]
             self.assertEqual(types, ["insights_update", "silent_feedback", "question"])
             self.assertIn("Kafka consumers", next_q.call_args.args[2])  # resume chunk matching the answer
 
@@ -119,9 +119,12 @@ class InterviewFlowTest(TestCase):
         self.assertEqual(self.session.session_status, "completed")
         self.assertEqual(len(self.session.transcript), 1)  # pending Q2 dropped
         self.assertEqual((self.session.avg_confidence, self.session.avg_clarity), (40, 60))
-        self.assertEqual((self.app.proctoring_score, self.app.status), (85, "evaluated"))
+        self.assertEqual((self.app.proctoring_score, self.app.status), (80, "evaluated"))  # -5 reload, -15 face
         pdf_text = "".join(p.extract_text() for p in PyPDF2.PdfReader(io.BytesIO(bytes(self.session.pdf_report))).pages)
         self.assertIn("Face Not Detected", pdf_text)
+        self.assertIn("Interview page reloaded", pdf_text)
+        self.assertIn("Needs deeper Kafka partitioning.", pdf_text)  # gap analysis is in the report
+        self.assertIn("a<b and b>c", pdf_text)  # markup-like answers no longer abort the report
 
     def test_ai_failure_returns_error_and_session_can_still_end(self, *_):
         with patch.object(InterviewBrain, "generate_initial_question", side_effect=RuntimeError("401")):

@@ -1,5 +1,7 @@
 import io
 import json
+from xml.sax.saxutils import escape
+
 from django.utils import timezone
 from ai_engine.models import InterviewSession
 from ai_engine.brain import InterviewBrain
@@ -10,6 +12,11 @@ from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak, KeepTogether
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER
+
+
+def esc(value):
+    """Plain text for a ReportLab Paragraph, which otherwise parses it as markup."""
+    return escape(str(value))
 
 def evaluate_transcript_semantic_gaps(session_id):
     """
@@ -179,15 +186,15 @@ def compile_performance_report_pdf(session_id):
         meta_data = [
             [
                 Paragraph("Candidate Name:", meta_label_style),
-                Paragraph(candidate.username, body_style),
+                Paragraph(esc(candidate.username), body_style),
                 Paragraph("Target Position:", meta_label_style),
-                Paragraph(job.title, body_style)
+                Paragraph(esc(job.title), body_style)
             ],
             [
                 Paragraph("Email Address:", meta_label_style),
-                Paragraph(candidate.email, body_style),
+                Paragraph(esc(candidate.email), body_style),
                 Paragraph("Company Hiring:", meta_label_style),
-                Paragraph(company.name, body_style)
+                Paragraph(esc(company.name), body_style)
             ],
             [
                 Paragraph("Date Compiled:", meta_label_style),
@@ -261,8 +268,8 @@ def compile_performance_report_pdf(session_id):
             proc_table_data = [proc_headers]
             for infraction in session.proctoring_logs:
                 proc_table_data.append([
-                    Paragraph(infraction.get('type', 'Gaze Deviation'), table_cell_style),
-                    Paragraph(infraction.get('timestamp', '').replace('T', ' ')[:19], table_cell_style)
+                    Paragraph(esc(infraction.get('type', 'Gaze Deviation')), table_cell_style),
+                    Paragraph(esc(infraction.get('timestamp', '').replace('T', ' ')[:19]), table_cell_style)
                 ])
             
             proc_table = Table(proc_table_data, colWidths=[280, 240])
@@ -281,6 +288,12 @@ def compile_performance_report_pdf(session_id):
             story.append(proc_table)
         else:
             story.append(Paragraph("<b>No security infractions flagged.</b> Edge-gaze proctoring verified total assessment integrity.", ParagraphStyle('SecOk', parent=body_style, textColor=accent_color)))
+
+        # --- SKILLS GAP ANALYSIS ---
+        if session.gap_analysis:
+            story.append(Spacer(1, 20))
+            story.append(Paragraph("Skills Gap Analysis", h2_style))
+            story.append(Paragraph(esc(session.gap_analysis), body_style))
             
         story.append(PageBreak()) # Clean break to push transcripts onto secondary page
         
@@ -297,18 +310,18 @@ def compile_performance_report_pdf(session_id):
             
             # AI Dialog
             round_flow.append(Paragraph("AI Interviewer:", speaker_ai_style))
-            round_flow.append(Paragraph(q_text, body_style))
+            round_flow.append(Paragraph(esc(q_text), body_style))
             round_flow.append(Spacer(1, 4))
             
             # Candidate Dialog
             round_flow.append(Paragraph("Candidate:", speaker_candidate_style))
-            round_flow.append(Paragraph(a_text, body_style))
+            round_flow.append(Paragraph(esc(a_text), body_style))
             round_flow.append(Spacer(1, 4))
             
             # Semantic Feedback block
             if f_text:
                 round_flow.append(Paragraph("AI Constructive Feedback:", ParagraphStyle('AI_F', parent=body_style, fontName='Helvetica-Bold', textColor=accent_color)))
-                round_flow.append(Paragraph(f_text, ParagraphStyle('FeedbackP', parent=body_style, fontName='Helvetica-Oblique', textColor=colors.HexColor('#374151'))))
+                round_flow.append(Paragraph(esc(f_text), ParagraphStyle('FeedbackP', parent=body_style, fontName='Helvetica-Oblique', textColor=colors.HexColor('#374151'))))
                 
             round_flow.append(Spacer(1, 10))
             story.append(KeepTogether(round_flow))
