@@ -4,13 +4,6 @@ An AI recruitment platform: companies post jobs, candidates apply with a resume,
 
 **Live demo:** https://hirely-hr5ht.vercel.app
 
-| Role | Username | Password |
-|---|---|---|
-| Candidate | `candidate` | `1234` |
-| Recruiter (Google) | `recruiter` | `1234` |
-
-Demo data is shared and may be reset.
-
 ## Features
 
 - **ATS resume scoring:** an LLM compares the resume with the job description and returns an overall score, skill and context sub-scores, matched and missing skills, and suggestions.
