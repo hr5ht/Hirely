@@ -1,5 +1,4 @@
 Django>=5.2,<6
-gunicorn
 whitenoise
 dj-database-url
 psycopg2-binary

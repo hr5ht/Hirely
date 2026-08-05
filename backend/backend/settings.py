@@ -13,8 +13,8 @@ load_dotenv(os.path.join(BASE_DIR, '.env'))
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: don't run with debug turned on in production!
-# Off on Vercel and Render (both set these); on locally
-DEBUG = not any(os.environ.get(k) for k in ('VERCEL', 'RENDER'))
+# Off on Vercel (it sets VERCEL); on locally
+DEBUG = not os.environ.get('VERCEL')
 
 # SECURITY WARNING: keep the secret key used in production secret!
 # The dev fallback only applies locally; production must set SECRET_KEY or startup fails.
@@ -23,8 +23,8 @@ if not SECRET_KEY:
     raise ValueError("SECRET_KEY environment variable is required in production.")
 
 ALLOWED_HOSTS = ['*']
-CSRF_TRUSTED_ORIGINS = ['https://*.vercel.app', 'https://*.onrender.com']
-# Both hosts terminate HTTPS at their proxy; trust its header so Django knows requests are secure
+CSRF_TRUSTED_ORIGINS = ['https://*.vercel.app']
+# Vercel terminates HTTPS at its proxy; trust its header so Django knows requests are secure
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 SESSION_COOKIE_SECURE = CSRF_COOKIE_SECURE = not DEBUG
 
