@@ -82,8 +82,8 @@ def register_view(request):
             profile.role = role
 
             if role == 'recruiter':
-                # Automatically extract domain from email or construct domain from company name
-                domain = email.split('@')[-1] if '@' in email else f"{company_name.lower().replace(' ', '')}.com"
+                # Email domains are shared by unrelated people (gmail.com), so they can't identify a company
+                domain = f"{company_name.lower().replace(' ', '')}.com"
                 company, _ = Company.objects.get_or_create(domain=domain, defaults={'name': company_name})
                 profile.company = company
 
