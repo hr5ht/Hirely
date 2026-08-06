@@ -82,10 +82,8 @@ def register_view(request):
             profile.role = role
 
             if role == 'recruiter':
-                # Email domains are shared by unrelated people (gmail.com), so they can't identify a company
-                domain = f"{company_name.lower().replace(' ', '')}.com"
-                company, _ = Company.objects.get_or_create(domain=domain, defaults={'name': company_name})
-                profile.company = company
+                # Each registration gets its own company: neither email domains nor typed names prove membership
+                profile.company = Company.objects.create(name=company_name)
 
             profile.save()
             return redirect('login')
@@ -139,9 +137,8 @@ def dashboard_view(request):
     if profile.role == 'recruiter':
         company = profile.company
         if not company:
-            # Fallback if company is missing
-            company, _ = Company.objects.get_or_create(domain='default.com', defaults={'name': 'General Business'})
-            profile.company = company
+            # Never fall back to a shared company: that would expose other recruiters' applicants
+            company = profile.company = Company.objects.create(name=f"{request.user.username}'s company")
             profile.save()
 
         jobs = Job.objects.filter(company=company).order_by('-created_at')
