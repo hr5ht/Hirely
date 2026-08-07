@@ -86,6 +86,23 @@ class PagesTest(TestCase):
         self.assertRedirects(self.client.get("/session/"), "/dashboard/")
 
 
+class TenantTest(TestCase):
+    def register(self, username, company):
+        self.client.post("/register/", {"username": username, "email": f"{username}@gmail.com", "password": "pw",
+                                        "role": "recruiter", "company_name": company})
+        return User.objects.get(username=username)
+
+    def test_recruiters_on_the_same_email_provider_are_isolated(self):
+        a, b = self.register("ra", "Acme"), self.register("rb", "Acme")
+        self.assertNotEqual(a.profile.company, b.profile.company)
+        _, app = make_app("zed_applicant")
+        app.job.company = a.profile.company
+        app.job.save()
+        self.client.force_login(b)
+        self.assertNotContains(self.client.get("/dashboard/"), app.candidate.username)
+        self.assertRedirects(self.client.get(f"/ai/candidate-detail/{app.id}/"), "/dashboard/")
+
+
 @patch("ai_engine.audio_service.AudioService.text_to_speech", return_value=None)
 @patch("ai_engine.brain.InterviewBrain.get_session_skills", return_value='{"tech_knowledge": 70, "gap_analysis": "Needs deeper Kafka partitioning."}')
 class InterviewFlowTest(TestCase):
