@@ -112,6 +112,7 @@ def logout_view(request):
     logout(request)
     return redirect('login')
 
+@require_POST
 def delete_session(request, session_id):
     if not request.user.is_authenticated:
         return redirect('login')
