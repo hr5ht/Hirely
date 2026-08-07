@@ -166,16 +166,22 @@
                     </div>
                     {% else %}
                     <div class="flex gap-3">
-                        <a href="/ai/update-status/{{ application.id }}/accepted/"
-                           class="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-center text-[11px] uppercase tracking-wider transition-colors shadow-sm flex items-center justify-center gap-1.5"
-                           id="btn-accept-candidate">
-                            <i data-lucide="user-check" class="w-4 h-4"></i> Accept
-                        </a>
-                        <a href="/ai/update-status/{{ application.id }}/rejected/"
-                           class="flex-1 py-3 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-center text-[11px] uppercase tracking-wider transition-colors shadow-sm flex items-center justify-center gap-1.5"
-                           id="btn-reject-candidate">
-                            <i data-lucide="user-x" class="w-4 h-4"></i> Reject
-                        </a>
+                        <form method="post" action="/ai/update-status/{{ application.id }}/accepted/" class="flex-1">
+                            {% csrf_token %}
+                            <button type="submit"
+                               class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-center text-[11px] uppercase tracking-wider transition-colors shadow-sm flex items-center justify-center gap-1.5"
+                               id="btn-accept-candidate">
+                                <i data-lucide="user-check" class="w-4 h-4"></i> Accept
+                            </button>
+                        </form>
+                        <form method="post" action="/ai/update-status/{{ application.id }}/rejected/" class="flex-1">
+                            {% csrf_token %}
+                            <button type="submit"
+                               class="w-full py-3 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-center text-[11px] uppercase tracking-wider transition-colors shadow-sm flex items-center justify-center gap-1.5"
+                               id="btn-reject-candidate">
+                                <i data-lucide="user-x" class="w-4 h-4"></i> Reject
+                            </button>
+                        </form>
                     </div>
                     {% endif %}
                 </div>

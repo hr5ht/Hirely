@@ -386,6 +386,7 @@ def candidate_detail(request, application_id):
 
     return redirect('dashboard')
 
+@require_POST
 def update_application_status(request, application_id, status_val):
     if not request.user.is_authenticated:
         return redirect('login')
