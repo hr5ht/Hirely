@@ -150,6 +150,7 @@
             try {
                 const response = await fetch('/ai/score-resume/', {
                     method: 'POST',
+                    headers: { 'X-CSRFToken': '{{ csrf_token }}' },
                     body: formData
                 });
 
