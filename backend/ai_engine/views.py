@@ -4,7 +4,6 @@ from django.contrib.auth.models import User
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.contrib import messages
 from django.db.models import Avg
-from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 import json
 import PyPDF2
@@ -283,7 +282,6 @@ def resume_scanner_view(request):
         return redirect('login')
     return render(request, 'resume_scanner.html', {'username': request.user.username})
 
-@csrf_exempt
 def score_resume_api(request):
     if request.method != 'POST':
         return JsonResponse({'error': 'POST required'}, status=405)
