@@ -103,6 +103,23 @@ class TenantTest(TestCase):
         self.assertRedirects(self.client.get(f"/ai/candidate-detail/{app.id}/"), "/dashboard/")
 
 
+class StateChangeTest(TestCase):
+    def test_get_on_state_changing_urls_returns_405(self):
+        user, app = make_app()
+        session = InterviewSession.objects.create(application=app)
+        self.client.force_login(user)
+        for url in [f"/ai/update-status/{app.id}/accepted/", f"/delete-session/{session.id}/",
+                    "/ai/score-resume/", f"/ai/interview/{session.id}/start/"]:
+            self.assertEqual(self.client.get(url).status_code, 405, url)
+        self.assertTrue(InterviewSession.objects.filter(id=session.id).exists())
+
+    def test_posts_without_csrf_token_are_rejected(self):
+        user, app = make_app()
+        csrf_client = self.client_class(enforce_csrf_checks=True)
+        csrf_client.force_login(user)
+        self.assertEqual(csrf_client.post("/ai/score-resume/", {"jd": "x"}).status_code, 403)
+
+
 @patch("ai_engine.audio_service.AudioService.text_to_speech", return_value=None)
 @patch("ai_engine.brain.InterviewBrain.get_session_skills", return_value='{"tech_knowledge": 70, "gap_analysis": "Needs deeper Kafka partitioning."}')
 class InterviewFlowTest(TestCase):
