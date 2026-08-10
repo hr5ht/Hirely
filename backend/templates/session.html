@@ -509,7 +509,11 @@
         function addTranscript(role, text) {
             const p = document.createElement('p');
             p.className = 'text-xs leading-relaxed text-gray-400';
-            p.innerHTML = `<span class="${role === 'You' ? 'text-indigo-400' : 'text-purple-400'} font-bold">${role}:</span> ${text}`;
+            const label = document.createElement('span');
+            label.className = `${role === 'You' ? 'text-indigo-400' : 'text-purple-400'} font-bold`;
+            label.textContent = `${role}:`;
+            // Answers and AI output are untrusted text, never markup
+            p.append(label, ` ${text}`);
             transcriptArea.prepend(p);
         }
 
