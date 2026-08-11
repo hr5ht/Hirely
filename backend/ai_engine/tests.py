@@ -103,6 +103,47 @@ class TenantTest(TestCase):
         self.assertRedirects(self.client.get(f"/ai/candidate-detail/{app.id}/"), "/dashboard/")
 
 
+def make_pdf(text="Python developer with Kafka experience"):
+    from django.core.files.uploadedfile import SimpleUploadedFile
+    from reportlab.pdfgen import canvas
+    buf = io.BytesIO()
+    pdf = canvas.Canvas(buf)
+    pdf.drawString(72, 720, text)
+    pdf.save()
+    return SimpleUploadedFile("resume.pdf", buf.getvalue(), content_type="application/pdf")
+
+
+@patch.object(InterviewBrain, "get_resume_score", return_value={"score": 72})
+class ApplyTest(TestCase):
+    def setUp(self):
+        self.user, app = make_app()
+        self.job = app.job
+        app.delete()
+
+    def apply(self, **extra):
+        return self.client.post("/ai/apply-to-job/", {"job_id": self.job.id, "resume": make_pdf(), **extra})
+
+    def test_requires_login(self, _):
+        self.assertEqual(self.apply().status_code, 401)
+
+    def test_closed_job_rejects_applications(self, _):
+        self.client.force_login(self.user)
+        self.job.is_active = False
+        self.job.save()
+        res = self.apply()
+        self.assertEqual(res.status_code, 400)
+        self.assertIn("no longer accepting", res.json()["error"])
+        self.assertEqual(self.apply(job_id="abc").status_code, 400)
+        self.assertFalse(Application.objects.exists())
+
+    def test_open_job_accepts_application(self, _):
+        self.client.force_login(self.user)
+        res = self.apply()
+        self.assertEqual(res.status_code, 200, res.content)
+        self.assertEqual(res.json()["ats_score"], 72)
+        self.assertIn("Kafka", Application.objects.get().resume_text)
+
+
 class StateChangeTest(TestCase):
     def test_get_on_state_changing_urls_returns_405(self):
         user, app = make_app()
