@@ -337,7 +337,9 @@ def post_job(request):
     return redirect('dashboard')
 
 def apply_to_job(request):
-    if request.method == 'POST' and request.user.is_authenticated and 'resume' in request.FILES:
+    if not request.user.is_authenticated:
+        return JsonResponse({'success': False, 'error': 'Please log in to apply.'}, status=401)
+    if request.method == 'POST' and 'resume' in request.FILES:
         resume_file = request.FILES['resume']
         try:
             job = Job.objects.get(id=request.POST.get('job_id'))
