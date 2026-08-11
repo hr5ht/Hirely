@@ -341,8 +341,11 @@ def apply_to_job(request):
         return JsonResponse({'success': False, 'error': 'Please log in to apply.'}, status=401)
     if request.method == 'POST' and 'resume' in request.FILES:
         resume_file = request.FILES['resume']
+        job_id = request.POST.get('job_id', '')
+        job = Job.objects.filter(id=job_id).first() if job_id.isdigit() else None
+        if not job or not job.is_active:
+            return JsonResponse({'success': False, 'error': 'This job is no longer accepting applications.'}, status=400)
         try:
-            job = Job.objects.get(id=request.POST.get('job_id'))
             resume_bytes = resume_file.read()
             resume_text = _pdf_text(resume_file)
 
