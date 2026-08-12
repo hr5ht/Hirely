@@ -103,7 +103,7 @@ class TenantTest(TestCase):
         self.assertRedirects(self.client.get(f"/ai/candidate-detail/{app.id}/"), "/dashboard/")
 
 
-def make_pdf(text="Python developer with Kafka experience"):
+def make_pdf(text="Python developer with five years of Kafka, Postgres and Django experience building streaming pipelines, REST APIs and dashboards for retail clients across India"):
     from django.core.files.uploadedfile import SimpleUploadedFile
     from reportlab.pdfgen import canvas
     buf = io.BytesIO()
