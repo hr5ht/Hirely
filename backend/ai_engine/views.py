@@ -24,7 +24,17 @@ def _pdf_text(f):
     if f.read(5) != b'%PDF-':
         raise ValueError("That file isn't a PDF. Please upload your resume as a PDF.")
     f.seek(0)
-    return "\n".join(page.extract_text() or "" for page in PyPDF2.PdfReader(f).pages)
+    try:
+        reader = PyPDF2.PdfReader(f)
+        if reader.is_encrypted:
+            raise ValueError("This PDF is password-protected. Please upload an unlocked copy.")
+        text = "\n".join(page.extract_text() or "" for page in reader.pages)
+    except PyPDF2.errors.PdfReadError:
+        raise ValueError("This PDF couldn't be read. Try exporting it again from your editor.")
+    if len(text.split()) < 20:
+        # Scanned resumes are images: without text the ATS score would silently be ~0
+        raise ValueError("No text found in this PDF (it may be a scanned image). Please upload a text-based PDF.")
+    return text
 
 
 def _avg(qs, field):
