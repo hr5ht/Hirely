@@ -536,9 +536,10 @@
                     'X-CSRFToken': formData.get('csrfmiddlewaretoken')
                 }
             })
-            .then(res => {
-                if (!res.ok) throw new Error('Application submission failed.');
-                return res.json();
+            .then(async res => {
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) throw new Error(data.error || 'Application submission failed.');
+                return data;
             })
             .then(data => {
                 // Reset form and modal state
