@@ -524,6 +524,11 @@
             const form = this;
             const formData = new FormData(form);
             const loadingState = document.getElementById('apply-loading-state');
+            const resume = formData.get('resume');
+            if (resume && resume.size > 4 * 1024 * 1024) {
+                alert('Resume is larger than 4 MB. Please upload a smaller PDF.');
+                return;
+            }
             
             // Show loading state, hide form fields
             form.classList.add('hidden');
