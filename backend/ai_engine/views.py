@@ -14,6 +14,10 @@ from ai_engine import interview
 
 
 def _pdf_text(f):
+    """Text of an uploaded resume. Raises ValueError with a message safe to show the user."""
+    f.seek(0)
+    if f.read(5) != b'%PDF-':
+        raise ValueError("That file isn't a PDF. Please upload your resume as a PDF.")
     f.seek(0)
     return "\n".join(page.extract_text() or "" for page in PyPDF2.PdfReader(f).pages)
 
@@ -213,16 +217,20 @@ def upload_profile_resume(request):
         resume_file = request.FILES['resume']
         profile, _ = UserProfile.objects.get_or_create(user=request.user)
         profile.resume_pdf = resume_file.read()
+        to_profile = request.POST.get('redirect_to') == 'profile'
         try:
             profile.resume_text = _pdf_text(resume_file)
-            profile.save()
-
-            if request.POST.get('redirect_to') == 'profile':
-                messages.success(request, 'Resume successfully verified and parsed.')
+        except ValueError as e:
+            if to_profile:
+                messages.error(request, str(e))
                 return redirect('profile')
-            return JsonResponse({"status": "success", "message": "Resume uploaded successfully."})
-        except Exception as e:
             return JsonResponse({"status": "error", "message": str(e)}, status=400)
+        profile.save()
+
+        if to_profile:
+            messages.success(request, 'Resume successfully verified and parsed.')
+            return redirect('profile')
+        return JsonResponse({"status": "success", "message": "Resume uploaded successfully."})
     return JsonResponse({"status": "error", "message": "Invalid request"}, status=400)
 
 def scores_view(request):
