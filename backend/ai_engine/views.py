@@ -13,8 +13,13 @@ from ai_engine.brain import InterviewBrain
 from ai_engine import interview
 
 
+MAX_RESUME_BYTES = 4 * 1024 * 1024  # Vercel rejects request bodies over 4.5 MB before Django sees them
+
+
 def _pdf_text(f):
     """Text of an uploaded resume. Raises ValueError with a message safe to show the user."""
+    if f.size > MAX_RESUME_BYTES:
+        raise ValueError("Resume is larger than 4 MB. Please upload a smaller PDF.")
     f.seek(0)
     if f.read(5) != b'%PDF-':
         raise ValueError("That file isn't a PDF. Please upload your resume as a PDF.")
