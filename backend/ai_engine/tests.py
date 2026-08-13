@@ -144,6 +144,35 @@ class ApplyTest(TestCase):
         self.assertIn("Kafka", Application.objects.get().resume_text)
 
 
+class UploadTest(TestCase):
+    def upload(self, f):
+        return self.client.post("/upload-profile-resume/", {"resume": f})
+
+    def test_bad_files_are_rejected_with_a_reason(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from ai_engine.views import MAX_RESUME_BYTES
+        encrypted = io.BytesIO()
+        writer = PyPDF2.PdfWriter()
+        writer.append_pages_from_reader(PyPDF2.PdfReader(make_pdf()))
+        writer.encrypt("secret")
+        writer.write(encrypted)
+        cases = {
+            "isn't a PDF": SimpleUploadedFile("resume.docx", b"PK\x03\x04 word file"),
+            "larger than 4 MB": SimpleUploadedFile("big.pdf", b"%PDF-" + b"0" * MAX_RESUME_BYTES),
+            "No text found": make_pdf("Jane Doe"),
+            "password-protected": SimpleUploadedFile("locked.pdf", encrypted.getvalue()),
+            "couldn't be read": SimpleUploadedFile("broken.pdf", b"%PDF-1.4 garbage"),
+        }
+        user, _ = make_app()
+        self.client.force_login(user)
+        for reason, f in cases.items():
+            res = self.upload(f)
+            self.assertEqual(res.status_code, 400, reason)
+            self.assertIn(reason, res.json()["message"])
+        self.assertEqual(user.profile.resume_text, "")
+        self.assertEqual(self.upload(make_pdf()).status_code, 200)
+
+
 class StateChangeTest(TestCase):
     def test_get_on_state_changing_urls_returns_405(self):
         user, app = make_app()
