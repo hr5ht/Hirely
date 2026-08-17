@@ -7,6 +7,7 @@ from django.contrib import messages
 from django.db.models import Avg
 from django.views.decorators.http import require_POST
 import json
+import groq
 import PyPDF2
 
 from ai_engine.models import Company, UserProfile, Job, Application, InterviewSession
@@ -38,6 +39,13 @@ def _pdf_text(f):
         # Scanned resumes are images: without text the ATS score would silently be ~0
         raise ValueError("No text found in this PDF (it may be a scanned image). Please upload a text-based PDF.")
     return text
+
+
+def _ai_error(e):
+    """What the user sees when an AI call fails; the real exception goes to the log."""
+    if isinstance(e, groq.RateLimitError):
+        return "AI service error: too many requests right now. Please try again in a minute."
+    return "AI service error: something went wrong. Please try again."
 
 
 def _avg(qs, field):
@@ -324,7 +332,8 @@ def score_resume_api(request):
     try:
         return JsonResponse(InterviewBrain().get_resume_score(resume_text, jd_text))
     except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
+        log.exception("Resume scan failed")
+        return JsonResponse({'error': _ai_error(e)}, status=502)
 
 def download_session_pdf(request, session_id):
     if not request.user.is_authenticated:
@@ -392,9 +401,11 @@ def apply_to_job(request):
                 'job_title': job.title,
                 'company_name': job.company.name
             })
+        except ValueError as e:  # unreadable resume; the message is written for the user
+            return JsonResponse({'success': False, 'error': str(e)}, status=400)
         except Exception as e:
             log.exception("Applying to job %s failed", job.id)
-            return JsonResponse({'success': False, 'error': str(e)}, status=400)
+            return JsonResponse({'success': False, 'error': _ai_error(e)}, status=502)
 
     return JsonResponse({'success': False, 'error': 'Invalid request'}, status=400)
 
@@ -451,4 +462,4 @@ def interview_action(request, session_id, action):
         return JsonResponse({'messages': interview.ACTIONS[action](session, data)})
     except Exception as e:
         log.exception("Interview %s failed on session %s", action, session_id)
-        return JsonResponse({'error': f'AI service error: {e}'}, status=502)
+        return JsonResponse({'error': _ai_error(e)}, status=502)
