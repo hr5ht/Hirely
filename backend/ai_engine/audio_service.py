@@ -1,8 +1,11 @@
+import logging
 import os
 import httpx
 import base64
 import time
 from dotenv import load_dotenv
+
+log = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -37,9 +40,9 @@ class AudioService:
         response = httpx.post(url, json=data, headers=headers, timeout=30)
         latency = time.perf_counter() - start_time
         if response.status_code == 200:
-            print(f"  [Latency] ElevenLabs TTS: {latency:.3f}s")
+            log.info("ElevenLabs TTS took %.3fs", latency)
             return base64.b64encode(response.content).decode('utf-8')
-        print(f"  [Latency] ElevenLabs Error ({response.status_code}) in {latency:.3f}s")
+        log.error("ElevenLabs TTS failed (%s) in %.3fs", response.status_code, latency)
         return None
 
     def transcribe_audio(self, audio_data_b64, mime_type='audio/webm'):
@@ -62,7 +65,7 @@ class AudioService:
         response = httpx.post(url, content=audio_data, headers=headers, timeout=30)
         latency = time.perf_counter() - start_time
         if response.status_code == 200:
-            print(f"  [Latency] Deepgram STT: {latency:.3f}s")
+            log.info("Deepgram STT took %.3fs", latency)
             return response.json()['results']['channels'][0]['alternatives'][0]['transcript']
-        print(f"  [Latency] Deepgram Error ({response.status_code}) in {latency:.3f}s - {response.text}")
+        log.error("Deepgram STT failed (%s) in %.3fs: %s", response.status_code, latency, response.text)
         return None
