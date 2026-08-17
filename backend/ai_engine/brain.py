@@ -12,7 +12,10 @@ load_dotenv()
 class InterviewBrain:
     def __init__(self, model="qwen/qwen3.8-27b"):
         # Reasoning tokens count toward max_tokens and can leave short answers empty; "none" turns thinking off.
-        self.llm = ChatGroq(model=model, api_key=os.getenv("GROQ_API_KEY"), reasoning_effort="none")
+        # The Groq SDK retries 429/5xx with backoff (honouring Retry-After); one retry and a timeout
+        # keep a slow call inside the serverless function's time limit.
+        self.llm = ChatGroq(model=model, api_key=os.getenv("GROQ_API_KEY"), reasoning_effort="none",
+                            max_retries=1, timeout=20)
         self.system_prompt = (
             "You are a 'Brutally Honest' evaluator. "
             "Your goal is to conduct a realistic, high-pressure assessment or interview. "
