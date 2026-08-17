@@ -1,8 +1,11 @@
+import logging
 import os
 import json
 import time
 from langchain_groq import ChatGroq
 from dotenv import load_dotenv
+
+log = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -26,7 +29,7 @@ class InterviewBrain:
             llm = llm.bind(response_format={"type": "json_object"})
         start_time = time.perf_counter()
         response = llm.invoke([("system", system), ("human", prompt)])
-        print(f"  [Latency] Groq via LangChain ({label}): {time.perf_counter() - start_time:.3f}s")
+        log.info("Groq %s took %.3fs", label, time.perf_counter() - start_time)
         return response.content
 
     def generate_initial_question(self, role, jd_excerpts, resume_excerpts=""):

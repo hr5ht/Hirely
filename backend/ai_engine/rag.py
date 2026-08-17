@@ -4,12 +4,15 @@ Semantic: Gemini embeddings ranked by cosine similarity, rebuilt per request (tw
 so no vector DB or numpy). Falls back to keyword ranking (simplified BM25) if Gemini is unset, rate-limited (free tier resets daily) or fails.
 ponytail: re-embeds both docs every round; cache vectors on the session if embedding calls get costly.
 """
+import logging
 import math
 import os
 import re
 from collections import Counter
 
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
+
+log = logging.getLogger(__name__)
 
 EMBED_MODEL = "gemini-embedding-001"
 
@@ -73,6 +76,6 @@ def retrieve(query, resume_text, jd_text, top_k=2):
     try:
         return _semantic(query, resume_text, jd_text, top_k)
     except Exception as e:
-        print(f"[RAG] Semantic retrieval unavailable ({e}); using keyword ranking")
+        log.warning("Semantic retrieval unavailable (%s); using keyword ranking", e)
     terms = set(_tokens(query))
     return _top_chunks(terms, resume_text or "", top_k), _top_chunks(terms, jd_text or "", top_k)

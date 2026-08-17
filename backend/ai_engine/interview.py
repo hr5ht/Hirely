@@ -3,6 +3,7 @@
 The pending question is the last transcript turn without an 'answer'.
 """
 import json
+import logging
 import time
 from django.db import transaction
 from django.db.models import F
@@ -13,6 +14,8 @@ from ai_engine.brain import InterviewBrain
 from ai_engine.audio_service import AudioService
 from ai_engine.tasks import evaluate_transcript_semantic_gaps, compile_performance_report_pdf
 from ai_engine import rag
+
+log = logging.getLogger(__name__)
 
 MAX_ROUNDS = 5
 # Each round retrieves resume/JD chunks for a different topic, so questions move across the candidate's profile
@@ -100,7 +103,7 @@ def audio(session, data):
 
 def proctor(session, data):
     infraction = {"type": data.get('type', 'Gaze Deviation'), "timestamp": data.get('timestamp', time.strftime('%Y-%m-%dT%H:%M:%SZ'))}
-    print(f"[Proctor Alert] {infraction['type']} at {infraction['timestamp']} on session {session.id}")
+    log.warning("Proctor alert on session %s: %s at %s", session.id, infraction['type'], infraction['timestamp'])
     penalty = 15 if "Not Detected" in infraction['type'] else 5
     # Alerts can arrive in parallel requests; lock the row so none overwrite each other
     with transaction.atomic():
@@ -112,7 +115,7 @@ def proctor(session, data):
 
 
 def end(session, data):
-    print(f"[Interview Complete] Closing session {session.id} and compiling report...")
+    log.info("Closing session %s and compiling report", session.id)
     transcript = [t for t in session.transcript if 'answer' in t]  # drop the unanswered pending question
     valid_conf = [t['confidence'] for t in transcript if t.get('confidence', 0) > 0]
     valid_clar = [t['clarity'] for t in transcript if t.get('clarity', 0) > 0]
@@ -124,8 +127,8 @@ def end(session, data):
     session.save(update_fields=['transcript', 'session_status', 'avg_confidence', 'avg_clarity'])
     Application.objects.filter(id=session.application_id).update(status='evaluated')
 
-    print(evaluate_transcript_semantic_gaps(session.id))
-    print(compile_performance_report_pdf(session.id))
+    log.info(evaluate_transcript_semantic_gaps(session.id))
+    log.info(compile_performance_report_pdf(session.id))
     return [{"type": "session_completed", "message": "Interview completed successfully."}]
 
 

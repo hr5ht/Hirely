@@ -125,3 +125,11 @@ STATIC_URL = 'static/'
 
 # Serve app static files straight from the source dirs, so hosts with no collectstatic step (Vercel) work
 WHITENOISE_USE_FINDERS = True
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {'plain': {'format': '%(levelname)s %(name)s: %(message)s'}},
+    'handlers': {'console': {'class': 'logging.StreamHandler', 'formatter': 'plain'}},
+    'loggers': {'ai_engine': {'handlers': ['console'], 'level': os.environ.get('LOG_LEVEL', 'INFO')}},
+}

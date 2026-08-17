@@ -1,3 +1,4 @@
+import logging
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse, HttpResponse
 from django.contrib.auth.models import User
@@ -11,6 +12,8 @@ import PyPDF2
 from ai_engine.models import Company, UserProfile, Job, Application, InterviewSession
 from ai_engine.brain import InterviewBrain
 from ai_engine import interview
+
+log = logging.getLogger(__name__)
 
 
 MAX_RESUME_BYTES = 4 * 1024 * 1024  # Vercel rejects request bodies over 4.5 MB before Django sees them
@@ -390,7 +393,7 @@ def apply_to_job(request):
                 'company_name': job.company.name
             })
         except Exception as e:
-            print(f"Error applying to job: {e}")
+            log.exception("Applying to job %s failed", job.id)
             return JsonResponse({'success': False, 'error': str(e)}, status=400)
 
     return JsonResponse({'success': False, 'error': 'Invalid request'}, status=400)
@@ -447,5 +450,5 @@ def interview_action(request, session_id, action):
     try:
         return JsonResponse({'messages': interview.ACTIONS[action](session, data)})
     except Exception as e:
-        print(f"[Interview Error] {action} failed on session {session_id}: {e!r}")
+        log.exception("Interview %s failed on session %s", action, session_id)
         return JsonResponse({'error': f'AI service error: {e}'}, status=502)
