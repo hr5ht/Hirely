@@ -157,7 +157,7 @@
                 const data = await response.json();
 
                 if (!response.ok) {
-                    throw new Error(data.feedback || "Failed to process resume");
+                    throw new Error(data.error || "Failed to process resume");
                 }
 
                 // Render Results
