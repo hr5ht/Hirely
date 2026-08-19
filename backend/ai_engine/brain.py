@@ -28,8 +28,8 @@ class InterviewBrain:
 
     def _chat(self, label, system, prompt, max_tokens=None, json_mode=False):
         llm = self.llm.bind(max_tokens=max_tokens) if max_tokens else self.llm
-        if json_mode:
-            llm = llm.bind(response_format={"type": "json_object"})
+        if json_mode:  # JSON calls are the scoring/evaluation ones: the same answer should get the same score
+            llm = llm.bind(response_format={"type": "json_object"}, temperature=0)
         start_time = time.perf_counter()
         response = llm.invoke([("system", system), ("human", prompt)])
         log.info("Groq %s took %.3fs", label, time.perf_counter() - start_time)
