@@ -75,6 +75,27 @@ class AtsTest(TestCase):
         self.assertEqual(result["missing_keywords"], [])
 
 
+class AiErrorTest(TestCase):
+    def test_groq_client_retries_once_with_timeout(self):
+        with patch.dict(os.environ, {"GROQ_API_KEY": "test"}):
+            llm = InterviewBrain().llm
+        self.assertEqual((llm.max_retries, llm.request_timeout), (1, 20))
+
+    def test_errors_are_friendly_and_hide_internals(self):
+        import groq, httpx
+        rate_limited = groq.RateLimitError("secret-org quota exceeded", body=None,
+                                           response=httpx.Response(429, request=httpx.Request("POST", "https://groq")))
+        user, _ = make_app()
+        UserProfile.objects.filter(user=user).update(resume_text="Python developer")
+        self.client.force_login(user)
+        for error, expected in [(rate_limited, "try again in a minute"), (RuntimeError("db password=hunter2"), "something went wrong")]:
+            with patch.object(InterviewBrain, "get_resume_score", side_effect=error):
+                res = self.client.post("/ai/score-resume/", {"jd": "Python"})
+            self.assertEqual(res.status_code, 502)
+            self.assertIn(expected, res.json()["error"])
+            self.assertNotIn(str(error), res.json()["error"])
+
+
 class PagesTest(TestCase):
     def test_pages_render(self):
         user, app = make_app()
