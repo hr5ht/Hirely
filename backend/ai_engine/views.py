@@ -384,14 +384,17 @@ def apply_to_job(request):
             resume_bytes = resume_file.read()
             resume_text = _pdf_text(resume_file)
 
-            ats_score = InterviewBrain().get_resume_score(resume_text, job.description)['score']
+            ats = InterviewBrain().get_resume_score(resume_text, job.description)
+            ats_score = ats.pop('score')
+            ats.pop('feedback', None)
 
             app = Application.objects.create(
                 job=job,
                 candidate=request.user,
                 resume_pdf=resume_bytes,
                 resume_text=resume_text,
-                ats_match_score=ats_score
+                ats_match_score=ats_score,
+                ats_breakdown=ats
             )
 
             return JsonResponse({
