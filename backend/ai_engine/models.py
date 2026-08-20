@@ -49,6 +49,8 @@ class Application(models.Model):
     resume_pdf = models.BinaryField(blank=True, null=True)
     resume_text = models.TextField(blank=True, default='')
     ats_match_score = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True)
+    # skill/semantic sub-scores, matching/missing keywords and suggestions from the ATS scan
+    ats_breakdown = models.JSONField(default=dict, blank=True)
     proctoring_score = models.IntegerField(default=100)
     status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='applied')
     created_at = models.DateTimeField(auto_now_add=True)
