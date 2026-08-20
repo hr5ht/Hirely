@@ -66,11 +66,11 @@ class RagTest(TestCase):
 
 class AtsTest(TestCase):
     def test_groq_score_is_normalised(self):
-        raw = json.dumps({"score": "120", "semantic_score": 55, "skill_score": None,
+        raw = json.dumps({"semantic_score": "120", "skill_score": None,
                           "matching_keywords": ["python"], "improvement_suggestions": ["a", "b", "c", "d"]})
         with patch.object(InterviewBrain, "_chat", return_value=raw):
             result = InterviewBrain().get_resume_score("resume", "jd")
-        self.assertEqual((result["score"], result["semantic_score"], result["skill_score"]), (100, 55, 0))
+        self.assertEqual((result["score"], result["semantic_score"], result["skill_score"]), (40, 100, 0))
         self.assertEqual(result["feedback"], "a b c")
         self.assertEqual(result["missing_keywords"], [])
 
