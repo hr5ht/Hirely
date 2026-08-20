@@ -9,6 +9,8 @@ log = logging.getLogger(__name__)
 
 load_dotenv()
 
+SKILL_WEIGHT = 0.6  # ATS overall = 60% required-skill coverage + 40% experience/context match
+
 class InterviewBrain:
     def __init__(self, model="qwen/qwen3.8-27b"):
         # Reasoning tokens count toward max_tokens and can leave short answers empty; "none" turns thinking off.
@@ -91,15 +93,16 @@ class InterviewBrain:
             "{\n"
             "  \"skill_score\": <0-100, share of the JD's required skills/tools present in the resume>,\n"
             "  \"semantic_score\": <0-100, how well the experience and context match the role>,\n"
-            "  \"score\": <0-100 overall match>,\n"
             "  \"matching_keywords\": [required skills/tools found in the resume],\n"
             "  \"missing_keywords\": [required skills/tools missing from the resume],\n"
             "  \"improvement_suggestions\": [up to 3 short, actionable suggestions]\n"
             "}"
         )
         result = json.loads(self._chat("ATS Resume Score", "You are an ATS resume screener. Output purely valid JSON.", prompt, max_tokens=700, json_mode=True))
-        for key in ("score", "semantic_score", "skill_score"):
+        for key in ("semantic_score", "skill_score"):
             result[key] = round(min(max(float(result.get(key) or 0), 0), 100), 2)
+        # Computed here, not by the model, so the overall score always agrees with its parts
+        result["score"] = round(SKILL_WEIGHT * result["skill_score"] + (1 - SKILL_WEIGHT) * result["semantic_score"], 2)
         suggestions = result.setdefault("improvement_suggestions", [])[:3]
         result["improvement_suggestions"] = suggestions
         result["feedback"] = " ".join(suggestions)
