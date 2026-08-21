@@ -89,6 +89,9 @@ class InterviewBrain:
         prompt = (
             f"Job Description:\n{jd_text}\n\nResume:\n{resume_text}\n\n"
             "Score this resume against the job description the way an ATS would.\n"
+            "Rubric for both scores: 90-100 meets nearly every requirement with direct evidence; "
+            "70-89 meets most core requirements, minor gaps; 50-69 partial match, some core requirements missing; "
+            "30-49 weak match, most requirements missing; 0-29 unrelated. Only credit what the resume states, never infer.\n"
             "Return ONLY a valid JSON object with EXACT keys:\n"
             "{\n"
             "  \"skill_score\": <0-100, share of the JD's required skills/tools present in the resume>,\n"
