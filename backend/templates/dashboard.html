@@ -388,6 +388,12 @@
                 <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-none">ATS Profile Match Proximity</p>
                 <p id="nol-ats-score" class="text-3xl font-black text-blue-600 mt-2">--%</p>
             </div>
+
+            <div id="nol-ats-tips" class="hidden w-full text-left space-y-2">
+                <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Missing from your resume</p>
+                <div id="nol-missing" class="flex flex-wrap gap-1"></div>
+                <ul id="nol-suggestions" class="list-disc pl-4 text-xs text-slate-500 space-y-1"></ul>
+            </div>
             
             <p class="text-slate-500 text-xs leading-relaxed max-w-xs">Would you like to initiate your stateful voice-proctored evaluation now, or complete it later from your dashboard?</p>
             
@@ -557,6 +563,11 @@
                 document.getElementById('nol-job-sub').innerText = `${data.job_title} at ${data.company_name}`;
                 document.getElementById('nol-ats-score').innerText = `${data.ats_score}%`;
                 document.getElementById('nol-start-btn').href = `/session/?app_id=${data.app_id}`;
+                const missing = document.getElementById('nol-missing'), tips = document.getElementById('nol-suggestions');
+                missing.replaceChildren(...(data.missing_keywords || []).map(kw => Object.assign(document.createElement('span'),
+                    { textContent: kw, className: 'px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 border border-rose-100 text-[10px] font-semibold' })));
+                tips.replaceChildren(...(data.improvement_suggestions || []).map(t => Object.assign(document.createElement('li'), { textContent: t })));
+                document.getElementById('nol-ats-tips').classList.toggle('hidden', !missing.children.length && !tips.children.length);
                 
                 // Open Now or Later Modal
                 setTimeout(() => {

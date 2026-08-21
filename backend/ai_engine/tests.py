@@ -173,7 +173,9 @@ class ApplyTest(TestCase):
                           "missing_keywords": ["Terraform"], "improvement_suggestions": ["Mention IaC work"]})
         with patch.object(InterviewBrain, "get_resume_score", real_resume_score), \
              patch.object(InterviewBrain, "_chat", return_value=raw):
-            self.assertEqual(self.apply().json()["ats_score"], 68)  # 0.6 * 80 + 0.4 * 50
+            res = self.apply().json()
+        self.assertEqual(res["ats_score"], 68)  # 0.6 * 80 + 0.4 * 50
+        self.assertEqual((res["missing_keywords"], res["improvement_suggestions"]), (["Terraform"], ["Mention IaC work"]))
         app = Application.objects.get()
         self.assertEqual(float(app.ats_match_score), 68)
         recruiter = User.objects.create_user("rec", "rec@x.com", "pw")
