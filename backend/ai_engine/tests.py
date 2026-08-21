@@ -134,6 +134,9 @@ def make_pdf(text="Python developer with five years of Kafka, Postgres and Djang
     return SimpleUploadedFile("resume.pdf", buf.getvalue(), content_type="application/pdf")
 
 
+real_resume_score = InterviewBrain.get_resume_score
+
+
 @patch.object(InterviewBrain, "get_resume_score", return_value={"score": 72})
 class ApplyTest(TestCase):
     def setUp(self):
@@ -163,6 +166,18 @@ class ApplyTest(TestCase):
         self.assertEqual(res.status_code, 200, res.content)
         self.assertEqual(res.json()["ats_score"], 72)
         self.assertIn("Kafka", Application.objects.get().resume_text)
+
+    def test_weighted_score_and_breakdown_are_saved(self, _):
+        self.client.force_login(self.user)
+        raw = json.dumps({"skill_score": 80, "semantic_score": 50, "matching_keywords": ["Kafka"],
+                          "missing_keywords": ["Terraform"], "improvement_suggestions": ["Mention IaC work"]})
+        with patch.object(InterviewBrain, "get_resume_score", real_resume_score), \
+             patch.object(InterviewBrain, "_chat", return_value=raw):
+            self.assertEqual(self.apply().json()["ats_score"], 68)  # 0.6 * 80 + 0.4 * 50
+        app = Application.objects.get()
+        self.assertEqual(float(app.ats_match_score), 68)
+        self.assertEqual(app.ats_breakdown, {"skill_score": 80, "semantic_score": 50, "matching_keywords": ["Kafka"],
+                                             "missing_keywords": ["Terraform"], "improvement_suggestions": ["Mention IaC work"]})
 
 
 class UploadTest(TestCase):
