@@ -401,7 +401,9 @@ def apply_to_job(request):
                 'app_id': app.id,
                 'ats_score': float(ats_score),
                 'job_title': job.title,
-                'company_name': job.company.name
+                'company_name': job.company.name,
+                'missing_keywords': ats.get('missing_keywords', []),
+                'improvement_suggestions': ats.get('improvement_suggestions', []),
             })
         except ValueError as e:  # unreadable resume; the message is written for the user
             return JsonResponse({'success': False, 'error': str(e)}, status=400)
