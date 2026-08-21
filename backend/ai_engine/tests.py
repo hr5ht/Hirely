@@ -176,6 +176,10 @@ class ApplyTest(TestCase):
             self.assertEqual(self.apply().json()["ats_score"], 68)  # 0.6 * 80 + 0.4 * 50
         app = Application.objects.get()
         self.assertEqual(float(app.ats_match_score), 68)
+        recruiter = User.objects.create_user("rec", "rec@x.com", "pw")
+        UserProfile.objects.create(user=recruiter, role="recruiter", company=self.job.company)
+        self.client.force_login(recruiter)
+        self.assertContains(self.client.get(f"/ai/candidate-detail/{app.id}/"), "Terraform")
         self.assertEqual(app.ats_breakdown, {"skill_score": 80, "semantic_score": 50, "matching_keywords": ["Kafka"],
                                              "missing_keywords": ["Terraform"], "improvement_suggestions": ["Mention IaC work"]})
 

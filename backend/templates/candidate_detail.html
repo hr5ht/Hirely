@@ -203,6 +203,15 @@
                             <div class="w-full bg-gray-100 rounded-full h-2.5">
                                 <div class="bg-blue-500 h-2.5 rounded-full" style="width: {{ application.ats_match_score|default:0 }}%"></div>
                             </div>
+                            {% with ats=application.ats_breakdown %}
+                            {% if ats %}
+                            <p class="text-[10px] text-gray-400 font-semibold mt-1.5">Skills {{ ats.skill_score }}% · Experience fit {{ ats.semantic_score }}%</p>
+                            <div class="flex flex-wrap gap-1 mt-2">
+                                {% for kw in ats.matching_keywords %}<span class="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-100 text-[10px] font-semibold">{{ kw }}</span>{% endfor %}
+                                {% for kw in ats.missing_keywords %}<span class="px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 border border-rose-100 text-[10px] font-semibold line-through">{{ kw }}</span>{% endfor %}
+                            </div>
+                            {% endif %}
+                            {% endwith %}
                         </div>
 
                         <div>
