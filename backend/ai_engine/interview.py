@@ -12,7 +12,7 @@ from django.db.models.functions import Greatest
 from ai_engine.models import InterviewSession, Application
 from ai_engine.brain import InterviewBrain
 from ai_engine.audio_service import AudioService
-from ai_engine.tasks import evaluate_transcript_semantic_gaps, compile_performance_report_pdf
+from ai_engine.reports import evaluate_transcript_semantic_gaps, compile_performance_report_pdf
 from ai_engine import rag
 
 log = logging.getLogger(__name__)
