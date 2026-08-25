@@ -215,6 +215,38 @@ class UploadTest(TestCase):
         self.assertEqual(self.upload(make_pdf()).status_code, 200)
 
 
+class JobManagementTest(TestCase):
+    def setUp(self):
+        _, self.app = make_app()
+        self.job = self.app.job
+
+    def login_recruiter(self, company):
+        user = User.objects.create_user(f"rec{Company.objects.count()}{User.objects.count()}", "r@x.com", "pw")
+        UserProfile.objects.create(user=user, role="recruiter", company=company)
+        self.client.force_login(user)
+
+    def test_other_companies_cannot_edit_close_or_rescore(self):
+        self.login_recruiter(Company.objects.create(name="Rival"))
+        with patch.object(InterviewBrain, "get_resume_score") as score:
+            for url in [f"/ai/edit-job/{self.job.id}/", f"/ai/toggle-job/{self.job.id}/", f"/ai/rescore-job/{self.job.id}/"]:
+                self.client.post(url, {"title": "Hacked", "description": "x"})
+        self.job.refresh_from_db()
+        self.assertEqual((self.job.title, self.job.is_active), ("Dev", True))
+        score.assert_not_called()
+
+    def test_owner_can_edit_close_and_rescore(self):
+        self.login_recruiter(self.job.company)
+        self.client.post(f"/ai/edit-job/{self.job.id}/", {"title": "Senior Dev", "description": "Rust", "experience_level": "Senior"})
+        self.client.post(f"/ai/toggle-job/{self.job.id}/")
+        with patch.object(InterviewBrain, "get_resume_score", return_value={"score": 91, "missing_keywords": ["Rust"]}):
+            self.client.post(f"/ai/rescore-job/{self.job.id}/")
+        self.job.refresh_from_db()
+        self.app.refresh_from_db()
+        self.assertEqual((self.job.title, self.job.experience_level, self.job.is_active), ("Senior Dev", "Senior", False))
+        self.assertEqual((float(self.app.ats_match_score), self.app.ats_breakdown), (91, {"missing_keywords": ["Rust"]}))
+        self.assertNotIn(self.job, self.client.get("/dashboard/").context["jobs"].filter(is_active=True))
+
+
 class StateChangeTest(TestCase):
     def test_get_on_state_changing_urls_returns_405(self):
         user, app = make_app()
