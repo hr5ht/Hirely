@@ -371,6 +371,24 @@ def post_job(request):
             )
     return redirect('dashboard')
 
+def _company_job(request, job_id):
+    """The job if the user is a recruiter at the company that posted it, else None."""
+    profile = getattr(request.user, 'profile', None)
+    if not request.user.is_authenticated or not profile or profile.role != 'recruiter' or not profile.company:
+        return None
+    return Job.objects.filter(id=job_id, company=profile.company).first()
+
+
+@require_POST
+def edit_job(request, job_id):
+    job = _company_job(request, job_id)
+    if job and request.POST.get('title') and request.POST.get('description'):
+        job.title = request.POST['title']
+        job.description = request.POST['description']
+        job.experience_level = request.POST.get('experience_level', '')
+        job.save(update_fields=['title', 'description', 'experience_level'])
+    return redirect('dashboard')
+
 def apply_to_job(request):
     if not request.user.is_authenticated:
         return JsonResponse({'success': False, 'error': 'Please log in to apply.'}, status=401)
