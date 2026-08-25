@@ -371,6 +371,11 @@ def post_job(request):
             )
     return redirect('dashboard')
 
+def _breakdown(ats):
+    """The parts of an ATS result worth keeping on the application, besides the score itself."""
+    return {k: v for k, v in ats.items() if k not in ('score', 'feedback')}
+
+
 def _company_job(request, job_id):
     """The job if the user is a recruiter at the company that posted it, else None."""
     profile = getattr(request.user, 'profile', None)
@@ -398,6 +403,23 @@ def toggle_job(request, job_id):
         job.save(update_fields=['is_active'])
     return redirect('dashboard')
 
+@require_POST
+def rescore_job(request, job_id):
+    job = _company_job(request, job_id)
+    if job:
+        brain = InterviewBrain()
+        # ponytail: one LLM call per applicant inside the request; move to a queue if jobs get dozens of applicants
+        for app in job.applications.exclude(resume_text=''):
+            try:
+                ats = brain.get_resume_score(app.resume_text, job.description)
+            except Exception:
+                log.exception("Re-scoring application %s failed", app.id)
+                break
+            app.ats_match_score = ats['score']
+            app.ats_breakdown = _breakdown(ats)
+            app.save(update_fields=['ats_match_score', 'ats_breakdown'])
+    return redirect('dashboard')
+
 def apply_to_job(request):
     if not request.user.is_authenticated:
         return JsonResponse({'success': False, 'error': 'Please log in to apply.'}, status=401)
@@ -420,7 +442,7 @@ def apply_to_job(request):
                 resume_pdf=resume_bytes,
                 resume_text=resume_text,
                 ats_match_score=ats_score,
-                ats_breakdown={k: v for k, v in ats.items() if k not in ('score', 'feedback')}
+                ats_breakdown=_breakdown(ats)
             )
 
             return JsonResponse({
