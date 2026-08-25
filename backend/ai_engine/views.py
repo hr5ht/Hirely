@@ -389,6 +389,15 @@ def edit_job(request, job_id):
         job.save(update_fields=['title', 'description', 'experience_level'])
     return redirect('dashboard')
 
+@require_POST
+def toggle_job(request, job_id):
+    # Closed jobs drop out of the marketplace and refuse new applications; existing ones are kept
+    job = _company_job(request, job_id)
+    if job:
+        job.is_active = not job.is_active
+        job.save(update_fields=['is_active'])
+    return redirect('dashboard')
+
 def apply_to_job(request):
     if not request.user.is_authenticated:
         return JsonResponse({'success': False, 'error': 'Please log in to apply.'}, status=401)
