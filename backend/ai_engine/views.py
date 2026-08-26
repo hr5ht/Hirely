@@ -195,6 +195,12 @@ def dashboard_view(request):
         query = request.GET.get('q', '').strip()
         if query:  # skills live in the description
             active_jobs = active_jobs.filter(Q(title__icontains=query) | Q(company__name__icontains=query) | Q(description__icontains=query))
+        level = request.GET.get('level', '')
+        if level:
+            active_jobs = active_jobs.filter(experience_level=level)
+        # Levels are free text typed by recruiters, so offer the ones actually in use
+        levels = Job.objects.filter(is_active=True).exclude(experience_level='').order_by('experience_level') \
+            .values_list('experience_level', flat=True).distinct()
 
         all_sessions = InterviewSession.objects.filter(application__candidate=request.user).order_by('-created_at')
 
@@ -208,6 +214,8 @@ def dashboard_view(request):
             'applications': applications,
             'jobs': active_jobs,
             'query': query,
+            'level': level,
+            'levels': levels,
             'applied_jobs': applied_jobs
         })
 
