@@ -247,6 +247,30 @@ class JobManagementTest(TestCase):
         self.assertNotIn(self.job, self.client.get("/dashboard/").context["jobs"].filter(is_active=True))
 
 
+class MarketplaceTest(TestCase):
+    def setUp(self):
+        self.user, app = make_app()
+        app.job.delete()
+        acme, globex = Company.objects.create(name="Acme"), Company.objects.create(name="Globex")
+        Job.objects.create(company=acme, title="Kafka Engineer", description="Streaming", experience_level="Senior")
+        Job.objects.create(company=globex, title="Frontend Dev", description="React and Kafka dashboards", experience_level="Junior")
+        Job.objects.create(company=globex, title="Closed Role", description="Kafka", is_active=False)
+        Job.objects.bulk_create(Job(company=acme, title=f"Filler {i}", description="Go") for i in range(11))
+        self.client.force_login(self.user)
+
+    def titles(self, **params):
+        return [j.title for j in self.client.get("/dashboard/", params).context["jobs"]]
+
+    def test_search_filter_and_pagination(self):
+        self.assertEqual(sorted(self.titles(q="kafka")), ["Frontend Dev", "Kafka Engineer"])  # title or description, open jobs only
+        self.assertEqual(self.titles(q="globex"), ["Frontend Dev"])
+        self.assertEqual(self.titles(q="kafka", level="Senior"), ["Kafka Engineer"])
+        self.assertEqual(list(self.client.get("/dashboard/").context["levels"]), ["Junior", "Senior"])
+        self.assertEqual(len(self.titles()), 10)
+        self.assertEqual(len(self.titles(page=2)), 3)
+        self.assertContains(self.client.get("/dashboard/", {"q": "Filler"}), "?q=Filler&amp;page=2")
+
+
 class StateChangeTest(TestCase):
     def test_get_on_state_changing_urls_returns_405(self):
         user, app = make_app()
