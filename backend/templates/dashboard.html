@@ -97,6 +97,12 @@
                 </span>
             </div>
 
+            <form method="get" class="flex flex-col sm:flex-row gap-3">
+                <input type="search" name="q" value="{{ query }}" placeholder="Search by title, company or skill" aria-label="Search jobs"
+                       class="flex-1 px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none">
+                <button type="submit" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold">Search</button>
+            </form>
+
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {% for job in jobs %}
                 <div class="premium-card p-6 flex flex-col gap-5 justify-between relative">
@@ -150,7 +156,7 @@
                                 {% endif %}
                             {% endfor %}
                         {% else %}
-                        <button onclick="openApplyModal('{{ job.id }}', '{{ job.title }}', '{{ job.company.name }}')" class="w-full py-2.5 bg-blue-50 text-blue-600 border border-blue-100 hover:bg-blue-100 text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1.5">
+                        <button onclick="openApplyModal('{{ job.id }}', '{{ job.title|escapejs }}', '{{ job.company.name|escapejs }}')" class="w-full py-2.5 bg-blue-50 text-blue-600 border border-blue-100 hover:bg-blue-100 text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1.5">
                             <i data-lucide="file-up" class="w-4 h-4"></i> Apply & Verify Resume
                         </button>
                         {% endif %}
@@ -159,8 +165,13 @@
                 {% empty %}
                 <div class="col-span-2 text-center py-16 text-slate-400 border border-dashed border-slate-200 rounded-2xl">
                     <i data-lucide="briefcase" class="w-8 h-8 mx-auto text-slate-300 mb-3"></i>
+                    {% if query %}
+                    <p class="text-sm font-semibold">No roles match "{{ query }}"</p>
+                    <a href="/dashboard/" class="text-xs text-blue-600 font-bold mt-1 inline-block">Clear search</a>
+                    {% else %}
                     <p class="text-sm font-semibold">No Open Positions Available</p>
                     <p class="text-xs text-slate-400 mt-1">Corporate openings will appear here as soon as recruiters publish them.</p>
+                    {% endif %}
                 </div>
                 {% endfor %}
             </div>
