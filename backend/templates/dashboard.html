@@ -93,7 +93,7 @@
                     <i data-lucide="briefcase" class="w-4 h-4 text-slate-400"></i> Active Opportunities
                 </h2>
                 <span class="text-xs font-bold bg-blue-50 text-blue-600 px-2.5 py-1 rounded-full border border-blue-100">
-                    {{ jobs|length }} Active Roles
+                    {{ jobs.paginator.count }} Active Roles
                 </span>
             </div>
 
@@ -180,6 +180,14 @@
                 </div>
                 {% endfor %}
             </div>
+
+            {% if jobs.has_other_pages %}
+            <nav class="flex items-center justify-center gap-4 text-sm font-semibold text-slate-500" aria-label="Job pages">
+                {% if jobs.has_previous %}<a href="{% querystring page=jobs.previous_page_number %}" class="hover:text-blue-600">&larr; Previous</a>{% endif %}
+                <span>Page {{ jobs.number }} of {{ jobs.paginator.num_pages }}</span>
+                {% if jobs.has_next %}<a href="{% querystring page=jobs.next_page_number %}" class="hover:text-blue-600">Next &rarr;</a>{% endif %}
+            </nav>
+            {% endif %}
         </div>
 
         <!-- Tab Panel 2: Applied Positions & History -->

@@ -4,6 +4,7 @@ from django.http import JsonResponse, HttpResponse
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.contrib import messages
+from django.core.paginator import Paginator
 from django.db.models import Avg, Q
 from django.views.decorators.http import require_POST
 import json
@@ -212,7 +213,7 @@ def dashboard_view(request):
             'global_avg_conf': _avg(all_sessions, 'avg_confidence'),
             'global_avg_clar': _avg(all_sessions, 'avg_clarity'),
             'applications': applications,
-            'jobs': active_jobs,
+            'jobs': Paginator(active_jobs, 10).get_page(request.GET.get('page')),
             'query': query,
             'level': level,
             'levels': levels,
