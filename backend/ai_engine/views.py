@@ -4,7 +4,7 @@ from django.http import JsonResponse, HttpResponse
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.contrib import messages
-from django.db.models import Avg
+from django.db.models import Avg, Q
 from django.views.decorators.http import require_POST
 import json
 import groq
@@ -192,6 +192,9 @@ def dashboard_view(request):
         applied_jobs = [app.job.id for app in applications]
         # Exclude already applied positions from the active marketplace list
         active_jobs = Job.objects.filter(is_active=True).exclude(id__in=applied_jobs).order_by('-created_at')
+        query = request.GET.get('q', '').strip()
+        if query:  # skills live in the description
+            active_jobs = active_jobs.filter(Q(title__icontains=query) | Q(company__name__icontains=query) | Q(description__icontains=query))
 
         all_sessions = InterviewSession.objects.filter(application__candidate=request.user).order_by('-created_at')
 
@@ -204,6 +207,7 @@ def dashboard_view(request):
             'global_avg_clar': _avg(all_sessions, 'avg_clarity'),
             'applications': applications,
             'jobs': active_jobs,
+            'query': query,
             'applied_jobs': applied_jobs
         })
 
