@@ -174,6 +174,12 @@ def dashboard_view(request):
 
         jobs = Job.objects.filter(company=company).order_by('-created_at')
         applications = Application.objects.filter(job__company=company).order_by('-ats_match_score')
+        status = request.GET.get('status', '')
+        if status in dict(Application.STATUS_CHOICES):
+            applications = applications.filter(status=status)
+        min_score = request.GET.get('min_score', '')
+        if min_score.isdigit():
+            applications = applications.filter(ats_match_score__gte=int(min_score))
 
         # Calculate average integrity score
         completed_sessions = InterviewSession.objects.filter(application__job__company=company, session_status='completed')
@@ -183,8 +189,11 @@ def dashboard_view(request):
             'company': company,
             'jobs': jobs,
             'applications': applications,
+            'statuses': Application.STATUS_CHOICES,
+            'status': status,
+            'min_score': min_score,
             'total_jobs': jobs.count(),
-            'total_candidates': applications.count(),
+            'total_candidates': Application.objects.filter(job__company=company).count(),
             'avg_proctoring_score': avg_proctoring
         })
     else:
