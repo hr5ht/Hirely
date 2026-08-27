@@ -139,7 +139,7 @@
                                 {% csrf_token %}
                                 <button type="submit" class="text-[10px] font-bold {% if job.is_active %}text-gray-400 hover:text-rose-600{% else %}text-emerald-600 hover:text-emerald-700{% endif %}">{% if job.is_active %}Close{% else %}Reopen{% endif %}</button>
                             </form>
-                            {% if job.applications.exists %}
+                            {% if job.applicant_count %}
                             <form method="post" action="/ai/rescore-job/{{ job.id }}/" onclick="event.stopPropagation()" onsubmit="this.querySelector('button').textContent = 'Scoring...'" class="inline">
                                 {% csrf_token %}
                                 <button type="submit" class="text-[10px] font-bold text-gray-400 hover:text-blue-600" title="Re-run the ATS scan on every applicant against the current description">Re-score</button>
@@ -147,7 +147,7 @@
                             {% endif %}
                         </span>
                         <span class="text-xs text-blue-600 font-bold flex items-center gap-1">
-                            {{ job.applications.count }} Applicants <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+                            {{ job.applicant_count }} Applicants <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
                         </span>
                     </div>
                 </div>

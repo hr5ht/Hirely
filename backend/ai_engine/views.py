@@ -5,7 +5,7 @@ from django.contrib.auth.models import User
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.contrib import messages
 from django.core.paginator import Paginator
-from django.db.models import Avg, Q
+from django.db.models import Avg, Count, Prefetch, Q
 from django.views.decorators.http import require_POST
 import json
 import groq
@@ -163,7 +163,7 @@ def dashboard_view(request):
     if not request.user.is_authenticated:
         return redirect('login')
 
-    profile, created = UserProfile.objects.get_or_create(user=request.user)
+    profile, created = UserProfile.objects.defer('resume_pdf').get_or_create(user=request.user)
 
     if profile.role == 'recruiter':
         company = profile.company
@@ -172,8 +172,10 @@ def dashboard_view(request):
             company = profile.company = Company.objects.create(name=f"{request.user.username}'s company")
             profile.save()
 
-        jobs = Job.objects.filter(company=company).order_by('-created_at')
-        applications = Application.objects.filter(job__company=company).order_by('-ats_match_score')
+        jobs = Job.objects.filter(company=company).annotate(applicant_count=Count('applications')).order_by('-created_at')
+        # List pages never need the resume/report blobs, which can be megabytes per row
+        applications = Application.objects.filter(job__company=company).select_related('job', 'candidate') \
+            .defer('resume_pdf', 'resume_text').order_by('-ats_match_score')
         status = request.GET.get('status', '')
         if status in dict(Application.STATUS_CHOICES):
             applications = applications.filter(status=status)
@@ -203,10 +205,12 @@ def dashboard_view(request):
         })
     else:
         # Candidate Dashboard with Job Marketplace
-        applications = Application.objects.filter(candidate=request.user).order_by('-created_at')
+        applications = Application.objects.filter(candidate=request.user).select_related('job__company') \
+            .defer('resume_pdf', 'resume_text').prefetch_related(Prefetch('sessions', InterviewSession.objects.defer('pdf_report'))) \
+            .order_by('-created_at')
         applied_jobs = [app.job.id for app in applications]
         # Exclude already applied positions from the active marketplace list
-        active_jobs = Job.objects.filter(is_active=True).exclude(id__in=applied_jobs).order_by('-created_at')
+        active_jobs = Job.objects.filter(is_active=True).exclude(id__in=applied_jobs).select_related('company').order_by('-created_at')
         query = request.GET.get('q', '').strip()
         if query:  # skills live in the description
             active_jobs = active_jobs.filter(Q(title__icontains=query) | Q(company__name__icontains=query) | Q(description__icontains=query))
@@ -217,7 +221,8 @@ def dashboard_view(request):
         levels = Job.objects.filter(is_active=True).exclude(experience_level='').order_by('experience_level') \
             .values_list('experience_level', flat=True).distinct()
 
-        all_sessions = InterviewSession.objects.filter(application__candidate=request.user).order_by('-created_at')
+        all_sessions = InterviewSession.objects.filter(application__candidate=request.user) \
+            .select_related('application__job__company').defer('pdf_report').order_by('-created_at')
 
         return render(request, 'dashboard.html', {
             'username': request.user.username,
