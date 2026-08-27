@@ -180,6 +180,10 @@ def dashboard_view(request):
         min_score = request.GET.get('min_score', '')
         if min_score.isdigit():
             applications = applications.filter(ats_match_score__gte=int(min_score))
+        job_id = request.GET.get('job', '')
+        selected_job = jobs.filter(id=job_id).first() if job_id.isdigit() else None
+        if selected_job:
+            applications = applications.filter(job=selected_job)
 
         # Calculate average integrity score
         completed_sessions = InterviewSession.objects.filter(application__job__company=company, session_status='completed')
@@ -188,7 +192,8 @@ def dashboard_view(request):
         return render(request, 'recruiter_dashboard.html', {
             'company': company,
             'jobs': jobs,
-            'applications': applications,
+            'applications': Paginator(applications, 20).get_page(request.GET.get('page')),
+            'selected_job': selected_job,
             'statuses': Application.STATUS_CHOICES,
             'status': status,
             'min_score': min_score,

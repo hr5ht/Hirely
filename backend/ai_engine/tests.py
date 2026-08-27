@@ -271,6 +271,25 @@ class MarketplaceTest(TestCase):
         self.assertContains(self.client.get("/dashboard/", {"q": "Filler"}), "?q=Filler&amp;page=2")
 
 
+class ApplicantListTest(TestCase):
+    def test_filter_by_job_status_score_and_paginate(self):
+        _, app = make_app()
+        company, job = app.job.company, app.job
+        other_job = Job.objects.create(company=company, title="Ops", description="x")
+        for i in range(25):
+            user = User.objects.create_user(f"c{i}", f"c{i}@x.com", "pw")
+            Application.objects.create(job=other_job, candidate=user, ats_match_score=i * 4, status="rejected" if i % 2 else "applied")
+        recruiter = User.objects.create_user("rec", "rec@x.com", "pw")
+        UserProfile.objects.create(user=recruiter, role="recruiter", company=company)
+        self.client.force_login(recruiter)
+
+        apps = lambda **p: self.client.get("/dashboard/", p).context["applications"]
+        self.assertEqual((len(apps()), apps().paginator.count), (20, 26))
+        self.assertEqual(len(apps(page=2)), 6)
+        self.assertEqual([a.id for a in apps(job=job.id)], [app.id])
+        self.assertEqual(apps(job=other_job.id, status="rejected", min_score=60).paginator.count, 5)  # i = 15..23 odd
+
+
 class StateChangeTest(TestCase):
     def test_get_on_state_changing_urls_returns_405(self):
         user, app = make_app()
