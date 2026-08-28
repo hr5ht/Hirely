@@ -17,8 +17,8 @@ from ai_engine import rag
 
 log = logging.getLogger(__name__)
 
-MAX_ROUNDS = 5
-# Each round retrieves resume/JD chunks for a different topic, so questions move across the candidate's profile
+# Each round retrieves resume/JD chunks for a different topic, so questions move across the candidate's profile;
+# interviews longer than this list cycle back through it
 ROUND_TOPICS = [
     "core qualifications required skills experience",
     "core technical skills languages frameworks",
@@ -77,13 +77,13 @@ def answer(session, data):
         {"type": "interview_message", "message_type": "silent_feedback", "text": feedback_text},
     ]
 
-    if len(transcript) >= MAX_ROUNDS:
+    if len(transcript) >= app.job.interview_rounds:
         summary = brain.get_summary(app.job.title, json.dumps(transcript))
         messages.append({"type": "interview_message", "message_type": "summary", "text": summary,
                          "audio": AudioService().text_to_speech(summary)})
     else:
         # Query = this round's topic + what they just said, so follow-ups dig into their own claims
-        topic = ROUND_TOPICS[min(len(transcript), MAX_ROUNDS - 1)]
+        topic = ROUND_TOPICS[len(transcript) % len(ROUND_TOPICS)]
         resume_ctx, jd_ctx = rag.retrieve(f"{app.job.title} {topic} {text}", app.resume_text, app.job.description)
         next_q = brain.get_next_question(transcript, jd_ctx, resume_ctx)
         transcript.append({"question": next_q})
