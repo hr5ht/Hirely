@@ -37,9 +37,16 @@ class InterviewBrain:
         log.info("Groq %s took %.3fs", label, time.perf_counter() - start_time)
         return response.content
 
-    def generate_initial_question(self, role, jd_excerpts, resume_excerpts=""):
+    @staticmethod
+    def _difficulty(level):
+        # experience_level is free text from the recruiter ("5+ years", "Junior", ...); the model can read it as is
+        return (f"Calibrate difficulty to the job's experience level: {level}. Junior roles get fundamentals and "
+                "concrete debugging; senior roles get trade-offs, scale and design decisions.\n") if level else ""
+
+    def generate_initial_question(self, role, jd_excerpts, resume_excerpts="", level=""):
         prompt = (
             f"Role: {role}\n"
+            f"{self._difficulty(level)}"
             f"Relevant Job Description excerpts:\n{jd_excerpts or 'Not provided.'}\n\n"
             f"Relevant Candidate Resume excerpts:\n{resume_excerpts or 'Not provided.'}\n\n"
             "Generate the first tough interview question, tied to something specific in these excerpts. Just the question, no intro."
@@ -64,7 +71,7 @@ class InterviewBrain:
         )
         return self._chat("Feedback", self.system_prompt + " You must ONLY output the JSON object.", prompt, max_tokens=300, json_mode=True)
 
-    def get_next_question(self, history, jd_excerpts, resume_excerpts=""):
+    def get_next_question(self, history, jd_excerpts, resume_excerpts="", level=""):
         history_text = "\n".join([f"Q: {h.get('question', h.get('q', 'N/A'))}\nA: {h.get('answer', h.get('a', 'N/A'))}" for h in history])
         resume_string = f"Candidate Resume Claims (relevant excerpts):\n{resume_excerpts}\n\n" if resume_excerpts else ""
 
@@ -72,6 +79,7 @@ class InterviewBrain:
             f"Job Description (relevant excerpts): {jd_excerpts}\n"
             f"{resume_string}"
             f"Interview History:\n{history_text}\n\n"
+            f"{self._difficulty(level)}"
             "Based on the job description, interview history, and candidate resume claims, ask the next challenging cross-examination question. "
             "CRITICAL SKILLS CROSS-EXAMINATION RULES:\n"
             "1. Read the candidate's resume claims. Identify explicit technical skills or frameworks listed (e.g., Docker, Django, React, Redis).\n"
