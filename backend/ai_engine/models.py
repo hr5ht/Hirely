@@ -30,6 +30,7 @@ class Job(models.Model):
     title = models.CharField(max_length=255)
     description = models.TextField()
     experience_level = models.CharField(max_length=50, blank=True, default='')
+    interview_rounds = models.PositiveSmallIntegerField(default=5)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
