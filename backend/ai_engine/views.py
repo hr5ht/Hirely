@@ -399,9 +399,16 @@ def post_job(request):
                 company=profile.company,
                 title=request.POST.get('title'),
                 description=request.POST.get('description'),
-                experience_level=request.POST.get('experience_level')
+                experience_level=request.POST.get('experience_level', ''),
+                interview_rounds=_rounds(request),
             )
     return redirect('dashboard')
+
+def _rounds(request):
+    """Interview length from the job form, kept to 1-10 questions."""
+    value = request.POST.get('interview_rounds', '')
+    return min(max(int(value), 1), 10) if value.isdigit() else 5
+
 
 def _breakdown(ats):
     """The parts of an ATS result worth keeping on the application, besides the score itself."""
@@ -423,7 +430,8 @@ def edit_job(request, job_id):
         job.title = request.POST['title']
         job.description = request.POST['description']
         job.experience_level = request.POST.get('experience_level', '')
-        job.save(update_fields=['title', 'description', 'experience_level'])
+        job.interview_rounds = _rounds(request)
+        job.save(update_fields=['title', 'description', 'experience_level', 'interview_rounds'])
     return redirect('dashboard')
 
 @require_POST
