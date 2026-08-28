@@ -347,6 +347,20 @@ class InterviewFlowTest(TestCase):
         self.assertIn("Needs deeper Kafka partitioning.", pdf_text)  # gap analysis is in the report
         self.assertIn("a<b and b>c", pdf_text)  # markup-like answers no longer abort the report
 
+    def test_round_count_and_difficulty_reach_the_prompts(self, *_):
+        Job.objects.filter(id=self.app.job_id).update(interview_rounds=2, experience_level="Senior")
+        prompts = []
+        def chat(label, system, prompt, **kw):
+            prompts.append((label, prompt))
+            return json.dumps({"feedback": "ok", "confidence": 70, "clarity": 70}) if label == "Feedback" else f"{label} text"
+        with patch.object(InterviewBrain, "_chat", side_effect=chat):
+            self.post("start")
+            self.assertEqual(self.post("answer", {"answer": "one"}).json()["messages"][-1]["message_type"], "question")
+            self.assertEqual(self.post("answer", {"answer": "two"}).json()["messages"][-1]["message_type"], "summary")
+        question_prompts = [p for label, p in prompts if label in ("Initial Q", "Next Q - Skills Cross-Exam")]
+        self.assertEqual(len(question_prompts), 2)
+        self.assertTrue(all("experience level: Senior" in p for p in question_prompts))
+
     def test_ai_failure_returns_error_and_session_can_still_end(self, *_):
         with patch.object(InterviewBrain, "generate_initial_question", side_effect=RuntimeError("401")):
             res = self.post("start")
