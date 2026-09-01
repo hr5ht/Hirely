@@ -1,9 +1,10 @@
 """RAG over the job description and resume, with nothing running locally.
 
-Semantic: Gemini embeddings ranked by cosine similarity, rebuilt per request (two small docs, ~10 vectors,
-so no vector DB or numpy). Falls back to keyword ranking (simplified BM25) if Gemini is unset, rate-limited (free tier resets daily) or fails.
-ponytail: re-embeds both docs every round; cache vectors on the session if embedding calls get costly.
+Semantic: Gemini embeddings ranked by cosine similarity (two small docs, ~10 vectors, so no vector DB or numpy).
+Chunk vectors are cached on the interview session, so each later round only embeds its query.
+Falls back to keyword ranking (simplified BM25) if Gemini is unset, rate-limited (free tier resets daily) or fails.
 """
+import hashlib
 import logging
 import math
 import os
@@ -15,6 +16,7 @@ from langchain_google_genai import GoogleGenerativeAIEmbeddings
 log = logging.getLogger(__name__)
 
 EMBED_MODEL = "gemini-embedding-001"
+EMBED_DIMS = 768  # Gemini's smallest recommended size; keeps the per-session cache around 60 KB
 
 STOP_WORDS = set("""
 a an and are as at be by for from has have in is it of on or that the this to was were will with you your
@@ -47,7 +49,7 @@ def _top_chunks(query_terms, text, top_k):
     return "\n...\n".join(chunks[i] for i in hits)
 
 
-def _semantic(query, resume_text, jd_text, top_k):
+def _semantic(query, resume_text, jd_text, top_k, cache=None):
     key = os.getenv("GOOGLE_API_KEY", "")
     if not key or "your_" in key:
         raise RuntimeError("GOOGLE_API_KEY not set")
@@ -56,8 +58,15 @@ def _semantic(query, resume_text, jd_text, top_k):
     if not texts:
         return "", ""
 
-    embeddings = GoogleGenerativeAIEmbeddings(model=EMBED_MODEL, google_api_key=key)
-    vectors = embeddings.embed_documents(texts)  # one batched call for both documents
+    embeddings = GoogleGenerativeAIEmbeddings(model=EMBED_MODEL, google_api_key=key, output_dimensionality=EMBED_DIMS)
+    # The fingerprint invalidates the cache if the job description is edited mid-interview
+    fingerprint = hashlib.sha1(f"{EMBED_MODEL}:{EMBED_DIMS}\0{len(chunks['resume'])}\0".encode() + "\0".join(texts).encode()).hexdigest()
+    if cache is not None and cache.get("fingerprint") == fingerprint:
+        vectors = cache["vectors"]
+    else:
+        vectors = [[round(x, 5) for x in v] for v in embeddings.embed_documents(texts)]  # one batched call for both documents
+        if cache is not None:
+            cache.update(fingerprint=fingerprint, vectors=vectors)
     query_vector = embeddings.embed_query(query)
 
     def cosine(v):
@@ -71,10 +80,13 @@ def _semantic(query, resume_text, jd_text, top_k):
     return best("resume", vectors[:split]), best("jd", vectors[split:])
 
 
-def retrieve(query, resume_text, jd_text, top_k=2):
-    """Return (resume_excerpts, jd_excerpts): the chunks of each document most relevant to the query."""
+def retrieve(query, resume_text, jd_text, top_k=2, cache=None):
+    """Return (resume_excerpts, jd_excerpts): the chunks of each document most relevant to the query.
+
+    cache: a dict persisted by the caller (the session's rag_cache); chunk vectors are stored in it and reused.
+    """
     try:
-        return _semantic(query, resume_text, jd_text, top_k)
+        return _semantic(query, resume_text, jd_text, top_k, cache)
     except Exception as e:
         log.warning("Semantic retrieval unavailable (%s); using keyword ranking", e)
     terms = set(_tokens(query))

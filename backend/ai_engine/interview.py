@@ -41,10 +41,11 @@ def start(session, data):
         proctor(session, {"type": "Interview page reloaded"})
         return [_question(transcript[-1]['question'])]
 
-    resume_ctx, jd_ctx = rag.retrieve(f"{app.job.title} {ROUND_TOPICS[0]}", app.resume_text, app.job.description)
+    resume_ctx, jd_ctx = rag.retrieve(f"{app.job.title} {ROUND_TOPICS[0]}", app.resume_text, app.job.description,
+                                      cache=session.rag_cache)
     question = InterviewBrain().generate_initial_question(app.job.title, jd_ctx, resume_ctx, level=app.job.experience_level)
     session.transcript = transcript + [{"question": question}]
-    session.save(update_fields=['transcript'])
+    session.save(update_fields=['transcript', 'rag_cache'])
     return [_question(question)]
 
 
@@ -84,13 +85,14 @@ def answer(session, data):
     else:
         # Query = this round's topic + what they just said, so follow-ups dig into their own claims
         topic = ROUND_TOPICS[len(transcript) % len(ROUND_TOPICS)]
-        resume_ctx, jd_ctx = rag.retrieve(f"{app.job.title} {topic} {text}", app.resume_text, app.job.description)
+        resume_ctx, jd_ctx = rag.retrieve(f"{app.job.title} {topic} {text}", app.resume_text, app.job.description,
+                                          cache=session.rag_cache)
         next_q = brain.get_next_question(transcript, jd_ctx, resume_ctx, level=app.job.experience_level)
         transcript.append({"question": next_q})
         messages.append(_question(next_q))
 
     session.transcript = transcript
-    session.save(update_fields=['transcript'])
+    session.save(update_fields=['transcript', 'rag_cache'])
     return messages
 
 
