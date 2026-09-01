@@ -206,7 +206,7 @@ def dashboard_view(request):
     else:
         # Candidate Dashboard with Job Marketplace
         applications = Application.objects.filter(candidate=request.user).select_related('job__company') \
-            .defer('resume_pdf', 'resume_text').prefetch_related(Prefetch('sessions', InterviewSession.objects.defer('pdf_report'))) \
+            .defer('resume_pdf', 'resume_text').prefetch_related(Prefetch('sessions', InterviewSession.objects.defer('pdf_report', 'rag_cache'))) \
             .order_by('-created_at')
         applied_jobs = [app.job.id for app in applications]
         # Exclude already applied positions from the active marketplace list
@@ -222,7 +222,7 @@ def dashboard_view(request):
             .values_list('experience_level', flat=True).distinct()
 
         all_sessions = InterviewSession.objects.filter(application__candidate=request.user) \
-            .select_related('application__job__company').defer('pdf_report').order_by('-created_at')
+            .select_related('application__job__company').defer('pdf_report', 'rag_cache').order_by('-created_at')
 
         return render(request, 'dashboard.html', {
             'username': request.user.username,
