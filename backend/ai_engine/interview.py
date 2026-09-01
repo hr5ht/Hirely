@@ -44,7 +44,7 @@ def start(session, data):
     resume_ctx, jd_ctx = rag.retrieve(f"{app.job.title} {ROUND_TOPICS[0]}", app.resume_text, app.job.description,
                                       cache=session.rag_cache)
     question = InterviewBrain().generate_initial_question(app.job.title, jd_ctx, resume_ctx, level=app.job.experience_level)
-    session.transcript = transcript + [{"question": question}]
+    session.transcript = transcript + [{"question": question, "context": {"resume": resume_ctx, "jd": jd_ctx}}]
     session.save(update_fields=['transcript', 'rag_cache'])
     return [_question(question)]
 
@@ -79,7 +79,8 @@ def answer(session, data):
     ]
 
     if len(transcript) >= app.job.interview_rounds:
-        summary = brain.get_summary(app.job.title, json.dumps(transcript))
+        qa = [{k: v for k, v in t.items() if k != 'context'} for t in transcript]  # excerpts would only cost tokens
+        summary = brain.get_summary(app.job.title, json.dumps(qa))
         messages.append({"type": "interview_message", "message_type": "summary", "text": summary,
                          "audio": AudioService().text_to_speech(summary)})
     else:
@@ -88,7 +89,8 @@ def answer(session, data):
         resume_ctx, jd_ctx = rag.retrieve(f"{app.job.title} {topic} {text}", app.resume_text, app.job.description,
                                           cache=session.rag_cache)
         next_q = brain.get_next_question(transcript, jd_ctx, resume_ctx, level=app.job.experience_level)
-        transcript.append({"question": next_q})
+        # Kept with the turn so a reviewer can see what each question was grounded in
+        transcript.append({"question": next_q, "context": {"resume": resume_ctx, "jd": jd_ctx}})
         messages.append(_question(next_q))
 
     session.transcript = transcript

@@ -339,6 +339,7 @@ class InterviewFlowTest(TestCase):
         self.app.refresh_from_db()
         self.assertEqual(self.session.session_status, "completed")
         self.assertEqual(len(self.session.transcript), 1)  # pending Q2 dropped
+        self.assertIn("Kafka", self.session.transcript[0]["context"]["jd"])  # excerpts the question was based on
         self.assertEqual((self.session.avg_confidence, self.session.avg_clarity), (40, 60))
         self.assertEqual((self.app.proctoring_score, self.app.status), (80, "evaluated"))  # -5 reload, -15 face
         pdf_text = "".join(p.extract_text() for p in PyPDF2.PdfReader(io.BytesIO(bytes(self.session.pdf_report))).pages)
