@@ -58,6 +58,18 @@ class RagTest(TestCase):
         self.assertIn("k8s deeply", jd_ctx)
         self.assertEqual(rag._top_chunks({"k8s"}, resume, 1), resume[:len(rag.chunk_text(resume)[0])])  # keyword path can't: falls back to the opening chunk
 
+    def test_cached_vectors_avoid_re_embedding(self):
+        fake, cache = FakeEmbeddings(), {}
+        resume, jd = "Ran Kafka consumers. " * 50 + "Operated Kubernetes.", "Must know k8s."
+        with patch.dict(os.environ, {"GOOGLE_API_KEY": "test"}), patch.object(rag, "GoogleGenerativeAIEmbeddings", return_value=fake), \
+             patch.object(fake, "embed_documents", wraps=fake.embed_documents) as embed:
+            first = rag.retrieve("k8s", resume, jd, top_k=1, cache=cache)
+            self.assertEqual(rag.retrieve("k8s", resume, jd, top_k=1, cache=cache), first)
+            self.assertEqual(embed.call_count, 1)  # second round reused the cached chunk vectors
+            rag.retrieve("k8s", resume, jd + " Edited.", top_k=1, cache=cache)
+            self.assertEqual(embed.call_count, 2)  # an edited document invalidates the cache
+        self.assertEqual(len(cache["vectors"]), len(rag.chunk_text(resume)) + 1)
+
     def test_falls_back_to_keywords_when_embeddings_fail(self):
         with patch.dict(os.environ, {"GOOGLE_API_KEY": "test"}), patch.object(rag, "GoogleGenerativeAIEmbeddings", side_effect=RuntimeError("429")):
             resume_ctx, _ = rag.retrieve("Kafka", "Ran Kafka consumers.", "jd", top_k=1)
