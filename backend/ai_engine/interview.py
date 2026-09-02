@@ -28,8 +28,9 @@ ROUND_TOPICS = [
 ]
 
 
-def _question(text):
-    return {"type": "interview_message", "message_type": "question", "text": text, "audio": AudioService().text_to_speech(text)}
+def _question(text, session):
+    return {"type": "interview_message", "message_type": "question", "text": text, "audio": AudioService().text_to_speech(text),
+            "round": len(session.transcript), "total_rounds": session.application.job.interview_rounds}
 
 
 def start(session, data):
@@ -39,14 +40,14 @@ def start(session, data):
         # Page reload: re-serve the pending question instead of paying for a new one,
         # and flag it so a reload can't be used to escape a question unnoticed
         proctor(session, {"type": "Interview page reloaded"})
-        return [_question(transcript[-1]['question'])]
+        return [_question(transcript[-1]['question'], session)]
 
     resume_ctx, jd_ctx = rag.retrieve(f"{app.job.title} {ROUND_TOPICS[0]}", app.resume_text, app.job.description,
                                       cache=session.rag_cache)
     question = InterviewBrain().generate_initial_question(app.job.title, jd_ctx, resume_ctx, level=app.job.experience_level)
     session.transcript = transcript + [{"question": question, "context": {"resume": resume_ctx, "jd": jd_ctx}}]
     session.save(update_fields=['transcript', 'rag_cache'])
-    return [_question(question)]
+    return [_question(question, session)]
 
 
 def answer(session, data):
@@ -91,7 +92,7 @@ def answer(session, data):
         next_q = brain.get_next_question(transcript, jd_ctx, resume_ctx, level=app.job.experience_level)
         # Kept with the turn so a reviewer can see what each question was grounded in
         transcript.append({"question": next_q, "context": {"resume": resume_ctx, "jd": jd_ctx}})
-        messages.append(_question(next_q))
+        messages.append(_question(next_q, session))
 
     session.transcript = transcript
     session.save(update_fields=['transcript', 'rag_cache'])
