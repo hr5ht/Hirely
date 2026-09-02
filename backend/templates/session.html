@@ -546,7 +546,7 @@
             } else if (msgType === 'interview_message') {
                 const innerType = message.message_type;
                 if (innerType === 'question') {
-                    promptLabel.innerText = "Current Question";
+                    promptLabel.innerText = message.round ? `Round ${message.round} of ${message.total_rounds}` : "Current Question";
                     currentRound.question = message.text;
                     
                     promptText.innerText = message.text;

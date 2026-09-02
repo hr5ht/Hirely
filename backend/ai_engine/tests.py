@@ -335,13 +335,15 @@ class InterviewFlowTest(TestCase):
         with patch.object(InterviewBrain, "generate_initial_question", return_value="Q1?") as first_q, \
              patch.object(InterviewBrain, "get_feedback", return_value=feedback), \
              patch.object(InterviewBrain, "get_next_question", return_value="Q2?") as next_q:
-            self.assertEqual(self.post("start").json()["messages"][0]["text"], "Q1?")
+            first = self.post("start").json()["messages"][0]
+            self.assertEqual((first["text"], first["round"], first["total_rounds"]), ("Q1?", 1, 5))
             self.assertEqual(self.post("start").json()["messages"][0]["text"], "Q1?")  # reload resumes the same question
             self.assertEqual(first_q.call_count, 1)
             self.assertIn("Kafka", first_q.call_args.args[1] + first_q.call_args.args[2])  # RAG context passed
 
-            types = [m.get("message_type", m["type"]) for m in self.post("answer", {"answer": "I used Kafka when a<b and b>c"}).json()["messages"]]
-            self.assertEqual(types, ["insights_update", "silent_feedback", "question"])
+            msgs = self.post("answer", {"answer": "I used Kafka when a<b and b>c"}).json()["messages"]
+            self.assertEqual([m.get("message_type", m["type"]) for m in msgs], ["insights_update", "silent_feedback", "question"])
+            self.assertEqual(msgs[-1]["round"], 2)
             self.assertIn("Kafka consumers", next_q.call_args.args[2])  # resume chunk matching the answer
 
         self.post("proctor", {"type": "Face Not Detected Anomalous Event", "timestamp": "2026-10-15T12:00:00Z"})
