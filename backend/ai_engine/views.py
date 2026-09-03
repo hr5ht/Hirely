@@ -8,6 +8,7 @@ from django.core.paginator import Paginator
 from django.db.models import Avg, Count, Prefetch, Q
 from django.views.decorators.http import require_POST
 import json
+from collections import Counter
 import groq
 import PyPDF2
 
@@ -511,9 +512,11 @@ def candidate_detail(request, application_id):
         profile = request.user.profile
         if profile.role == 'recruiter' and profile.company:
             app = Application.objects.get(id=application_id, job__company=profile.company)
+            session = InterviewSession.objects.filter(application=app).first()
             return render(request, 'candidate_detail.html', {
                 'application': app,
-                'session': InterviewSession.objects.filter(application=app).first()
+                'session': session,
+                'alert_counts': Counter(log.get('type') for log in session.proctoring_logs).most_common() if session else [],
             })
     except Application.DoesNotExist:
         pass
