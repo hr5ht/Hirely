@@ -28,6 +28,10 @@ ROUND_TOPICS = [
 ]
 
 
+# Alerts that mean nobody is being watched at all cost as much as a missing face
+SEVERE_ALERTS = {"Camera Stopped"}
+
+
 def _question(text, session):
     return {"type": "interview_message", "message_type": "question", "text": text, "audio": AudioService().text_to_speech(text),
             "round": len(session.transcript), "total_rounds": session.application.job.interview_rounds}
@@ -109,7 +113,7 @@ def audio(session, data):
 def proctor(session, data):
     infraction = {"type": data.get('type', 'Gaze Deviation'), "timestamp": data.get('timestamp', time.strftime('%Y-%m-%dT%H:%M:%SZ'))}
     log.warning("Proctor alert on session %s: %s at %s", session.id, infraction['type'], infraction['timestamp'])
-    penalty = 15 if "Not Detected" in infraction['type'] else 5
+    penalty = 15 if "Not Detected" in infraction['type'] or infraction['type'] in SEVERE_ALERTS else 5
     # Alerts can arrive in parallel requests; lock the row so none overwrite each other
     with transaction.atomic():
         locked = InterviewSession.objects.select_for_update().get(id=session.id)

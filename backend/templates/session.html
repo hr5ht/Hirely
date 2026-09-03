@@ -876,6 +876,13 @@
                 promptText.innerText = "Camera access is required for this interview. Allow it in your browser and try again.";
                 return;
             }
+            // A camera unplugged or revoked mid-interview ends the video track; without it nothing is proctored
+            videoElement.srcObject?.getVideoTracks().forEach(track => track.addEventListener('ended', () => {
+                if (!interviewActive) return;
+                updateProctoringStatus('danger', 'CRITICAL: Camera stopped');
+                safeSendProctorInfraction({ type: 'Camera Stopped', timestamp: new Date().toISOString() });
+                promptText.innerText = "Your camera stopped. Reload the page to turn it back on and continue.";
+            }));
             promptLabel.innerText = "Starting";
             promptText.innerText = "Preparing your first question...";
             interviewActive = true;
