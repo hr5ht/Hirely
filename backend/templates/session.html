@@ -591,6 +591,7 @@
         }
 
         function showSummary(text) {
+            interviewActive = false;
             document.querySelector('main').innerHTML = `
                 <div class="max-w-3xl mx-auto py-12 px-4">
                     <div class="clean-card p-12 space-y-8 shadow-lg">
@@ -615,6 +616,7 @@
         }
 
         async function endSessionAndSave() {
+            interviewActive = false;  // leaving the page now is expected
             const endBtnEl = document.getElementById('end-btn');
             if (endBtnEl) {
                 endBtnEl.innerHTML = `<div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block mr-1"></div> Saving...`;
@@ -684,6 +686,26 @@
             console.log("[Proctor Telemetry] Sending infraction:", alertData);
             send('proctor', alertData);
         }
+
+        // Leaving the interview tab or window: hidden tabs alert at once; a blur must last 2 s,
+        // so permission prompts and other brief focus changes don't count
+        let interviewActive = false;
+        let lastFocusInfractionTime = 0;
+        let blurTimer = null;
+        function focusInfraction(type) {
+            const now = Date.now();
+            if (!interviewActive || now - lastFocusInfractionTime < 5000) return;
+            lastFocusInfractionTime = now;
+            updateProctoringStatus('danger', type);
+            safeSendProctorInfraction({ type, timestamp: new Date().toISOString() });
+        }
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) focusInfraction('Tab Switched Away');
+        });
+        window.addEventListener('blur', () => {
+            blurTimer = setTimeout(() => focusInfraction('Interview Window Lost Focus'), 2000);
+        });
+        window.addEventListener('focus', () => clearTimeout(blurTimer));
 
         const faceMesh = new FaceMesh({
             locateFile: (file) => {
@@ -856,6 +878,7 @@
             }
             promptLabel.innerText = "Starting";
             promptText.innerText = "Preparing your first question...";
+            interviewActive = true;
             send('start');
         };
 
