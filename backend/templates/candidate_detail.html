@@ -264,6 +264,11 @@
                 
                 <div class="space-y-3 overflow-y-auto pr-1 max-h-64 scrollbar-hide flex-grow flex flex-col justify-start">
                     {% if session and session.proctoring_logs %}
+                        <div class="flex flex-wrap gap-1.5">
+                            {% for type, count in alert_counts %}
+                            <span class="px-2 py-0.5 rounded-md bg-red-50 text-red-700 border border-red-100 text-[10px] font-bold">{{ type }} × {{ count }}</span>
+                            {% endfor %}
+                        </div>
                         {% for log in session.proctoring_logs %}
                         <div class="p-2.5 bg-red-50/50 border border-red-100 rounded-xl flex items-start gap-2.5 hover:bg-red-50 transition-colors">
                             <div class="w-6 h-6 bg-red-100 rounded-full flex items-center justify-center text-red-600 mt-0.5 shrink-0">
