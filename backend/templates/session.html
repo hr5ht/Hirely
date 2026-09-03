@@ -364,13 +364,26 @@
             }
         };
 
+        // One answer at a time: a double click or Enter during the AI call would otherwise be sent twice
+        let answerInFlight = false;
+        async function sendAnswer(action, data) {
+            answerInFlight = true;
+            [sendTextBtn, micBtn, manualAnswerInput].forEach(el => el.disabled = true);
+            try {
+                await send(action, data);
+            } finally {
+                answerInFlight = false;
+                [sendTextBtn, micBtn, manualAnswerInput].forEach(el => el.disabled = false);
+            }
+        }
+
         const submitAnswer = (text) => {
-            if (!text.trim()) return;
+            if (!text.trim() || answerInFlight) return;
             currentRound.answer = text; // Track user answer for PDF
             stopAIAudio(); // Stop AI audio when user submits an answer
             addTranscript('You', text);
             promptText.innerText = "Analyzing your answer...";
-            send('answer', { answer: text });
+            sendAnswer('answer', { answer: text });
             manualAnswerInput.value = '';
             textInputContainer.classList.add('hidden');
         };
@@ -466,7 +479,7 @@
                     reader.onloadend = () => {
                         const base64Audio = reader.result.split(',')[1];
                         promptText.innerText = "Deepgram is transcribing...";
-                        send('audio', { audio: base64Audio, mimeType: actualType });
+                        sendAnswer('audio', { audio: base64Audio, mimeType: actualType });
                     };
 
                     // Stop all tracks to release the mic
@@ -504,7 +517,7 @@
             lucide.createIcons();
         }
 
-        micBtn.onclick = () => isListening ? stopRecording() : startRecording();
+        micBtn.onclick = () => isListening ? stopRecording() : (answerInFlight || startRecording());
 
         function addTranscript(role, text) {
             const p = document.createElement('p');
