@@ -886,6 +886,15 @@
             promptLabel.innerText = "Starting";
             promptText.innerText = "Preparing your first question...";
             interviewActive = true;
+            // Proves the camera stayed on: the server flags silences when the interview ends
+            const heartbeat = () => {
+                const live = videoElement.srcObject?.getVideoTracks().some(t => t.readyState === 'live');
+                if (interviewActive && live) {
+                    fetch(`/ai/interview/${session_id}/heartbeat/`, { method: 'POST', headers: { 'X-CSRFToken': csrfToken } }).catch(() => {});
+                }
+            };
+            heartbeat();
+            setInterval(heartbeat, 30000);
             send('start');
         };
 

@@ -28,6 +28,16 @@ ROUND_TOPICS = [
 ]
 
 
+HEARTBEAT_SECONDS = 30  # the page pings this often while the camera is live
+HEARTBEAT_GAP = 90  # three missed pings in a row: the camera (or the page) was off
+
+
+def heartbeat_gaps(beats, until):
+    """(start, seconds) for every silence longer than HEARTBEAT_GAP between pings, and from the last ping to `until`."""
+    points = sorted(beats) + [until]
+    return [(a, b - a) for a, b in zip(points, points[1:]) if b - a > HEARTBEAT_GAP] if beats else []
+
+
 # Alerts that mean nobody is being watched at all cost as much as a missing face
 SEVERE_ALERTS = {"Camera Stopped"}
 
@@ -123,8 +133,21 @@ def proctor(session, data):
     return []
 
 
+def heartbeat(session, data):
+    # Server time, so a client can't backfill pings it never sent
+    with transaction.atomic():
+        locked = InterviewSession.objects.select_for_update().get(id=session.id)
+        locked.heartbeats = (locked.heartbeats or []) + [int(time.time())]
+        locked.save(update_fields=['heartbeats'])
+    return []
+
+
 def end(session, data):
     log.info("Closing session %s and compiling report", session.id)
+    session.refresh_from_db(fields=['heartbeats'])
+    for start, seconds in heartbeat_gaps(session.heartbeats, int(time.time())):
+        proctor(session, {"type": f"Camera heartbeat gap ({seconds} s)",
+                          "timestamp": time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(start))})
     transcript = [t for t in session.transcript if 'answer' in t]  # drop the unanswered pending question
     valid_conf = [t['confidence'] for t in transcript if t.get('confidence', 0) > 0]
     valid_clar = [t['clarity'] for t in transcript if t.get('clarity', 0) > 0]
@@ -141,4 +164,4 @@ def end(session, data):
     return [{"type": "session_completed", "message": "Interview completed successfully."}]
 
 
-ACTIONS = {"start": start, "answer": answer, "audio": audio, "proctor": proctor, "end": end}
+ACTIONS = {"start": start, "answer": answer, "audio": audio, "proctor": proctor, "heartbeat": heartbeat, "end": end}
