@@ -83,6 +83,7 @@ class InterviewSession(models.Model):
     problem_solving = models.IntegerField(default=0)
     gap_analysis = models.TextField(blank=True, default='')
     rag_cache = models.JSONField(default=dict, blank=True)  # embedded resume/JD chunks, see rag.retrieve
+    heartbeats = models.JSONField(default=list, blank=True)  # server epoch seconds of each live-camera ping
     created_at = models.DateTimeField(auto_now_add=True)
 
 
