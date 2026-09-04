@@ -362,6 +362,18 @@ class InterviewFlowTest(TestCase):
         self.assertIn("Needs deeper Kafka partitioning.", pdf_text)  # gap analysis is in the report
         self.assertIn("a<b and b>c", pdf_text)  # markup-like answers no longer abort the report
 
+    def test_penalties_for_new_alert_types(self, *_):
+        for alert in ["Tab Switched Away", "Interview Window Lost Focus", "Camera Stopped", "Tab Switched Away"]:
+            self.post("proctor", {"type": alert})
+        self.app.refresh_from_db()
+        self.assertEqual(self.app.proctoring_score, 100 - 5 - 5 - 15 - 5)
+        recruiter = User.objects.create_user("rec", "rec@x.com", "pw")
+        UserProfile.objects.create(user=recruiter, role="recruiter", company=self.app.job.company)
+        self.client.force_login(recruiter)
+        res = self.client.get(f"/ai/candidate-detail/{self.app.id}/")
+        self.assertEqual(res.context["alert_counts"][0], ("Tab Switched Away", 2))
+        self.assertContains(res, "Camera Stopped × 1")
+
     def test_round_count_and_difficulty_reach_the_prompts(self, *_):
         Job.objects.filter(id=self.app.job_id).update(interview_rounds=2, experience_level="Senior")
         prompts = []
