@@ -1,5 +1,6 @@
 import io
 import json
+from collections import Counter
 from xml.sax.saxutils import escape
 
 from django.utils import timezone
@@ -259,7 +260,16 @@ def compile_performance_report_pdf(session_id):
         
         # --- PROCTORING VIOLATIONS AUDIT ---
         story.append(Paragraph("Security & Proctoring Audit Trail", h2_style))
-        
+
+        # Summary first: a recruiter skimming the report sees what kind of alerts, and whether the camera stayed on
+        counts = Counter(log.get('type', 'Gaze Deviation') for log in session.proctoring_logs)
+        summary = ", ".join(f"{esc(t)} × {n}" for t, n in counts.most_common()) or "No alerts"
+        gaps = sum(1 for t in counts.elements() if t.startswith("Camera heartbeat gap"))
+        if session.heartbeats:
+            summary += f". Camera heartbeats received: {len(session.heartbeats)}; gaps over 90 s: {gaps}."
+        story.append(Paragraph(f"<b>Summary:</b> {summary}", body_style))
+        story.append(Spacer(1, 8))
+
         if session.proctoring_logs:
             proc_headers = [
                 Paragraph("Anomaly Category", ParagraphStyle('HCol', parent=meta_label_style, textColor=colors.white)),
