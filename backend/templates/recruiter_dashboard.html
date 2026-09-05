@@ -119,7 +119,7 @@
             <!-- Scrollable list of jobs -->
             <div class="flex flex-row overflow-x-auto gap-4 pb-4 pt-1 scrollbar-hide snap-x">
                 {% for job in jobs %}
-                <div onclick="selectJob('{{ job.id }}')" data-title="{{ job.title }}" data-level="{{ job.experience_level }}" data-rounds="{{ job.interview_rounds }}" data-description="{{ job.description }}" class="job-item-card min-w-[280px] md:min-w-[340px] max-w-[340px] {% if job == selected_job %}border-blue-500 bg-blue-50/30 ring-1 ring-blue-500{% else %}bg-white border-gray-200{% endif %} border rounded-2xl p-5 hover:border-blue-300 hover:shadow-md cursor-pointer transition-all flex flex-col justify-between gap-3.5 relative shadow-sm snap-start" data-job-id="{{ job.id }}">
+                <div onclick="selectJob('{{ job.id }}')" data-title="{{ job.title }}" data-level="{{ job.experience_level }}" data-rounds="{{ job.interview_rounds }}" data-time-limit="{{ job.answer_time_limit }}" data-description="{{ job.description }}" class="job-item-card min-w-[280px] md:min-w-[340px] max-w-[340px] {% if job == selected_job %}border-blue-500 bg-blue-50/30 ring-1 ring-blue-500{% else %}bg-white border-gray-200{% endif %} border rounded-2xl p-5 hover:border-blue-300 hover:shadow-md cursor-pointer transition-all flex flex-col justify-between gap-3.5 relative shadow-sm snap-start" data-job-id="{{ job.id }}">
                     <span class="absolute top-5 right-5 w-2.5 h-2.5 rounded-full {% if job.is_active %}bg-green-500{% else %}bg-gray-300{% endif %}" title="{% if job.is_active %}Active{% else %}Inactive{% endif %}"></span>
                     
                     <div class="space-y-1">
@@ -294,6 +294,11 @@
                 </div>
 
                 <div class="space-y-1.5">
+                    <label for="answer_time_limit" class="text-xs font-bold text-gray-500 uppercase tracking-wider">Seconds per Answer (0 = no limit)</label>
+                    <input type="number" id="answer_time_limit" name="answer_time_limit" value="0" min="0" max="600" step="30" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-blue-500 focus:bg-white focus:ring-1 focus:ring-blue-500 outline-none transition-all">
+                </div>
+
+                <div class="space-y-1.5">
                     <label class="text-xs font-bold text-gray-500 uppercase tracking-wider">Detailed Job Description</label>
                     <textarea name="description" required rows="5" placeholder="Specify position goals, system components, expected technical stacks, languages, and interview requirements..." class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-blue-500 focus:bg-white focus:ring-1 focus:ring-blue-500 outline-none transition-all text-sm leading-relaxed"></textarea>
                 </div>
@@ -328,6 +333,7 @@
                 jobForm.elements.title.value = job.dataset.title;
                 jobForm.elements.experience_level.value = job.dataset.level;
                 jobForm.elements.interview_rounds.value = job.dataset.rounds;
+                jobForm.elements.answer_time_limit.value = job.dataset.timeLimit;
                 jobForm.elements.description.value = job.dataset.description;
             }
             document.getElementById('jobModalTitle').textContent = job ? 'Edit Job Opening' : 'Post a Job Opening';

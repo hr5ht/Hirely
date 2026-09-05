@@ -47,8 +47,11 @@ SEVERE_ALERTS = {"Camera Stopped"}
 
 
 def _question(text, session):
+    job = session.application.job
+    remaining = job.answer_time_limit - (_now() - session.transcript[-1].get('asked_at', _now())) if job.answer_time_limit else 0
     return {"type": "interview_message", "message_type": "question", "text": text, "audio": AudioService().text_to_speech(text),
-            "round": len(session.transcript), "total_rounds": session.application.job.interview_rounds}
+            "round": len(session.transcript), "total_rounds": job.interview_rounds,
+            "seconds_left": max(remaining, 1) if job.answer_time_limit else None}
 
 
 def start(session, data):
@@ -63,7 +66,7 @@ def start(session, data):
     resume_ctx, jd_ctx = rag.retrieve(f"{app.job.title} {ROUND_TOPICS[0]}", app.resume_text, app.job.description,
                                       cache=session.rag_cache)
     question = InterviewBrain().generate_initial_question(app.job.title, jd_ctx, resume_ctx, level=app.job.experience_level)
-    session.transcript = transcript + [{"question": question, "context": {"resume": resume_ctx, "jd": jd_ctx}}]
+    session.transcript = transcript + [{"question": question, "context": {"resume": resume_ctx, "jd": jd_ctx}, "asked_at": _now()}]
     session.save(update_fields=['transcript', 'rag_cache'])
     return [_question(question, session)]
 
@@ -77,6 +80,10 @@ def answer(session, data):
     app = session.application
     brain = InterviewBrain()
     turn = transcript[-1]
+    # The countdown runs in the browser; the server checks it too, with a little slack for the network
+    limit = app.job.answer_time_limit
+    if limit and 'asked_at' in turn and _now() - turn['asked_at'] > limit + 15:
+        proctor(session, {"type": "Answered after the time limit"})
     analysis_raw = brain.get_feedback(turn['question'], text)
     try:
         analysis = json.loads(analysis_raw)
@@ -109,7 +116,7 @@ def answer(session, data):
                                           cache=session.rag_cache)
         next_q = brain.get_next_question(transcript, jd_ctx, resume_ctx, level=app.job.experience_level)
         # Kept with the turn so a reviewer can see what each question was grounded in
-        transcript.append({"question": next_q, "context": {"resume": resume_ctx, "jd": jd_ctx}})
+        transcript.append({"question": next_q, "context": {"resume": resume_ctx, "jd": jd_ctx}, "asked_at": _now()})
         messages.append(_question(next_q, session))
 
     session.transcript = transcript

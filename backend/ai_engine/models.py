@@ -31,6 +31,7 @@ class Job(models.Model):
     description = models.TextField()
     experience_level = models.CharField(max_length=50, blank=True, default='')
     interview_rounds = models.PositiveSmallIntegerField(default=5)
+    answer_time_limit = models.PositiveSmallIntegerField(default=0)  # seconds per question, 0 = no limit
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 

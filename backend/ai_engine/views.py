@@ -402,6 +402,7 @@ def post_job(request):
                 description=request.POST.get('description'),
                 experience_level=request.POST.get('experience_level', ''),
                 interview_rounds=_rounds(request),
+                answer_time_limit=_time_limit(request),
             )
     return redirect('dashboard')
 
@@ -409,6 +410,12 @@ def _rounds(request):
     """Interview length from the job form, kept to 1-10 questions."""
     value = request.POST.get('interview_rounds', '')
     return min(max(int(value), 1), 10) if value.isdigit() else 5
+
+
+def _time_limit(request):
+    """Seconds per question from the job form; 0 (no limit) or 30 s to 10 min."""
+    value = request.POST.get('answer_time_limit', '')
+    return min(max(int(value), 30), 600) if value.isdigit() and int(value) else 0
 
 
 def _breakdown(ats):
@@ -432,7 +439,8 @@ def edit_job(request, job_id):
         job.description = request.POST['description']
         job.experience_level = request.POST.get('experience_level', '')
         job.interview_rounds = _rounds(request)
-        job.save(update_fields=['title', 'description', 'experience_level', 'interview_rounds'])
+        job.answer_time_limit = _time_limit(request)
+        job.save(update_fields=['title', 'description', 'experience_level', 'interview_rounds', 'answer_time_limit'])
     return redirect('dashboard')
 
 @require_POST
