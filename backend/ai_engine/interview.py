@@ -32,6 +32,10 @@ HEARTBEAT_SECONDS = 30  # the page pings this often while the camera is live
 HEARTBEAT_GAP = 90  # three missed pings in a row: the camera (or the page) was off
 
 
+def _now():
+    return int(time.time())
+
+
 def heartbeat_gaps(beats, until):
     """(start, seconds) for every silence longer than HEARTBEAT_GAP between pings, and from the last ping to `until`."""
     points = sorted(beats) + [until]
@@ -137,7 +141,7 @@ def heartbeat(session, data):
     # Server time, so a client can't backfill pings it never sent
     with transaction.atomic():
         locked = InterviewSession.objects.select_for_update().get(id=session.id)
-        locked.heartbeats = (locked.heartbeats or []) + [int(time.time())]
+        locked.heartbeats = (locked.heartbeats or []) + [_now()]
         locked.save(update_fields=['heartbeats'])
     return []
 
@@ -145,7 +149,7 @@ def heartbeat(session, data):
 def end(session, data):
     log.info("Closing session %s and compiling report", session.id)
     session.refresh_from_db(fields=['heartbeats'])
-    for start, seconds in heartbeat_gaps(session.heartbeats, int(time.time())):
+    for start, seconds in heartbeat_gaps(session.heartbeats, _now()):
         proctor(session, {"type": f"Camera heartbeat gap ({seconds} s)",
                           "timestamp": time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(start))})
     transcript = [t for t in session.transcript if 'answer' in t]  # drop the unanswered pending question

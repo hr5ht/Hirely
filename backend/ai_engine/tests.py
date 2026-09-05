@@ -374,6 +374,25 @@ class InterviewFlowTest(TestCase):
         self.assertEqual(res.context["alert_counts"][0], ("Tab Switched Away", 2))
         self.assertContains(res, "Camera Stopped × 1")
 
+    def test_heartbeat_gaps_are_flagged_and_reported(self, *_):
+        from ai_engine import interview
+        self.assertEqual(interview.heartbeat_gaps([0, 30, 60], 80), [])
+        self.assertEqual(interview.heartbeat_gaps([0, 30, 200], 220), [(30, 170)])
+        self.assertEqual(interview.heartbeat_gaps([0], 500), [(0, 500)])  # camera died after the first ping
+        self.assertEqual(interview.heartbeat_gaps([], 500), [])  # no pings recorded: nothing to judge
+
+        with patch.object(interview, "_now", side_effect=[1000, 1030, 1200, 1230]):
+            for _ in range(3):
+                self.post("heartbeat")
+            self.post("end")
+        self.session.refresh_from_db()
+        self.app.refresh_from_db()
+        self.assertEqual(self.session.heartbeats, [1000, 1030, 1200])
+        self.assertEqual([log["type"] for log in self.session.proctoring_logs], ["Camera heartbeat gap (170 s)"])
+        self.assertEqual(self.app.proctoring_score, 95)
+        pdf_text = "".join(p.extract_text() for p in PyPDF2.PdfReader(io.BytesIO(bytes(self.session.pdf_report))).pages)
+        self.assertIn("gaps over 90 s: 1", pdf_text)
+
     def test_round_count_and_difficulty_reach_the_prompts(self, *_):
         Job.objects.filter(id=self.app.job_id).update(interview_rounds=2, experience_level="Senior")
         prompts = []
