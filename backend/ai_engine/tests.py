@@ -393,6 +393,23 @@ class InterviewFlowTest(TestCase):
         pdf_text = "".join(p.extract_text() for p in PyPDF2.PdfReader(io.BytesIO(bytes(self.session.pdf_report))).pages)
         self.assertIn("gaps over 90 s: 1", pdf_text)
 
+    def test_time_limit_counts_down_across_reloads_and_flags_late_answers(self, *_):
+        from ai_engine import interview
+        Job.objects.filter(id=self.app.job_id).update(answer_time_limit=60)
+        feedback = json.dumps({"feedback": "ok", "confidence": 50, "clarity": 50})
+        with patch.object(InterviewBrain, "generate_initial_question", return_value="Q1?"), \
+             patch.object(InterviewBrain, "get_feedback", return_value=feedback), \
+             patch.object(InterviewBrain, "get_next_question", return_value="Q2?"):
+            with patch.object(interview, "_now", return_value=1000):
+                self.assertEqual(self.post("start").json()["messages"][0]["seconds_left"], 60)
+            with patch.object(interview, "_now", return_value=1040):
+                self.assertEqual(self.post("start").json()["messages"][0]["seconds_left"], 20)  # reload keeps the clock
+            with patch.object(interview, "_now", return_value=1200):
+                self.post("answer", {"answer": "late"})
+        self.session.refresh_from_db()
+        types = [log["type"] for log in self.session.proctoring_logs]
+        self.assertEqual(types, ["Interview page reloaded", "Answered after the time limit"])
+
     def test_round_count_and_difficulty_reach_the_prompts(self, *_):
         Job.objects.filter(id=self.app.job_id).update(interview_rounds=2, experience_level="Senior")
         prompts = []

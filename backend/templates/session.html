@@ -216,6 +216,7 @@
                     <div class="flex-1 space-y-1">
                         <h3 id="prompt-label" class="text-[10px] font-bold uppercase tracking-widest text-gray-400">
                             Currently Prompting</h3>
+                        <p id="countdown" class="hidden text-xs font-bold text-amber-600" aria-live="polite"></p>
                         <p id="prompt-text" class="text-lg font-semibold text-gray-900">"Ready to start? Enable your mic and say hello."
                         </p>
                     </div>
@@ -364,6 +365,27 @@
             }
         };
 
+        // Per-question time limit set by the recruiter; when it runs out, whatever is typed is submitted
+        const countdownEl = document.getElementById('countdown');
+        let countdownTimer = null;
+        function startCountdown(seconds) {
+            clearInterval(countdownTimer);
+            countdownEl.classList.toggle('hidden', !seconds);
+            if (!seconds) return;
+            const deadline = Date.now() + seconds * 1000;
+            const tick = () => {
+                const left = Math.max(0, Math.round((deadline - Date.now()) / 1000));
+                countdownEl.textContent = `Time left: ${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
+                if (left === 0) {
+                    clearInterval(countdownTimer);
+                    if (isListening) stopRecording();
+                    else submitAnswer(manualAnswerInput.value.trim() || '(No answer: time ran out)');
+                }
+            };
+            tick();
+            countdownTimer = setInterval(tick, 1000);
+        }
+
         // One answer at a time: a double click or Enter during the AI call would otherwise be sent twice
         let answerInFlight = false;
         async function sendAnswer(action, data) {
@@ -379,6 +401,8 @@
 
         const submitAnswer = (text) => {
             if (!text.trim() || answerInFlight) return;
+            clearInterval(countdownTimer);
+            countdownEl.classList.add('hidden');
             currentRound.answer = text; // Track user answer for PDF
             stopAIAudio(); // Stop AI audio when user submits an answer
             addTranscript('You', text);
@@ -560,6 +584,7 @@
                 const innerType = message.message_type;
                 if (innerType === 'question') {
                     promptLabel.innerText = message.round ? `Round ${message.round} of ${message.total_rounds}` : "Current Question";
+                    startCountdown(message.seconds_left);
                     currentRound.question = message.text;
                     
                     promptText.innerText = message.text;
