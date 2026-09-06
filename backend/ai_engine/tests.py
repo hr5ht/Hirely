@@ -417,6 +417,22 @@ class InterviewFlowTest(TestCase):
         types = [log["type"] for log in self.session.proctoring_logs]
         self.assertEqual(types, ["Interview page reloaded", "Answered after the time limit"])
 
+    def test_recruiter_can_allow_a_retake(self, *_):
+        self.post("proctor", {"type": "Tab Switched Away"})
+        Application.objects.filter(id=self.app.id).update(status="evaluated")
+        candidate = self.app.candidate
+        recruiter = User.objects.create_user("rec", "rec@x.com", "pw")
+        UserProfile.objects.create(user=recruiter, role="recruiter", company=self.app.job.company)
+        self.client.force_login(candidate)
+        self.client.post(f"/ai/allow-retake/{self.app.id}/")  # candidates can't reset themselves
+        self.assertTrue(InterviewSession.objects.filter(id=self.session.id).exists())
+        self.client.force_login(recruiter)
+        self.client.post(f"/ai/allow-retake/{self.app.id}/")
+        self.app.refresh_from_db()
+        self.assertEqual((self.app.status, self.app.proctoring_score, self.app.sessions.count()), ("applied", 100, 0))
+        self.client.force_login(candidate)
+        self.assertEqual(self.client.get(f"/session/?app_id={self.app.id}").status_code, 200)  # a fresh session starts
+
     def test_round_count_and_difficulty_reach_the_prompts(self, *_):
         Job.objects.filter(id=self.app.job_id).update(interview_rounds=2, experience_level="Senior")
         prompts = []

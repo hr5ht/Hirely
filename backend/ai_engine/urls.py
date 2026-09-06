@@ -12,5 +12,6 @@ urlpatterns = [
     path('candidate-resume/<int:application_id>/', views.download_candidate_resume, name='candidate_resume'),
     path('interview/<int:session_id>/<str:action>/', views.interview_action, name='interview_action'),
     path('update-status/<int:application_id>/<str:status_val>/', views.update_application_status, name='update_application_status'),
+    path('allow-retake/<int:application_id>/', views.allow_retake, name='allow_retake'),
 ]
 
