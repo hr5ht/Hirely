@@ -361,6 +361,11 @@ class InterviewFlowTest(TestCase):
         self.assertIn("Interview page reloaded", pdf_text)
         self.assertIn("Needs deeper Kafka partitioning.", pdf_text)  # gap analysis is in the report
         self.assertIn("a<b and b>c", pdf_text)  # markup-like answers no longer abort the report
+        review = self.client.get(f"/review/{self.session.id}/")
+        self.assertContains(review, "I used Kafka when a&lt;b and b&gt;c")
+        self.assertContains(review, "Weak.")
+        self.client.force_login(make_app("intruder")[0])
+        self.assertEqual(self.client.get(f"/review/{self.session.id}/").status_code, 404)
 
     def test_penalties_for_new_alert_types(self, *_):
         for alert in ["Tab Switched Away", "Interview Window Lost Focus", "Camera Stopped", "Tab Switched Away"]:

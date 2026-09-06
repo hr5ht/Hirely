@@ -11,6 +11,7 @@ urlpatterns = [
     path('dashboard/', ai_views.dashboard_view, name='dashboard'),
     path('delete-session/<int:session_id>/', ai_views.delete_session, name='delete_session'),
     path('download-session/<int:session_id>/', ai_views.download_session_pdf, name='download_session'),
+    path('review/<int:session_id>/', ai_views.review_session, name='review_session'),
     path('profile/', ai_views.profile_view, name='profile'),
     path('scores/', ai_views.scores_view, name='scores'),
     path('session/', ai_views.session_view, name='session'),
