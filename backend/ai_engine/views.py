@@ -557,6 +557,20 @@ def update_application_status(request, application_id, status_val):
 
 
 @require_POST
+def allow_retake(request, application_id):
+    profile = getattr(request.user, 'profile', None)
+    if request.user.is_authenticated and profile and profile.role == 'recruiter' and profile.company:
+        app = Application.objects.filter(id=application_id, job__company=profile.company).first()
+        if app and app.status not in ('accepted', 'rejected'):
+            # One session per application: the old one goes, with its alerts and score, so the retake starts clean
+            app.sessions.all().delete()
+            app.status = 'applied'
+            app.proctoring_score = 100
+            app.save(update_fields=['status', 'proctoring_score'])
+    return redirect('candidate_detail', application_id=application_id)
+
+
+@require_POST
 def interview_action(request, session_id, action):
     if not request.user.is_authenticated:
         return JsonResponse({'error': 'Authentication required'}, status=401)
