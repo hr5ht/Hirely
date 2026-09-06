@@ -368,6 +368,13 @@ def score_resume_api(request):
         log.exception("Resume scan failed")
         return JsonResponse({'error': _ai_error(e)}, status=502)
 
+def review_session(request, session_id):
+    if not request.user.is_authenticated:
+        return redirect('login')
+    session = get_object_or_404(InterviewSession.objects.select_related('application__job__company').defer('pdf_report', 'rag_cache'),
+                                id=session_id, application__candidate=request.user, session_status='completed')
+    return render(request, 'review.html', {'session': session})
+
 def download_session_pdf(request, session_id):
     if not request.user.is_authenticated:
         return redirect('login')

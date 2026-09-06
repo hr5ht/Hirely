@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Interview Review | Hirely{% endblock %}
+{% block head %}
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f9fafb;
+            color: #111827;
+        }
+
+        .clean-card {
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+    </style>
+{% endblock %}
+{% block body_class %}min-h-screen flex flex-col{% endblock %}
+{% block content %}
+
+    <nav class="bg-white border-b border-gray-200">
+        <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+            <a href="/dashboard/" class="flex items-center gap-3">
+                <img src="{% static 'ai_engine/logo.png' %}" alt="Hirely Logo" class="w-8 h-8 rounded-lg object-cover shadow-sm">
+                <span class="text-lg font-bold text-gray-900">Hirely</span>
+            </a>
+            <div class="flex items-center gap-6 text-sm font-medium">
+                <a href="/dashboard/" class="text-gray-500 hover:text-gray-900 transition-colors">Dashboard</a>
+                <a href="/logout/" class="text-gray-500 hover:text-gray-900 transition-colors">Log out</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="flex-grow max-w-4xl mx-auto w-full py-12 px-6 space-y-8">
+        <header class="space-y-2">
+            <p class="text-xs font-bold uppercase tracking-wider text-blue-600">{{ session.application.job.company.name }}</p>
+            <h1 class="text-3xl font-bold tracking-tight text-gray-900">{{ session.application.job.title }} interview</h1>
+            <p class="text-gray-500">{{ session.created_at|date:"M d, Y" }} · Confidence {{ session.avg_confidence }}% · Clarity {{ session.avg_clarity }}%</p>
+        </header>
+
+        <section class="grid grid-cols-3 gap-4">
+            <div class="clean-card p-4 text-center">
+                <p class="text-[10px] font-bold uppercase tracking-wider text-gray-400">Tech Knowledge</p>
+                <p class="text-2xl font-bold text-blue-600">{{ session.tech_knowledge }}%</p>
+            </div>
+            <div class="clean-card p-4 text-center">
+                <p class="text-[10px] font-bold uppercase tracking-wider text-gray-400">Behavioral IQ</p>
+                <p class="text-2xl font-bold text-indigo-600">{{ session.behavioral_iq }}%</p>
+            </div>
+            <div class="clean-card p-4 text-center">
+                <p class="text-[10px] font-bold uppercase tracking-wider text-gray-400">Problem Solving</p>
+                <p class="text-2xl font-bold text-emerald-600">{{ session.problem_solving }}%</p>
+            </div>
+        </section>
+
+        {% if session.gap_analysis %}
+        <section class="clean-card p-6 space-y-2">
+            <h2 class="text-lg font-bold text-gray-900">Skills gap analysis</h2>
+            <p class="text-sm text-gray-600 leading-relaxed whitespace-pre-line">{{ session.gap_analysis }}</p>
+        </section>
+        {% endif %}
+
+        <section class="space-y-4">
+            <h2 class="text-lg font-bold text-gray-900">Transcript</h2>
+            {% for turn in session.transcript %}
+            <article class="clean-card p-6 space-y-3">
+                <p class="text-[10px] font-bold uppercase tracking-wider text-gray-400">Round {{ forloop.counter }}</p>
+                <p class="font-semibold text-gray-900">{{ turn.question }}</p>
+                <p class="text-sm text-gray-700 bg-gray-50 border border-gray-100 rounded-lg p-3">{{ turn.answer|default:"(No answer)" }}</p>
+                {% if turn.feedback %}
+                <div class="text-sm text-gray-600 border-l-2 border-blue-500 pl-3">
+                    <p class="text-[10px] font-bold uppercase tracking-wider text-blue-600">Feedback · confidence {{ turn.confidence }}% · clarity {{ turn.clarity }}%</p>
+                    <p class="mt-1">{{ turn.feedback }}</p>
+                </div>
+                {% endif %}
+            </article>
+            {% empty %}
+            <p class="text-sm text-gray-500">No questions were answered in this interview.</p>
+            {% endfor %}
+        </section>
+    </main>
+
+    <script>lucide.createIcons();</script>
+{% endblock %}
