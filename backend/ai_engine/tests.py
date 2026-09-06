@@ -364,6 +364,8 @@ class InterviewFlowTest(TestCase):
         review = self.client.get(f"/review/{self.session.id}/")
         self.assertContains(review, "I used Kafka when a&lt;b and b&gt;c")
         self.assertContains(review, "Weak.")
+        self.assertContains(review, f'href="/download-session/{self.session.id}/"')
+        self.assertEqual(self.client.get(f"/download-session/{self.session.id}/")["Content-Type"], "application/pdf")
         self.client.force_login(make_app("intruder")[0])
         self.assertEqual(self.client.get(f"/review/{self.session.id}/").status_code, 404)
 
