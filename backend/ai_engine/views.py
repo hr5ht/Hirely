@@ -556,17 +556,32 @@ def update_application_status(request, application_id, status_val):
     return redirect('candidate_detail', application_id=application_id)
 
 
+def _company_application(request, application_id):
+    """The application if the user is a recruiter at the hiring company, else None."""
+    profile = getattr(request.user, 'profile', None)
+    if not request.user.is_authenticated or not profile or profile.role != 'recruiter' or not profile.company:
+        return None
+    return Application.objects.filter(id=application_id, job__company=profile.company).first()
+
+
+@require_POST
+def save_notes(request, application_id):
+    app = _company_application(request, application_id)
+    if app:
+        app.recruiter_notes = request.POST.get('notes', '')
+        app.save(update_fields=['recruiter_notes'])
+    return redirect('candidate_detail', application_id=application_id)
+
+
 @require_POST
 def allow_retake(request, application_id):
-    profile = getattr(request.user, 'profile', None)
-    if request.user.is_authenticated and profile and profile.role == 'recruiter' and profile.company:
-        app = Application.objects.filter(id=application_id, job__company=profile.company).first()
-        if app and app.status not in ('accepted', 'rejected'):
-            # One session per application: the old one goes, with its alerts and score, so the retake starts clean
-            app.sessions.all().delete()
-            app.status = 'applied'
-            app.proctoring_score = 100
-            app.save(update_fields=['status', 'proctoring_score'])
+    app = _company_application(request, application_id)
+    if app and app.status not in ('accepted', 'rejected'):
+        # One session per application: the old one goes, with its alerts and score, so the retake starts clean
+        app.sessions.all().delete()
+        app.status = 'applied'
+        app.proctoring_score = 100
+        app.save(update_fields=['status', 'proctoring_score'])
     return redirect('candidate_detail', application_id=application_id)
 
 

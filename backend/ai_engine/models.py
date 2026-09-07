@@ -54,6 +54,7 @@ class Application(models.Model):
     # skill/semantic sub-scores, matching/missing keywords and suggestions from the ATS scan
     ats_breakdown = models.JSONField(default=dict, blank=True)
     proctoring_score = models.IntegerField(default=100)
+    recruiter_notes = models.TextField(blank=True, default='')  # private to the hiring company
     status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='applied')
     created_at = models.DateTimeField(auto_now_add=True)
 
