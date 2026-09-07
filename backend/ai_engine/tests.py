@@ -1,3 +1,4 @@
+import csv
 import io
 import json
 import os
@@ -300,6 +301,45 @@ class ApplicantListTest(TestCase):
         self.assertEqual(len(apps(page=2)), 6)
         self.assertEqual([a.id for a in apps(job=job.id)], [app.id])
         self.assertEqual(apps(job=other_job.id, status="rejected", min_score=60).paginator.count, 5)  # i = 15..23 odd
+
+
+class RecruiterToolsTest(TestCase):
+    def setUp(self):
+        _, self.app = make_app()
+        self.app.ats_match_score = 77
+        self.app.ats_breakdown = {"missing_keywords": ["=HYPERLINK(evil)", "Terraform"]}
+        self.app.save()
+        self.company = self.app.job.company
+
+    def recruiter(self, company):
+        user = User.objects.create_user(f"rec{User.objects.count()}", "r@x.com", "pw")
+        UserProfile.objects.create(user=user, role="recruiter", company=company)
+        self.client.force_login(user)
+
+    def test_notes_csv_and_compare_for_the_hiring_company(self):
+        self.recruiter(self.company)
+        self.client.post(f"/ai/application-notes/{self.app.id}/", {"notes": "Strong on Kafka"})
+        self.assertContains(self.client.get(f"/ai/candidate-detail/{self.app.id}/"), "Strong on Kafka")
+
+        rows = list(csv.reader(io.StringIO(self.client.get("/ai/export-applicants/", {"min_score": 70}).content.decode())))
+        self.assertEqual(rows[0][:3], ["Candidate", "Email", "Job"])
+        self.assertEqual((rows[1][0], rows[1][5]), ("cand", "77.00"))
+        self.assertEqual(rows[1][7], "'=HYPERLINK(evil); Terraform")  # formula-looking cells are neutralised
+        self.assertEqual(len(list(csv.reader(io.StringIO(self.client.get("/ai/export-applicants/", {"min_score": 90}).content.decode())))), 1)
+
+        _, other = make_app("second")
+        other.job = self.app.job
+        other.save()
+        res = self.client.get("/ai/compare/", {"ids": [self.app.id, other.id]})
+        self.assertEqual(len(res.context["rows"]), 2)
+
+    def test_other_companies_get_nothing(self):
+        self.recruiter(Company.objects.create(name="Rival"))
+        self.client.post(f"/ai/application-notes/{self.app.id}/", {"notes": "hijack"})
+        self.app.refresh_from_db()
+        self.assertEqual(self.app.recruiter_notes, "")
+        self.assertEqual(self.client.get("/ai/export-applicants/").content.decode().count("\n"), 1)  # header only
+        self.assertEqual(self.client.get("/ai/compare/", {"ids": [self.app.id]}).context["rows"], [])
 
 
 class StateChangeTest(TestCase):
