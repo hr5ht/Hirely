@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Compare Candidates | Hirely{% endblock %}
+{% block head %}
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f9fafb;
+            color: #111827;
+        }
+    </style>
+{% endblock %}
+{% block body_class %}min-h-screen flex flex-col{% endblock %}
+{% block content %}
+
+    <nav class="bg-white border-b border-gray-100">
+        <div class="max-w-7xl mx-auto px-6 h-16 flex justify-between items-center">
+            <a href="/dashboard/" class="flex items-center gap-3">
+                <img src="{% static 'ai_engine/logo.png' %}" alt="Hirely Logo" class="w-8 h-8 rounded-lg object-cover shadow-sm">
+                <span class="text-lg font-bold text-gray-900 tracking-tight">Hirely</span>
+            </a>
+            <a href="/dashboard/" class="text-sm font-medium text-gray-500 hover:text-gray-900">Back to dashboard</a>
+        </div>
+    </nav>
+
+    <main class="flex-grow max-w-6xl mx-auto w-full py-12 px-6 space-y-6">
+        <h1 class="text-3xl font-extrabold tracking-tight text-gray-900">Compare Candidates</h1>
+
+        {% if rows %}
+        <div class="bg-white border border-gray-200 rounded-2xl overflow-x-auto shadow-sm">
+            <table class="w-full text-left text-sm">
+                <thead>
+                    <tr class="bg-gray-50 border-b border-gray-100">
+                        <th class="p-4 text-[10px] font-bold uppercase tracking-wider text-gray-500"></th>
+                        {% for app, session in rows %}
+                        <th class="p-4">
+                            <a href="/ai/candidate-detail/{{ app.id }}/" class="font-bold text-gray-900 hover:text-blue-600">{{ app.candidate.username }}</a>
+                            <p class="text-[10px] text-gray-400 font-medium">{{ app.job.title }}</p>
+                        </th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    <tr><th class="p-4 text-xs text-gray-500">Status</th>{% for app, session in rows %}<td class="p-4">{{ app.get_status_display }}</td>{% endfor %}</tr>
+                    <tr><th class="p-4 text-xs text-gray-500">ATS match</th>{% for app, session in rows %}<td class="p-4 font-bold text-blue-600">{{ app.ats_match_score|default:"--" }}%</td>{% endfor %}</tr>
+                    <tr><th class="p-4 text-xs text-gray-500">Skills / experience fit</th>{% for app, session in rows %}<td class="p-4">{{ app.ats_breakdown.skill_score|default:"--" }}% / {{ app.ats_breakdown.semantic_score|default:"--" }}%</td>{% endfor %}</tr>
+                    <tr><th class="p-4 text-xs text-gray-500">Integrity</th>{% for app, session in rows %}<td class="p-4">{% if session %}{{ app.proctoring_score }}%{% else %}--{% endif %}</td>{% endfor %}</tr>
+                    <tr><th class="p-4 text-xs text-gray-500">Tech knowledge</th>{% for app, session in rows %}<td class="p-4">{% if session.session_status == 'completed' %}{{ session.tech_knowledge }}%{% else %}--{% endif %}</td>{% endfor %}</tr>
+                    <tr><th class="p-4 text-xs text-gray-500">Behavioral IQ</th>{% for app, session in rows %}<td class="p-4">{% if session.session_status == 'completed' %}{{ session.behavioral_iq }}%{% else %}--{% endif %}</td>{% endfor %}</tr>
+                    <tr><th class="p-4 text-xs text-gray-500">Problem solving</th>{% for app, session in rows %}<td class="p-4">{% if session.session_status == 'completed' %}{{ session.problem_solving }}%{% else %}--{% endif %}</td>{% endfor %}</tr>
+                    <tr><th class="p-4 text-xs text-gray-500">Proctoring alerts</th>{% for app, session in rows %}<td class="p-4">{{ session.proctoring_logs|length|default:"0" }}</td>{% endfor %}</tr>
+                    <tr><th class="p-4 text-xs text-gray-500 align-top">Missing skills</th>{% for app, session in rows %}<td class="p-4 text-xs text-rose-700 align-top">{{ app.ats_breakdown.missing_keywords|join:", "|default:"--" }}</td>{% endfor %}</tr>
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-gray-500">Select two or three applicants on the dashboard to compare them.</p>
+        {% endif %}
+    </main>
+{% endblock %}

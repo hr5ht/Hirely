@@ -179,6 +179,17 @@ def _filtered_applications(request, company):
     return applications, selected_job
 
 
+def compare_candidates(request):
+    profile = getattr(request.user, 'profile', None)
+    if not request.user.is_authenticated or not profile or profile.role != 'recruiter' or not profile.company:
+        return redirect('dashboard')
+    ids = [i for i in request.GET.getlist('ids') if i.isdigit()][:3]
+    apps = Application.objects.filter(id__in=ids, job__company=profile.company).select_related('job', 'candidate') \
+        .defer('resume_pdf', 'resume_text').prefetch_related(Prefetch('sessions', InterviewSession.objects.defer('pdf_report', 'rag_cache')))
+    rows = [(app, app.sessions.all()[0] if app.sessions.all() else None) for app in apps]
+    return render(request, 'compare.html', {'rows': rows})
+
+
 def export_applicants(request):
     profile = getattr(request.user, 'profile', None)
     if not request.user.is_authenticated or not profile or profile.role != 'recruiter' or not profile.company:
