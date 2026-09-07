@@ -14,5 +14,6 @@ urlpatterns = [
     path('update-status/<int:application_id>/<str:status_val>/', views.update_application_status, name='update_application_status'),
     path('allow-retake/<int:application_id>/', views.allow_retake, name='allow_retake'),
     path('application-notes/<int:application_id>/', views.save_notes, name='save_notes'),
+    path('export-applicants/', views.export_applicants, name='export_applicants'),
 ]
 

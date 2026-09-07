@@ -7,6 +7,7 @@ from django.contrib import messages
 from django.core.paginator import Paginator
 from django.db.models import Avg, Count, Prefetch, Q
 from django.views.decorators.http import require_POST
+import csv
 import json
 from collections import Counter
 import groq
@@ -160,6 +161,42 @@ def delete_session(request, session_id):
 
     return redirect('dashboard')
 
+def _filtered_applications(request, company):
+    """The company's applications narrowed by the dashboard's ?job, ?status and ?min_score filters."""
+    # List pages never need the resume/report blobs, which can be megabytes per row
+    applications = Application.objects.filter(job__company=company).select_related('job', 'candidate') \
+        .defer('resume_pdf', 'resume_text').order_by('-ats_match_score')
+    status = request.GET.get('status', '')
+    if status in dict(Application.STATUS_CHOICES):
+        applications = applications.filter(status=status)
+    min_score = request.GET.get('min_score', '')
+    if min_score.isdigit():
+        applications = applications.filter(ats_match_score__gte=int(min_score))
+    job_id = request.GET.get('job', '')
+    selected_job = Job.objects.filter(id=job_id, company=company).first() if job_id.isdigit() else None
+    if selected_job:
+        applications = applications.filter(job=selected_job)
+    return applications, selected_job
+
+
+def export_applicants(request):
+    profile = getattr(request.user, 'profile', None)
+    if not request.user.is_authenticated or not profile or profile.role != 'recruiter' or not profile.company:
+        return redirect('dashboard')
+    applications, _ = _filtered_applications(request, profile.company)
+    response = HttpResponse(content_type='text/csv; charset=utf-8')
+    response['Content-Disposition'] = 'attachment; filename="hirely_applicants.csv"'
+    writer = csv.writer(response)
+    writer.writerow(['Candidate', 'Email', 'Job', 'Applied', 'Status', 'ATS score', 'Integrity score', 'Missing skills'])
+    for app in applications:
+        row = [app.candidate.username, app.candidate.email, app.job.title, app.created_at.date().isoformat(),
+               app.get_status_display(), app.ats_match_score, app.proctoring_score,
+               '; '.join(app.ats_breakdown.get('missing_keywords', []))]
+        # A cell starting with = + - @ runs as a formula in Excel/Sheets
+        writer.writerow(["'" + c if isinstance(c, str) and c[:1] in ('=', '+', '-', '@') else c for c in row])
+    return response
+
+
 def dashboard_view(request):
     if not request.user.is_authenticated:
         return redirect('login')
@@ -174,19 +211,8 @@ def dashboard_view(request):
             profile.save()
 
         jobs = Job.objects.filter(company=company).annotate(applicant_count=Count('applications')).order_by('-created_at')
-        # List pages never need the resume/report blobs, which can be megabytes per row
-        applications = Application.objects.filter(job__company=company).select_related('job', 'candidate') \
-            .defer('resume_pdf', 'resume_text').order_by('-ats_match_score')
-        status = request.GET.get('status', '')
-        if status in dict(Application.STATUS_CHOICES):
-            applications = applications.filter(status=status)
-        min_score = request.GET.get('min_score', '')
-        if min_score.isdigit():
-            applications = applications.filter(ats_match_score__gte=int(min_score))
-        job_id = request.GET.get('job', '')
-        selected_job = jobs.filter(id=job_id).first() if job_id.isdigit() else None
-        if selected_job:
-            applications = applications.filter(job=selected_job)
+        applications, selected_job = _filtered_applications(request, company)
+        status, min_score = request.GET.get('status', ''), request.GET.get('min_score', '')
 
         # Calculate average integrity score
         completed_sessions = InterviewSession.objects.filter(application__job__company=company, session_status='completed')

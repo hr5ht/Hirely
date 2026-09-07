@@ -181,6 +181,9 @@
                     <input type="number" name="min_score" value="{{ min_score }}" min="0" max="100" placeholder="Min ATS %" aria-label="Minimum ATS score"
                            class="w-24 px-2 py-1.5 bg-white border border-gray-200 rounded-lg text-xs">
                     <button type="submit" class="px-3 py-1.5 bg-gray-900 text-white rounded-lg text-xs font-bold">Filter</button>
+                    <a href="/ai/export-applicants/{% querystring page=None %}" class="px-3 py-1.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-lg text-xs font-bold flex items-center gap-1">
+                        <i data-lucide="download" class="w-3.5 h-3.5"></i> CSV
+                    </a>
                 </form>
             </div>
 
