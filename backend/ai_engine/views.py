@@ -239,7 +239,9 @@ def dashboard_view(request):
             'min_score': min_score,
             'total_jobs': jobs.count(),
             'total_candidates': Application.objects.filter(job__company=company).count(),
-            'avg_proctoring_score': avg_proctoring
+            'avg_proctoring_score': avg_proctoring,
+            'weight_inputs': [(f, label, Job._meta.get_field(f).default) for f, label in
+                              zip(WEIGHT_FIELDS, ('Technical', 'Behavioral', 'Problem solving'))],
         })
     else:
         # Candidate Dashboard with Job Marketplace
@@ -448,6 +450,7 @@ def post_job(request):
                 interview_rounds=_rounds(request),
                 answer_time_limit=_time_limit(request),
                 custom_questions=_custom_questions(request),
+                **_weights(request),
             )
     return redirect('dashboard')
 
@@ -467,6 +470,16 @@ def _custom_questions(request):
     """Must-ask questions from the job form: one per line, at most 10, each trimmed to 500 characters."""
     lines = (line.strip()[:500] for line in request.POST.get('custom_questions', '').splitlines())
     return [line for line in lines if line][:10]
+
+
+WEIGHT_FIELDS = ('weight_tech', 'weight_behavioral', 'weight_problem_solving')
+
+
+def _weights(request):
+    """Score weights from the job form, 0-100 each; all zero falls back to the defaults."""
+    values = {f: min(int(v), 100) if (v := request.POST.get(f, '')).isdigit() else Job._meta.get_field(f).default
+              for f in WEIGHT_FIELDS}
+    return values if any(values.values()) else {f: Job._meta.get_field(f).default for f in WEIGHT_FIELDS}
 
 
 def _breakdown(ats):
@@ -492,8 +505,10 @@ def edit_job(request, job_id):
         job.interview_rounds = _rounds(request)
         job.answer_time_limit = _time_limit(request)
         job.custom_questions = _custom_questions(request)
+        for field, value in _weights(request).items():
+            setattr(job, field, value)
         job.save(update_fields=['title', 'description', 'experience_level', 'interview_rounds', 'answer_time_limit',
-                                'custom_questions'])
+                                'custom_questions', *WEIGHT_FIELDS])
     return redirect('dashboard')
 
 @require_POST

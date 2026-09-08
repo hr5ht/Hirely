@@ -33,6 +33,10 @@ class Job(models.Model):
     interview_rounds = models.PositiveSmallIntegerField(default=5)
     answer_time_limit = models.PositiveSmallIntegerField(default=0)  # seconds per question, 0 = no limit
     custom_questions = models.JSONField(default=list, blank=True)  # recruiter's must-ask questions, in order
+    # How much each interview score counts toward the overall score (relative weights, need not sum to 100)
+    weight_tech = models.PositiveSmallIntegerField(default=40)
+    weight_behavioral = models.PositiveSmallIntegerField(default=30)
+    weight_problem_solving = models.PositiveSmallIntegerField(default=30)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
