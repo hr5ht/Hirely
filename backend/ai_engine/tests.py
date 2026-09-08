@@ -473,6 +473,21 @@ class InterviewFlowTest(TestCase):
         self.client.force_login(candidate)
         self.assertEqual(self.client.get(f"/session/?app_id={self.app.id}").status_code, 200)  # a fresh session starts
 
+    def test_custom_questions_are_asked_in_order(self, *_):
+        from ai_engine.interview import custom_question_rounds
+        self.assertEqual(custom_question_rounds(5, ["a", "b"]), {1: "a", 3: "b"})
+        self.assertEqual(custom_question_rounds(4, list("abcde")), {1: "a", 2: "b", 3: "c"})  # the opener stays AI
+        Job.objects.filter(id=self.app.job_id).update(interview_rounds=4, custom_questions=["Why us?", "Notice period?"])
+        feedback = json.dumps({"feedback": "ok", "confidence": 50, "clarity": 50})
+        with patch.object(InterviewBrain, "generate_initial_question", return_value="AI 1"), \
+             patch.object(InterviewBrain, "get_feedback", return_value=feedback), \
+             patch.object(InterviewBrain, "get_next_question", side_effect=["AI 3"]), \
+             patch.object(InterviewBrain, "get_summary", return_value="Done"):
+            asked = [self.post("start").json()["messages"][0]["text"]]
+            for i in range(4):
+                asked.append(self.post("answer", {"answer": f"answer {i}"}).json()["messages"][-1]["text"])
+        self.assertEqual(asked, ["AI 1", "Why us?", "AI 3", "Notice period?", "Done"])
+
     def test_round_count_and_difficulty_reach_the_prompts(self, *_):
         Job.objects.filter(id=self.app.job_id).update(interview_rounds=2, experience_level="Senior")
         prompts = []
