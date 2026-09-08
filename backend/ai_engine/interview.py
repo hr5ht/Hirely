@@ -32,6 +32,16 @@ HEARTBEAT_SECONDS = 30  # the page pings this often while the camera is live
 HEARTBEAT_GAP = 90  # three missed pings in a row: the camera (or the page) was off
 
 
+def custom_question_rounds(rounds, questions):
+    """{round index: question} for the recruiter's must-ask questions, kept in order.
+
+    Round 0 is always the AI's resume-grounded opener; custom questions take every other round after it,
+    then the rounds in between if there are more questions than that.
+    """
+    slots = list(range(1, rounds, 2)) + list(range(2, rounds, 2))
+    return dict(zip(sorted(slots[:len(questions)]), questions))
+
+
 def _now():
     return int(time.time())
 
@@ -109,6 +119,9 @@ def answer(session, data):
         summary = brain.get_summary(app.job.title, json.dumps(qa))
         messages.append({"type": "interview_message", "message_type": "summary", "text": summary,
                          "audio": AudioService().text_to_speech(summary)})
+    elif (custom := custom_question_rounds(app.job.interview_rounds, app.job.custom_questions).get(len(transcript))):
+        transcript.append({"question": custom, "custom": True, "asked_at": _now()})
+        messages.append(_question(custom, session))
     else:
         # Query = this round's topic + what they just said, so follow-ups dig into their own claims
         topic = ROUND_TOPICS[len(transcript) % len(ROUND_TOPICS)]
