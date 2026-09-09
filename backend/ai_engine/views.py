@@ -13,7 +13,7 @@ from collections import Counter
 import groq
 import PyPDF2
 
-from ai_engine.models import Company, UserProfile, Job, Application, InterviewSession
+from ai_engine.models import Company, CompanyInvite, UserProfile, Job, Application, InterviewSession
 from ai_engine.brain import InterviewBrain
 from ai_engine import interview
 
@@ -624,6 +624,16 @@ def _company_application(request, application_id):
     if not request.user.is_authenticated or not profile or profile.role != 'recruiter' or not profile.company:
         return None
     return Application.objects.filter(id=application_id, job__company=profile.company).first()
+
+
+@require_POST
+def create_invite(request):
+    profile = getattr(request.user, 'profile', None)
+    if request.user.is_authenticated and profile and profile.role == 'recruiter' and profile.company:
+        invite = CompanyInvite.objects.create(company=profile.company, created_by=request.user)
+        link = request.build_absolute_uri(f"/register/?invite={invite.token}")
+        messages.success(request, f"Invite link (single use, expires in 7 days): {link}")
+    return redirect('dashboard')
 
 
 @require_POST

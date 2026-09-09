@@ -16,5 +16,6 @@ urlpatterns = [
     path('application-notes/<int:application_id>/', views.save_notes, name='save_notes'),
     path('export-applicants/', views.export_applicants, name='export_applicants'),
     path('compare/', views.compare_candidates, name='compare_candidates'),
+    path('invites/', views.create_invite, name='create_invite'),
 ]
 
