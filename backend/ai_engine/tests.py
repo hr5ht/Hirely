@@ -342,6 +342,20 @@ class RecruiterToolsTest(TestCase):
         self.assertEqual(self.client.get("/ai/compare/", {"ids": [self.app.id]}).context["rows"], [])
 
 
+class WeightedScoreTest(TestCase):
+    def test_interview_score_uses_job_weights(self):
+        _, app = make_app()
+        Job.objects.filter(id=app.job_id).update(weight_tech=100, weight_behavioral=0, weight_problem_solving=100)
+        app.refresh_from_db()
+        self.assertIsNone(app.interview_score)
+        InterviewSession.objects.create(application=app, session_status="completed", tech_knowledge=80, behavioral_iq=10, problem_solving=60)
+        self.assertEqual(app.interview_score, 70)
+        recruiter = User.objects.create_user("rec", "rec@x.com", "pw")
+        UserProfile.objects.create(user=recruiter, role="recruiter", company=app.job.company)
+        self.client.force_login(recruiter)
+        self.assertEqual(self.client.get("/dashboard/").context["applications"][0].interview_score, 70)
+
+
 class StateChangeTest(TestCase):
     def test_get_on_state_changing_urls_returns_405(self):
         user, app = make_app()
