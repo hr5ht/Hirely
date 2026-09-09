@@ -1,5 +1,9 @@
+import secrets
+from datetime import timedelta
+
 from django.db import models
 from django.contrib.auth.models import User
+from django.utils import timezone
 
 class Company(models.Model):
     name = models.CharField(max_length=255)
@@ -8,6 +12,28 @@ class Company(models.Model):
 
     def __str__(self):
         return self.name
+
+def _invite_token():
+    return secrets.token_urlsafe(24)
+
+
+def _invite_expiry():
+    return timezone.now() + timedelta(days=7)
+
+
+class CompanyInvite(models.Model):
+    """A one-time link that lets a new recruiter register into an existing company."""
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='invites')
+    token = models.CharField(max_length=64, unique=True, default=_invite_token)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(default=_invite_expiry)
+    used_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+
+    @property
+    def is_usable(self):
+        return self.used_by_id is None and self.expires_at > timezone.now()
+
 
 class UserProfile(models.Model):
     ROLE_CHOICES = (
