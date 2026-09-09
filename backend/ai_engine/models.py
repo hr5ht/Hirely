@@ -68,6 +68,19 @@ class Application(models.Model):
             models.UniqueConstraint(fields=['job', 'candidate'], name='unique_job_candidate')
         ]
 
+    @property
+    def interview_score(self):
+        """Overall interview score using the job's weights, or None before the interview is completed.
+
+        Reads self.sessions.all(), so list views should prefetch sessions.
+        """
+        session = next((s for s in self.sessions.all() if s.session_status == 'completed'), None)
+        if not session:
+            return None
+        weights = (self.job.weight_tech, self.job.weight_behavioral, self.job.weight_problem_solving)
+        scores = (session.tech_knowledge, session.behavioral_iq, session.problem_solving)
+        return round(sum(w * s for w, s in zip(weights, scores)) / (sum(weights) or 1))
+
     def __str__(self):
         return f"{self.candidate.username} for {self.job.title}"
 

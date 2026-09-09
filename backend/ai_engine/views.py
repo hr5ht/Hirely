@@ -165,7 +165,8 @@ def _filtered_applications(request, company):
     """The company's applications narrowed by the dashboard's ?job, ?status and ?min_score filters."""
     # List pages never need the resume/report blobs, which can be megabytes per row
     applications = Application.objects.filter(job__company=company).select_related('job', 'candidate') \
-        .defer('resume_pdf', 'resume_text').order_by('-ats_match_score')
+        .defer('resume_pdf', 'resume_text').order_by('-ats_match_score') \
+        .prefetch_related(Prefetch('sessions', InterviewSession.objects.defer('pdf_report', 'rag_cache', 'transcript')))
     status = request.GET.get('status', '')
     if status in dict(Application.STATUS_CHOICES):
         applications = applications.filter(status=status)
