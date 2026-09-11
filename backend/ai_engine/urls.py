@@ -17,5 +17,6 @@ urlpatterns = [
     path('export-applicants/', views.export_applicants, name='export_applicants'),
     path('compare/', views.compare_candidates, name='compare_candidates'),
     path('invites/', views.create_invite, name='create_invite'),
+    path('invites/<int:invite_id>/revoke/', views.revoke_invite, name='revoke_invite'),
 ]
 

@@ -80,6 +80,26 @@
         <div class="p-4 rounded-xl text-sm font-medium break-all {% if message.tags == 'success' %}bg-green-50 text-green-700 border border-green-200{% else %}bg-red-50 text-red-700 border border-red-200{% endif %}">{{ message }}</div>
         {% endfor %}
 
+        {% if open_invites %}
+        <details class="premium-card p-4 text-sm">
+            <summary class="font-bold text-gray-700 cursor-pointer">Open teammate invites ({{ open_invites|length }})</summary>
+            <ul class="mt-3 divide-y divide-gray-100">
+                {% for invite, link in open_invites %}
+                <li class="py-2 flex items-center justify-between gap-4">
+                    <div class="min-w-0">
+                        <p class="text-xs text-gray-700 font-mono truncate">{{ link }}</p>
+                        <p class="text-[10px] text-gray-400">Created by {{ invite.created_by.username|default:"a teammate" }} · expires {{ invite.expires_at|date:"M d" }}</p>
+                    </div>
+                    <form method="post" action="/ai/invites/{{ invite.id }}/revoke/">
+                        {% csrf_token %}
+                        <button type="submit" class="text-xs font-bold text-rose-600 hover:text-rose-700">Revoke</button>
+                    </form>
+                </li>
+                {% endfor %}
+            </ul>
+        </details>
+        {% endif %}
+
         <!-- Stats Grid -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div class="premium-card p-6 flex items-center gap-5">
