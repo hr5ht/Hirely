@@ -6,6 +6,7 @@ from django.contrib.auth import authenticate, login, logout, update_session_auth
 from django.contrib import messages
 from django.core.paginator import Paginator
 from django.db import transaction
+from django.utils import timezone
 from django.db.models import Avg, Count, Prefetch, Q
 from django.views.decorators.http import require_POST
 import csv
@@ -257,6 +258,8 @@ def dashboard_view(request):
             'total_jobs': jobs.count(),
             'total_candidates': Application.objects.filter(job__company=company).count(),
             'avg_proctoring_score': avg_proctoring,
+            'open_invites': [(i, request.build_absolute_uri(f"/register/?invite={i.token}")) for i in
+                             company.invites.filter(used_by=None, expires_at__gt=timezone.now()).order_by('-created_at')],
             'weight_inputs': [(f, label, Job._meta.get_field(f).default) for f, label in
                               zip(WEIGHT_FIELDS, ('Technical', 'Behavioral', 'Problem solving'))],
         })
@@ -649,6 +652,14 @@ def create_invite(request):
         invite = CompanyInvite.objects.create(company=profile.company, created_by=request.user)
         link = request.build_absolute_uri(f"/register/?invite={invite.token}")
         messages.success(request, f"Invite link (single use, expires in 7 days): {link}")
+    return redirect('dashboard')
+
+
+@require_POST
+def revoke_invite(request, invite_id):
+    profile = getattr(request.user, 'profile', None)
+    if request.user.is_authenticated and profile and profile.role == 'recruiter' and profile.company:
+        CompanyInvite.objects.filter(id=invite_id, company=profile.company, used_by=None).delete()
     return redirect('dashboard')
 
 
