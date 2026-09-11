@@ -34,8 +34,15 @@
         </div>
         {% endif %}
 
+        {% if invite %}
+        <div class="bg-blue-50 border border-blue-200 text-blue-700 p-4 rounded-lg text-sm text-center">
+            You're joining <strong>{{ invite.company.name }}</strong> as a recruiter.
+        </div>
+        {% endif %}
+
         <form method="POST" class="space-y-4 pt-2">
             {% csrf_token %}
+            {% if invite %}<input type="hidden" name="invite" value="{{ invite.token }}">{% endif %}
             <div class="space-y-1.5">
                 <label class="text-sm font-semibold text-gray-700">Username</label>
                 <div class="relative">
@@ -63,6 +70,7 @@
                 </div>
             </div>
 
+            {% if not invite %}
             <div class="space-y-1.5">
                 <label class="text-sm font-semibold text-gray-700">Account Type</label>
                 <div class="relative">
@@ -83,6 +91,7 @@
                         class="w-full bg-white border border-gray-300 rounded-lg p-3 pl-11 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all text-sm text-gray-900 shadow-sm">
                 </div>
             </div>
+            {% endif %}
 
             <button type="submit"
                 class="w-full py-3 mt-6 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 shadow-sm">

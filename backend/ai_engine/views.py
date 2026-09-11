@@ -5,6 +5,7 @@ from django.contrib.auth.models import User
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.contrib import messages
 from django.core.paginator import Paginator
+from django.db import transaction
 from django.db.models import Avg, Count, Prefetch, Q
 from django.views.decorators.http import require_POST
 import csv
@@ -95,32 +96,47 @@ def register_view(request):
         return redirect('dashboard')
 
     error = None
+    token = request.POST.get('invite') or request.GET.get('invite')
+    invite = CompanyInvite.objects.select_related('company').filter(token=token).first() if token else None
+    if invite and not invite.is_usable:
+        invite, error = None, "This invite link has expired or was already used. Ask your teammate for a new one."
     if request.method == 'POST':
         username = request.POST.get('username')
         email = request.POST.get('email')
         password = request.POST.get('password')
-        role = request.POST.get('role', 'candidate')
+        role = 'recruiter' if invite else request.POST.get('role', 'candidate')
         company_name = request.POST.get('company_name')
 
-        if User.objects.filter(username=username).exists():
+        if token and not invite:
+            pass  # keep the expired-invite error rather than silently creating a candidate
+        elif User.objects.filter(username=username).exists():
             error = "Username already exists."
         elif User.objects.filter(email=email).exists():
             error = "Email already registered."
-        elif role == 'recruiter' and not company_name:
+        elif role == 'recruiter' and not company_name and not invite:
             error = "Company name is required for employers."
         else:
-            user = User.objects.create_user(username=username, email=email, password=password)
-            profile, _ = UserProfile.objects.get_or_create(user=user)
-            profile.role = role
+            with transaction.atomic():
+                # Lock the invite so two people can't both register with the same link
+                if invite:
+                    invite = CompanyInvite.objects.select_for_update().get(id=invite.id)
+                if invite and not invite.is_usable:
+                    error = "This invite link was just used. Ask your teammate for a new one."
+                else:
+                    user = User.objects.create_user(username=username, email=email, password=password)
+                    profile, _ = UserProfile.objects.get_or_create(user=user)
+                    profile.role = role
+                    if invite:
+                        profile.company = invite.company
+                        invite.used_by = user
+                        invite.save(update_fields=['used_by'])
+                    elif role == 'recruiter':
+                        # Each registration gets its own company: neither email domains nor typed names prove membership
+                        profile.company = Company.objects.create(name=company_name)
+                    profile.save()
+                    return redirect('login')
 
-            if role == 'recruiter':
-                # Each registration gets its own company: neither email domains nor typed names prove membership
-                profile.company = Company.objects.create(name=company_name)
-
-            profile.save()
-            return redirect('login')
-
-    return render(request, 'register.html', {'error': error})
+    return render(request, 'register.html', {'error': error, 'invite': invite})
 
 def login_view(request):
     if request.user.is_authenticated:
