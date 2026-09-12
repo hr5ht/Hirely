@@ -356,6 +356,46 @@ class WeightedScoreTest(TestCase):
         self.assertEqual(self.client.get("/dashboard/").context["applications"][0].interview_score, 70)
 
 
+class InviteTest(TestCase):
+    def setUp(self):
+        self.company = Company.objects.create(name="Acme")
+        self.owner = User.objects.create_user("owner", "o@x.com", "pw")
+        UserProfile.objects.create(user=self.owner, role="recruiter", company=self.company)
+
+    def register(self, username, token, **extra):
+        return self.client.post("/register/", {"username": username, "email": f"{username}@gmail.com", "password": "pw",
+                                               "invite": token, **extra})
+
+    def test_invite_flow_and_expiry(self):
+        from datetime import timedelta
+        from django.utils import timezone
+        from ai_engine.models import CompanyInvite
+        self.client.force_login(self.owner)
+        self.client.post("/ai/invites/")
+        invite = CompanyInvite.objects.get()
+        self.assertContains(self.client.get("/dashboard/"), f"/register/?invite={invite.token}")
+        self.client.logout()
+
+        self.assertContains(self.client.get("/register/", {"invite": invite.token}), "joining <strong>Acme</strong>")
+        self.register("mate", invite.token, role="candidate", company_name="Evil Corp")  # role and company come from the invite
+        mate = User.objects.get(username="mate")
+        self.assertEqual((mate.profile.role, mate.profile.company), ("recruiter", self.company))
+
+        self.assertContains(self.register("second", invite.token), "expired or was already used")  # single use
+        self.assertFalse(User.objects.filter(username="second").exists())
+
+        expired = CompanyInvite.objects.create(company=self.company, expires_at=timezone.now() - timedelta(minutes=1))
+        self.assertContains(self.register("late", expired.token), "expired or was already used")
+
+        revoked = CompanyInvite.objects.create(company=self.company)
+        self.client.force_login(User.objects.create_user("rival", "r@x.com", "pw"))
+        self.client.post(f"/ai/invites/{revoked.id}/revoke/")  # not their company's invite
+        self.assertTrue(CompanyInvite.objects.filter(id=revoked.id).exists())
+        self.client.force_login(self.owner)
+        self.client.post(f"/ai/invites/{revoked.id}/revoke/")
+        self.assertFalse(CompanyInvite.objects.filter(id=revoked.id).exists())
+
+
 class StateChangeTest(TestCase):
     def test_get_on_state_changing_urls_returns_405(self):
         user, app = make_app()
