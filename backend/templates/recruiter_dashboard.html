@@ -148,6 +148,8 @@
                 <div class="flex items-center gap-2"><div class="h-2 bg-blue-500 rounded-full" style="width: {% widthratio job.applicant_count max_applicants 100 %}%"></div><span class="text-gray-500">{{ job.applicant_count }}</span></div>
                 <div class="flex items-center gap-2"><div class="h-2 bg-indigo-500 rounded-full" style="width: {{ job.avg_ats|default:0|floatformat:0 }}%"></div><span class="text-gray-500">{{ job.avg_ats|floatformat:0|default:"--" }}</span></div>
                 <div class="flex items-center gap-2"><div class="h-2 bg-emerald-500 rounded-full" style="width: {{ job.avg_integrity|default:0|floatformat:0 }}%"></div><span class="text-gray-500">{{ job.avg_integrity|floatformat:0|default:"--" }}</span></div>
+                {% empty %}
+                <p class="col-span-4 py-6 text-center text-gray-400 italic">Post a job to see applicant, ATS and integrity numbers here.</p>
                 {% endfor %}
             </div>
         </section>
