@@ -44,7 +44,7 @@
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div class="clean-card p-8 flex flex-col items-center justify-center text-center space-y-3">
                 <span class="text-xs font-bold uppercase tracking-wider text-gray-500">Average Confidence</span>
-                <p class="text-5xl font-bold text-blue-600 tracking-tight">{{ global_avg_conf }}%</p>
+                <p class="text-5xl font-bold text-blue-600 tracking-tight">{% if total_count %}{{ global_avg_conf }}%{% else %}--{% endif %}</p>
                 <span class="text-xs text-blue-600 font-semibold bg-blue-50 px-2 py-1 rounded">Overall Baseline Average</span>
             </div>
             <div class="clean-card p-8 flex flex-col items-center justify-center text-center space-y-3">
@@ -54,7 +54,7 @@
             </div>
             <div class="clean-card p-8 flex flex-col items-center justify-center text-center space-y-3">
                 <span class="text-xs font-bold uppercase tracking-wider text-gray-500">Clarity Rating</span>
-                <p class="text-5xl font-bold text-pink-500 tracking-tight">{{ global_avg_clar }}<span class="text-3xl font-medium text-gray-300">/100</span></p>
+                <p class="text-5xl font-bold text-pink-500 tracking-tight">{% if total_count %}{{ global_avg_clar }}{% else %}--{% endif %}<span class="text-3xl font-medium text-gray-300">/100</span></p>
                 <span class="text-xs text-gray-500 font-medium bg-gray-100 px-2 py-1 rounded">Verbal communication average</span>
             </div>
         </div>
@@ -68,7 +68,7 @@
                 <div class="space-y-3">
                     <div class="flex justify-between text-sm font-semibold text-gray-700">
                         <span>Technical Knowledge</span>
-                        <span class="text-gray-900">{{ global_tech }}%</span>
+                        <span class="text-gray-900">{% if total_count %}{{ global_tech }}%{% else %}--{% endif %}</span>
                     </div>
                     <div class="h-2.5 bg-gray-100 rounded-full overflow-hidden">
                         <div class="h-full bg-blue-500 rounded-full" data-width="{{ global_tech }}"></div>
@@ -77,7 +77,7 @@
                 <div class="space-y-3">
                     <div class="flex justify-between text-sm font-semibold text-gray-700">
                         <span>Behavioral IQ</span>
-                        <span class="text-gray-900">{{ global_behav }}%</span>
+                        <span class="text-gray-900">{% if total_count %}{{ global_behav }}%{% else %}--{% endif %}</span>
                     </div>
                     <div class="h-2.5 bg-gray-100 rounded-full overflow-hidden">
                         <div class="h-full bg-purple-500 rounded-full" data-width="{{ global_behav }}"></div>
@@ -86,7 +86,7 @@
                 <div class="space-y-3">
                     <div class="flex justify-between text-sm font-semibold text-gray-700">
                         <span>Problem Solving</span>
-                        <span class="text-gray-900">{{ global_prob }}%</span>
+                        <span class="text-gray-900">{% if total_count %}{{ global_prob }}%{% else %}--{% endif %}</span>
                     </div>
                     <div class="h-2.5 bg-gray-100 rounded-full overflow-hidden">
                         <div class="h-full bg-pink-500 rounded-full" data-width="{{ global_prob }}"></div>
@@ -95,7 +95,7 @@
                 <div class="space-y-3">
                     <div class="flex justify-between text-sm font-semibold text-gray-700">
                         <span>Verbal Clarity</span>
-                        <span class="text-gray-900">{{ global_avg_clar }}%</span>
+                        <span class="text-gray-900">{% if total_count %}{{ global_avg_clar }}%{% else %}--{% endif %}</span>
                     </div>
                     <div class="h-2.5 bg-gray-100 rounded-full overflow-hidden">
                         <div class="h-full bg-indigo-500 rounded-full" data-width="{{ global_avg_clar }}"></div>
@@ -124,6 +124,11 @@
                         </div>
                         {% endfor %}
                     </div>
+                </div>
+                {% empty %}
+                <div class="text-center py-8 space-y-2">
+                    <p class="text-sm font-semibold text-gray-500">No completed interviews yet</p>
+                    <a href="/dashboard/" class="text-xs font-bold text-blue-600 hover:text-blue-700">Apply to a role and take your first interview</a>
                 </div>
                 {% endfor %}
             </div>
