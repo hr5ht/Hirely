@@ -239,7 +239,11 @@ def dashboard_view(request):
             company = profile.company = Company.objects.create(name=f"{request.user.username}'s company")
             profile.save()
 
-        jobs = Job.objects.filter(company=company).annotate(applicant_count=Count('applications')).order_by('-created_at')
+        jobs = Job.objects.filter(company=company).annotate(
+            applicant_count=Count('applications'),
+            avg_ats=Avg('applications__ats_match_score'),
+            avg_integrity=Avg('applications__proctoring_score', filter=Q(applications__status__in=['evaluated', 'accepted', 'rejected'])),
+        ).order_by('-created_at')
         applications, selected_job = _filtered_applications(request, company)
         status, min_score = request.GET.get('status', ''), request.GET.get('min_score', '')
 
@@ -258,6 +262,7 @@ def dashboard_view(request):
             'total_jobs': jobs.count(),
             'total_candidates': Application.objects.filter(job__company=company).count(),
             'avg_proctoring_score': avg_proctoring,
+            'max_applicants': max((j.applicant_count for j in jobs), default=0) or 1,
             'open_invites': [(i, request.build_absolute_uri(f"/register/?invite={i.token}")) for i in
                              company.invites.filter(used_by=None, expires_at__gt=timezone.now()).order_by('-created_at')],
             'weight_inputs': [(f, label, Job._meta.get_field(f).default) for f, label in
