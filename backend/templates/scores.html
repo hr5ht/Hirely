@@ -103,6 +103,31 @@
                 </div>
             </div>
         </section>
+
+        <section class="clean-card p-8 md:p-10" aria-labelledby="trend-title">
+            <h3 id="trend-title" class="text-lg font-bold text-gray-900 border-b border-gray-200 pb-4 mb-6 flex items-center gap-2">
+                <i data-lucide="line-chart" class="w-5 h-5 text-gray-400"></i> Score Trend
+            </h3>
+            <div class="space-y-5">
+                {% for s in trend %}
+                <div class="grid grid-cols-1 md:grid-cols-[180px_minmax(0,1fr)] gap-3 items-center">
+                    <div>
+                        <p class="text-sm font-semibold text-gray-800 truncate">{{ s.application.job.title }}</p>
+                        <p class="text-xs text-gray-400">{{ s.application.job.company.name }} · {{ s.created_at|date:"M d" }}</p>
+                    </div>
+                    <div class="space-y-1.5">
+                        {% for label, value, color in s.trend_bars %}
+                        <div class="flex items-center gap-2 text-[10px] text-gray-500">
+                            <span class="w-24 shrink-0">{{ label }}</span>
+                            <div class="h-2 flex-grow bg-gray-100 rounded-full overflow-hidden"><div class="h-full {{ color }} rounded-full" style="width: {{ value }}%"></div></div>
+                            <span class="w-8 text-right font-semibold text-gray-700">{{ value }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </section>
     </main>
 
     <footer class="bg-white border-t border-gray-200 py-6 mt-auto">

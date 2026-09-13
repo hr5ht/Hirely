@@ -369,6 +369,9 @@ def scores_view(request):
         'global_tech': _avg(all_sessions, 'tech_knowledge'),
         'global_behav': _avg(all_sessions, 'behavioral_iq'),
         'global_prob': _avg(all_sessions, 'problem_solving'),
+        'trend': all_sessions.filter(session_status='completed').select_related('application__job__company')
+            .only('created_at', 'tech_knowledge', 'behavioral_iq', 'problem_solving',
+                  'application__job__title', 'application__job__company__name').order_by('created_at'),
     })
 
 def home(request):
