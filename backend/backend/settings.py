@@ -133,3 +133,14 @@ LOGGING = {
     'handlers': {'console': {'class': 'logging.StreamHandler', 'formatter': 'plain'}},
     'loggers': {'ai_engine': {'handlers': ['console'], 'level': os.environ.get('LOG_LEVEL', 'INFO')}},
 }
+
+# Email: SMTP when EMAIL_HOST is set (e.g. Gmail app password, Resend, SendGrid), otherwise printed to the console
+EMAIL_HOST = os.environ.get('EMAIL_HOST', '')
+EMAIL_BACKEND = ('django.core.mail.backends.smtp.EmailBackend' if EMAIL_HOST
+                 else 'django.core.mail.backends.console.EmailBackend')
+EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'true').lower() == 'true'
+EMAIL_TIMEOUT = 10  # a slow mail server must not hang a serverless request
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'Hirely <no-reply@hirely.local>')
