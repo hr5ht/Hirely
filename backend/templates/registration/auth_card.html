@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}{{ heading }} | Hirely{% endblock %}
+{% block head %}
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f9fafb; color: #111827; }
+        .clean-card { background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
+        .auth-form input { width: 100%; border: 1px solid #d1d5db; border-radius: 8px; padding: 12px; font-size: 14px; }
+        .auth-form input:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px #bfdbfe; }
+        .auth-form .helptext, .auth-form ul { font-size: 12px; color: #6b7280; }
+        .auth-form .errorlist { color: #dc2626; }
+    </style>
+{% endblock %}
+{% block body_class %}min-h-screen flex items-center justify-center p-4{% endblock %}
+{% block content %}
+    <div class="max-w-md w-full space-y-6 clean-card p-10">
+        <div class="text-center space-y-2">
+            <img src="{% static 'ai_engine/logo.png' %}" alt="Hirely Logo" class="w-14 h-14 rounded-xl object-cover mx-auto mb-4 shadow-sm">
+            <h1 class="text-2xl font-bold tracking-tight text-gray-900">{% block heading %}{% endblock %}</h1>
+        </div>
+        {% block card %}{% endblock %}
+        <p class="text-center text-sm"><a href="/login/" class="text-blue-600 hover:text-blue-700 font-semibold">Back to sign in</a></p>
+    </div>
+{% endblock %}

@@ -396,6 +396,20 @@ class InviteTest(TestCase):
         self.assertFalse(CompanyInvite.objects.filter(id=revoked.id).exists())
 
 
+class PasswordResetTest(TestCase):
+    def test_reset_by_email(self):
+        import re
+        from django.core import mail
+        user = User.objects.create_user("forgetful", "f@x.com", "old-password")
+        self.assertEqual(self.client.get("/password-reset/").status_code, 200)
+        self.assertRedirects(self.client.post("/password-reset/", {"email": "f@x.com"}), "/password-reset/sent/")
+        link = re.search(r"/password-reset/[^/\s]+/[^/\s]+/", mail.outbox[0].body).group()
+        form_url = self.client.get(link).url  # Django swaps the token for a session-bound "set-password" URL
+        self.client.post(form_url, {"new_password1": "Hirely-new-pass-42", "new_password2": "Hirely-new-pass-42"})
+        user.refresh_from_db()
+        self.assertTrue(user.check_password("Hirely-new-pass-42"))
+
+
 class StateChangeTest(TestCase):
     def test_get_on_state_changing_urls_returns_405(self):
         user, app = make_app()
