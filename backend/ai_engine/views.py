@@ -4,6 +4,7 @@ from django.http import JsonResponse, HttpResponse
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.contrib import messages
+from django.core.cache import cache
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.utils import timezone
@@ -11,6 +12,8 @@ from django.db.models import Avg, Count, Prefetch, Q
 from django.views.decorators.http import require_POST
 import csv
 import json
+import time
+from functools import wraps
 from collections import Counter
 import groq
 import PyPDF2
@@ -23,6 +26,25 @@ log = logging.getLogger(__name__)
 
 
 MAX_RESUME_BYTES = 4 * 1024 * 1024  # Vercel rejects request bodies over 4.5 MB before Django sees them
+
+
+def rate_limit(per_hour, actions=None):
+    """Per-user cap on an AI endpoint (fixed hourly window). `actions` limits only those interview steps.
+
+    ponytail: DB-cache incr isn't atomic, so a burst can overshoot by a few; fine for cost control.
+    """
+    def decorator(view):
+        @wraps(view)
+        def wrapped(request, *args, **kwargs):
+            if request.user.is_authenticated and (actions is None or kwargs.get('action') in actions):
+                key = f"rl:{view.__name__}:{request.user.id}:{int(time.time() // 3600)}"
+                cache.add(key, 0, 3600)
+                if cache.incr(key) > per_hour:
+                    return JsonResponse({'success': False, 'error': 'Too many requests. Please wait a while and try again.'},
+                                        status=429)
+            return view(request, *args, **kwargs)
+        return wrapped
+    return decorator
 
 
 def _pdf_text(f):
@@ -416,6 +438,7 @@ def resume_scanner_view(request):
         return redirect('login')
     return render(request, 'resume_scanner.html', {'username': request.user.username})
 
+@rate_limit(20)
 def score_resume_api(request):
     if request.method != 'POST':
         return JsonResponse({'error': 'POST required'}, status=405)
@@ -549,6 +572,7 @@ def toggle_job(request, job_id):
     return redirect('dashboard')
 
 @require_POST
+@rate_limit(5)
 def rescore_job(request, job_id):
     job = _company_job(request, job_id)
     if job:
@@ -565,6 +589,7 @@ def rescore_job(request, job_id):
             app.save(update_fields=['ats_match_score', 'ats_breakdown'])
     return redirect('dashboard')
 
+@rate_limit(20)
 def apply_to_job(request):
     if not request.user.is_authenticated:
         return JsonResponse({'success': False, 'error': 'Please log in to apply.'}, status=401)
@@ -695,6 +720,7 @@ def allow_retake(request, application_id):
 
 
 @require_POST
+@rate_limit(60, actions={'start', 'answer', 'audio'})
 def interview_action(request, session_id, action):
     if not request.user.is_authenticated:
         return JsonResponse({'error': 'Authentication required'}, status=401)
