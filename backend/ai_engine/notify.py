@@ -27,3 +27,14 @@ def decision(app):
         body = (f"Thank you for interviewing for {job.title} at {job.company.name}. "
                 "The team has decided not to move forward with your application this time.")
     email([app.candidate.email], f"Your application for {job.title}", f"Hi {app.candidate.username},\n\n{body}\n\n- Hirely")
+
+
+def interview_completed(session, link):
+    """Tell the hiring company's recruiters that a candidate finished their interview."""
+    from django.contrib.auth.models import User
+    app = session.application
+    job = app.job
+    recruiters = User.objects.filter(profile__role='recruiter', profile__company=job.company).values_list('email', flat=True)
+    email(list(recruiters), f"{app.candidate.username} completed the {job.title} interview",
+          f"{app.candidate.username} finished their AI interview for {job.title}.\n"
+          f"Integrity score: {app.proctoring_score}%. Review the scores, transcript and report:\n{link}\n\n- Hirely")
