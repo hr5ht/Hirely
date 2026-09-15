@@ -13,7 +13,7 @@ from ai_engine.models import InterviewSession, Application
 from ai_engine.brain import InterviewBrain
 from ai_engine.audio_service import AudioService
 from ai_engine.reports import evaluate_transcript_semantic_gaps, compile_performance_report_pdf
-from ai_engine import rag
+from ai_engine import notify, rag
 
 log = logging.getLogger(__name__)
 
@@ -185,6 +185,8 @@ def end(session, data):
 
     log.info(evaluate_transcript_semantic_gaps(session.id))
     log.info(compile_performance_report_pdf(session.id))
+    session.application.refresh_from_db(fields=['proctoring_score'])
+    notify.interview_completed(session, data.get('base_url', '') + f"/ai/candidate-detail/{session.application_id}/")
     return [{"type": "session_completed", "message": "Interview completed successfully."}]
 
 

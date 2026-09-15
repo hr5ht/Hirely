@@ -707,6 +707,7 @@ def interview_action(request, session_id, action):
         return JsonResponse({'messages': [{'type': 'session_completed'}]})
 
     data = json.loads(request.body) if request.content_type == 'application/json' else {}
+    data['base_url'] = request.build_absolute_uri('/').rstrip('/')  # for links in emails; never from the client
     try:
         return JsonResponse({'messages': interview.ACTIONS[action](session, data)})
     except Exception as e:
