@@ -17,7 +17,7 @@ import PyPDF2
 
 from ai_engine.models import Company, CompanyInvite, UserProfile, Job, Application, InterviewSession
 from ai_engine.brain import InterviewBrain
-from ai_engine import interview
+from ai_engine import interview, notify
 
 log = logging.getLogger(__name__)
 
@@ -636,9 +636,11 @@ def update_application_status(request, application_id, status_val):
         profile = request.user.profile
         if profile.role == 'recruiter' and profile.company:
             app = Application.objects.get(id=application_id, job__company=profile.company)
-            if status_val in ['accepted', 'rejected', 'evaluated']:
+            if status_val in ['accepted', 'rejected', 'evaluated'] and app.status != status_val:
                 app.status = status_val
                 app.save()
+                if status_val in ('accepted', 'rejected'):
+                    notify.decision(app)
     except Application.DoesNotExist:
         pass
 
