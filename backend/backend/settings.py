@@ -144,3 +144,6 @@ EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
 EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'true').lower() == 'true'
 EMAIL_TIMEOUT = 10  # a slow mail server must not hang a serverless request
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'Hirely <no-reply@hirely.local>')
+
+# Shared by every serverless instance (rate limits); the table is created by migration 0020
+CACHES = {'default': {'BACKEND': 'django.core.cache.backends.db.DatabaseCache', 'LOCATION': 'hirely_cache'}}
