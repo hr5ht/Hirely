@@ -396,6 +396,38 @@ class InviteTest(TestCase):
         self.assertFalse(CompanyInvite.objects.filter(id=revoked.id).exists())
 
 
+@patch("ai_engine.audio_service.AudioService.text_to_speech", return_value=None)
+@patch("ai_engine.brain.InterviewBrain.get_session_skills", return_value='{"tech_knowledge": 70}')
+class NotifyTest(TestCase):
+    def setUp(self):
+        self.candidate, self.app = make_app()
+        self.recruiter = User.objects.create_user("rec", "rec@acme.com", "pw")
+        UserProfile.objects.create(user=self.recruiter, role="recruiter", company=self.app.job.company)
+        rival = User.objects.create_user("rival", "rival@other.com", "pw")
+        UserProfile.objects.create(user=rival, role="recruiter", company=Company.objects.create(name="Other"))
+
+    def test_decisions_and_completed_interviews_email_the_right_people(self, *_):
+        from django.core import mail
+        self.client.force_login(self.recruiter)
+        self.client.post(f"/ai/update-status/{self.app.id}/accepted/")
+        self.client.post(f"/ai/update-status/{self.app.id}/accepted/")  # unchanged status: no second email
+        self.assertEqual([m.to for m in mail.outbox], [["cand@x.com"]])
+        self.assertIn("move forward", mail.outbox[0].body)
+
+        session = InterviewSession.objects.create(application=self.app, session_status="active")
+        self.client.force_login(self.candidate)
+        self.client.post(f"/ai/interview/{session.id}/end/", "{}", content_type="application/json")
+        self.assertEqual(mail.outbox[1].to, ["rec@acme.com"])  # not the other company's recruiter
+        self.assertIn(f"http://testserver/ai/candidate-detail/{self.app.id}/", mail.outbox[1].body)
+
+    def test_mail_failure_does_not_block_the_decision(self, *_):
+        self.client.force_login(self.recruiter)
+        with patch("ai_engine.notify.send_mail", side_effect=OSError("SMTP down")):
+            self.client.post(f"/ai/update-status/{self.app.id}/rejected/")
+        self.app.refresh_from_db()
+        self.assertEqual(self.app.status, "rejected")
+
+
 class PasswordResetTest(TestCase):
     def test_reset_by_email(self):
         import re
