@@ -433,6 +433,29 @@ class NotifyTest(TestCase):
         self.assertEqual(self.app.status, "rejected")
 
 
+class RateLimitTest(TestCase):
+    def test_ai_endpoints_return_429_past_the_hourly_cap(self):
+        user, app = make_app()
+        UserProfile.objects.filter(user=user).update(resume_text="Python developer")
+        session = InterviewSession.objects.create(application=app, session_status="active")
+        self.client.force_login(user)
+        with patch.object(InterviewBrain, "get_resume_score", return_value={"score": 50}):
+            codes = [self.client.post("/ai/score-resume/", {"jd": "x"}).status_code for _ in range(21)]
+        self.assertEqual((codes[:20], codes[20]), ([200] * 20, 429))
+        self.assertIn("Too many requests", self.client.post("/ai/score-resume/", {"jd": "x"}).json()["error"])
+
+        # Interview limits only cover AI steps; proctoring and heartbeats are never throttled
+        with patch("ai_engine.views.cache.incr", return_value=61):
+            self.assertEqual(self.client.post(f"/ai/interview/{session.id}/start/").status_code, 429)
+            self.assertEqual(self.client.post(f"/ai/interview/{session.id}/heartbeat/").status_code, 200)
+
+        other, _ = make_app("other")
+        self.client.force_login(other)  # the limit is per user
+        with patch.object(InterviewBrain, "get_resume_score", return_value={"score": 50}):
+            UserProfile.objects.filter(user=other).update(resume_text="Go developer")
+            self.assertEqual(self.client.post("/ai/score-resume/", {"jd": "x"}).status_code, 200)
+
+
 class PasswordResetTest(TestCase):
     def test_reset_by_email(self):
         import re
