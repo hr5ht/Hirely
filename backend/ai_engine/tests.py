@@ -122,9 +122,14 @@ class PagesTest(TestCase):
 
 class TenantTest(TestCase):
     def register(self, username, company):
-        self.client.post("/register/", {"username": username, "email": f"{username}@gmail.com", "password": "pw",
+        self.client.post("/register/", {"username": username, "email": f"{username}@gmail.com", "password": "Kafka-streams-2026",
                                         "role": "recruiter", "company_name": company})
         return User.objects.get(username=username)
+
+    def test_weak_passwords_are_refused(self):
+        res = self.client.post("/register/", {"username": "weak", "email": "w@x.com", "password": "1234"})
+        self.assertContains(res, "too short")
+        self.assertFalse(User.objects.filter(username="weak").exists())
 
     def test_recruiters_on_the_same_email_provider_are_isolated(self):
         a, b = self.register("ra", "Acme"), self.register("rb", "Acme")
@@ -363,7 +368,7 @@ class InviteTest(TestCase):
         UserProfile.objects.create(user=self.owner, role="recruiter", company=self.company)
 
     def register(self, username, token, **extra):
-        return self.client.post("/register/", {"username": username, "email": f"{username}@gmail.com", "password": "pw",
+        return self.client.post("/register/", {"username": username, "email": f"{username}@gmail.com", "password": "Kafka-streams-2026",
                                                "invite": token, **extra})
 
     def test_invite_flow_and_expiry(self):
