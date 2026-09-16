@@ -3,6 +3,8 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse, HttpResponse
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
 from django.contrib import messages
 from django.core.cache import cache
 from django.core.paginator import Paginator
@@ -114,6 +116,15 @@ def download_candidate_resume(request, application_id):
     return redirect('dashboard')
 
 
+def _password_problem(password, user):
+    """Why AUTH_PASSWORD_VALIDATORS reject this password, or None if it's acceptable."""
+    try:
+        validate_password(password, user)
+    except ValidationError as e:
+        return " ".join(e.messages)
+    return None
+
+
 def register_view(request):
     if request.user.is_authenticated:
         return redirect('dashboard')
@@ -138,6 +149,8 @@ def register_view(request):
             error = "Email already registered."
         elif role == 'recruiter' and not company_name and not invite:
             error = "Company name is required for employers."
+        elif (error := _password_problem(password, User(username=username, email=email))):
+            pass
         else:
             with transaction.atomic():
                 # Lock the invite so two people can't both register with the same link
@@ -343,14 +356,14 @@ def profile_view(request):
             return redirect('profile')
 
         elif action == 'change_password':
-            new_password = request.POST.get('new_password')
-            if new_password and len(new_password) >= 6:
+            new_password = request.POST.get('new_password', '')
+            if (problem := _password_problem(new_password, request.user)):
+                messages.error(request, problem)
+            else:
                 request.user.set_password(new_password)
                 request.user.save()
                 update_session_auth_hash(request, request.user)
                 messages.success(request, 'Your password was successfully updated.')
-            else:
-                messages.error(request, 'Password must be at least 6 characters.')
             return redirect('profile')
 
     return render(request, 'profile.html', {
