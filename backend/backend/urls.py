@@ -6,6 +6,7 @@ from ai_engine import views as ai_views
 
 urlpatterns = [
     path('', ai_views.home, name='home'),
+    path('healthz', ai_views.healthz, name='healthz'),
     path('login/', ai_views.login_view, name='login'),
     path('register/', ai_views.register_view, name='register'),
     path('logout/', ai_views.logout_view, name='logout'),

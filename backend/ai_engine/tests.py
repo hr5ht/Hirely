@@ -456,6 +456,13 @@ class RateLimitTest(TestCase):
             self.assertEqual(self.client.post("/ai/score-resume/", {"jd": "x"}).status_code, 200)
 
 
+class HealthTest(TestCase):
+    def test_healthz(self):
+        self.assertEqual(self.client.get("/healthz").json(), {"status": "ok", "database": "ok"})
+        with patch("django.db.backends.utils.CursorWrapper.execute", side_effect=RuntimeError("db down")):
+            self.assertEqual(self.client.get("/healthz").status_code, 503)
+
+
 class PasswordResetTest(TestCase):
     def test_reset_by_email(self):
         import re

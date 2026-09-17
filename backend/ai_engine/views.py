@@ -409,6 +409,18 @@ def scores_view(request):
                   'application__job__title', 'application__job__company__name').order_by('created_at'),
     })
 
+def healthz(request):
+    """Uptime probe: 200 when the app can reach its database, 503 when it can't."""
+    from django.db import connection
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1")
+    except Exception:
+        log.exception("Health check: database unreachable")
+        return JsonResponse({'status': 'error', 'database': 'unreachable'}, status=503)
+    return JsonResponse({'status': 'ok', 'database': 'ok'})
+
+
 def home(request):
     return render(request, 'landing.html')
 
