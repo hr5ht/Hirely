@@ -10,7 +10,7 @@ from django.test import TestCase
 
 from ai_engine import rag
 from ai_engine.brain import InterviewBrain
-from ai_engine.models import Company, Job, Application, InterviewSession, UserProfile
+from ai_engine.models import Application, Company, InterviewSession, Job, UserProfile
 
 # Tests never call Gemini: retrieval uses the keyword fallback unless a test opts in with a fake embedding
 _no_embeddings = patch.dict(os.environ, {"GOOGLE_API_KEY": ""})
@@ -95,7 +95,8 @@ class AiErrorTest(TestCase):
         self.assertEqual((llm.max_retries, llm.request_timeout), (1, 20))
 
     def test_errors_are_friendly_and_hide_internals(self):
-        import groq, httpx
+        import groq
+        import httpx
         rate_limited = groq.RateLimitError("secret-org quota exceeded", body=None,
                                            response=httpx.Response(429, request=httpx.Request("POST", "https://groq")))
         user, _ = make_app()
@@ -210,6 +211,7 @@ class UploadTest(TestCase):
 
     def test_bad_files_are_rejected_with_a_reason(self):
         from django.core.files.uploadedfile import SimpleUploadedFile
+
         from ai_engine.views import MAX_RESUME_BYTES
         encrypted = io.BytesIO()
         writer = PyPDF2.PdfWriter()
@@ -301,7 +303,8 @@ class ApplicantListTest(TestCase):
         UserProfile.objects.create(user=recruiter, role="recruiter", company=company)
         self.client.force_login(recruiter)
 
-        apps = lambda **p: self.client.get("/dashboard/", p).context["applications"]
+        def apps(**params):
+            return self.client.get("/dashboard/", params).context["applications"]
         self.assertEqual((len(apps()), apps().paginator.count), (20, 26))
         self.assertEqual(len(apps(page=2)), 6)
         self.assertEqual([a.id for a in apps(job=job.id)], [app.id])
@@ -373,7 +376,9 @@ class InviteTest(TestCase):
 
     def test_invite_flow_and_expiry(self):
         from datetime import timedelta
+
         from django.utils import timezone
+
         from ai_engine.models import CompanyInvite
         self.client.force_login(self.owner)
         self.client.post("/ai/invites/")
@@ -466,6 +471,7 @@ class HealthTest(TestCase):
 class PasswordResetTest(TestCase):
     def test_reset_by_email(self):
         import re
+
         from django.core import mail
         user = User.objects.create_user("forgetful", "f@x.com", "old-password")
         self.assertEqual(self.client.get("/password-reset/").status_code, 200)

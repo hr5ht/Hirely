@@ -5,15 +5,16 @@ The pending question is the last transcript turn without an 'answer'.
 import json
 import logging
 import time
+
 from django.db import transaction
 from django.db.models import F
 from django.db.models.functions import Greatest
 
-from ai_engine.models import InterviewSession, Application
-from ai_engine.brain import InterviewBrain
-from ai_engine.audio_service import AudioService
-from ai_engine.reports import evaluate_transcript_semantic_gaps, compile_performance_report_pdf
 from ai_engine import notify, rag
+from ai_engine.audio_service import AudioService
+from ai_engine.brain import InterviewBrain
+from ai_engine.models import Application, InterviewSession
+from ai_engine.reports import compile_performance_report_pdf, evaluate_transcript_semantic_gaps
 
 log = logging.getLogger(__name__)
 

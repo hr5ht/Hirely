@@ -1,28 +1,29 @@
-import logging
-from django.shortcuts import render, redirect, get_object_or_404
-from django.http import JsonResponse, HttpResponse
-from django.contrib.auth.models import User
-from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
-from django.contrib.auth.password_validation import validate_password
-from django.core.exceptions import ValidationError
-from django.contrib import messages
-from django.core.cache import cache
-from django.core.paginator import Paginator
-from django.db import transaction
-from django.utils import timezone
-from django.db.models import Avg, Count, Prefetch, Q
-from django.views.decorators.http import require_POST
 import csv
 import json
+import logging
 import time
-from functools import wraps
 from collections import Counter
+from functools import wraps
+
 import groq
 import PyPDF2
+from django.contrib import messages
+from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
+from django.contrib.auth.models import User
+from django.contrib.auth.password_validation import validate_password
+from django.core.cache import cache
+from django.core.exceptions import ValidationError
+from django.core.paginator import Paginator
+from django.db import transaction
+from django.db.models import Avg, Count, Prefetch, Q
+from django.http import HttpResponse, JsonResponse
+from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
+from django.views.decorators.http import require_POST
 
-from ai_engine.models import Company, CompanyInvite, UserProfile, Job, Application, InterviewSession
-from ai_engine.brain import InterviewBrain
 from ai_engine import interview, notify
+from ai_engine.brain import InterviewBrain
+from ai_engine.models import Application, Company, CompanyInvite, InterviewSession, Job, UserProfile
 
 log = logging.getLogger(__name__)
 
@@ -63,7 +64,7 @@ def _pdf_text(f):
             raise ValueError("This PDF is password-protected. Please upload an unlocked copy.")
         text = "\n".join(page.extract_text() or "" for page in reader.pages)
     except PyPDF2.errors.PdfReadError:
-        raise ValueError("This PDF couldn't be read. Try exporting it again from your editor.")
+        raise ValueError("This PDF couldn't be read. Try exporting it again from your editor.") from None
     if len(text.split()) < 20:
         # Scanned resumes are images: without text the ATS score would silently be ~0
         raise ValueError("No text found in this PDF (it may be a scanned image). Please upload a text-based PDF.")
