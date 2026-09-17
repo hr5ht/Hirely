@@ -1,11 +1,12 @@
 import os
-import dj_database_url
 from pathlib import Path
+
+import dj_database_url
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-from dotenv import load_dotenv
 load_dotenv(os.path.join(BASE_DIR, '.env'))
 
 
@@ -147,3 +148,6 @@ DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'Hirely <no-reply@hire
 
 # Shared by every serverless instance (rate limits); the table is created by migration 0020
 CACHES = {'default': {'BACKEND': 'django.core.cache.backends.db.DatabaseCache', 'LOCATION': 'hirely_cache'}}
+
+# Existing tables use 32-bit ids; saying so silences W042 without a migration
+DEFAULT_AUTO_FIELD = 'django.db.models.AutoField'

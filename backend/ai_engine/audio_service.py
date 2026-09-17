@@ -1,8 +1,9 @@
+import base64
 import logging
 import os
-import httpx
-import base64
 import time
+
+import httpx
 from dotenv import load_dotenv
 
 log = logging.getLogger(__name__)
@@ -14,7 +15,7 @@ class AudioService:
         self.elevenlabs_key = os.getenv("ELEVENLABS_API_KEY")
         self.deepgram_key = os.getenv("DEEPGRAM_API_KEY")
         # Default ElevenLabs Voice ID (Josh - deep, professional)
-        self.voice_id = "pNInz6obpgDQGcFmaJgB" 
+        self.voice_id = "pNInz6obpgDQGcFmaJgB"
 
     def text_to_speech(self, text):
         """Converts text to speech using ElevenLabs and returns base64 audio."""
@@ -52,10 +53,10 @@ class AudioService:
 
         audio_data = base64.b64decode(audio_data_b64)
         url = "https://api.deepgram.com/v1/listen?model=nova-2&smart_format=true"
-        
+
         # Map browser MIME types to simpler content types for Deepgram
         content_type = mime_type.split(';')[0] if mime_type else 'audio/webm'
-        
+
         headers = {
             "Authorization": f"Token {self.deepgram_key}",
             "Content-Type": content_type
