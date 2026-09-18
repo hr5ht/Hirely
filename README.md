@@ -1,5 +1,7 @@
 # Hirely
 
+[![CI](https://github.com/hr5ht/Hirely/actions/workflows/ci.yml/badge.svg)](https://github.com/hr5ht/Hirely/actions/workflows/ci.yml)
+
 An AI recruitment platform: companies post jobs, candidates apply with a resume, and every applicant gets an ATS match score and an AI-led technical interview with live proctoring. Recruiters review scores, transcripts and a PDF report for each candidate.
 
 **Live demo:** https://hirely-hr5ht.vercel.app
@@ -79,6 +81,7 @@ Then:
 python manage.py migrate
 python manage.py runserver          # http://127.0.0.1:8000
 python manage.py test ai_engine     # run the tests
+pip install -r requirements-dev.txt && ruff check .   # lint
 ```
 
 | Key | Where to get it | Free tier |
