@@ -234,8 +234,10 @@ def _filtered_applications(request, company):
 
 
 def compare_candidates(request):
+    if not request.user.is_authenticated:
+        return redirect('login')
     profile = getattr(request.user, 'profile', None)
-    if not request.user.is_authenticated or not profile or profile.role != 'recruiter' or not profile.company:
+    if not profile or profile.role != 'recruiter' or not profile.company:
         return redirect('dashboard')
     ids = [i for i in request.GET.getlist('ids') if i.isdigit()][:3]
     apps = Application.objects.filter(id__in=ids, job__company=profile.company).select_related('job', 'candidate') \
@@ -245,8 +247,10 @@ def compare_candidates(request):
 
 
 def export_applicants(request):
+    if not request.user.is_authenticated:
+        return redirect('login')
     profile = getattr(request.user, 'profile', None)
-    if not request.user.is_authenticated or not profile or profile.role != 'recruiter' or not profile.company:
+    if not profile or profile.role != 'recruiter' or not profile.company:
         return redirect('dashboard')
     applications, _ = _filtered_applications(request, profile.company)
     response = HttpResponse(content_type='text/csv; charset=utf-8')

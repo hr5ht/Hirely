@@ -461,6 +461,37 @@ class RateLimitTest(TestCase):
             self.assertEqual(self.client.post("/ai/score-resume/", {"jd": "x"}).status_code, 200)
 
 
+class AccessMatrixTest(TestCase):
+    def test_recruiter_vs_candidate_vs_anonymous(self):
+        candidate, app = make_app()
+        session = InterviewSession.objects.create(application=app, session_status="completed", pdf_report=b"%PDF-1.4")
+        recruiter = User.objects.create_user("rec", "rec@x.com", "pw")
+        UserProfile.objects.create(user=recruiter, role="recruiter", company=app.job.company)
+
+        recruiter_only = [f"/ai/candidate-detail/{app.id}/", f"/ai/candidate-resume/{app.id}/", f"/ai/compare/?ids={app.id}"]
+        candidate_only = [f"/session/?app_id={app.id}", f"/review/{session.id}/"]
+        login_required = recruiter_only + candidate_only + ["/dashboard/", "/scores/", "/profile/", f"/download-session/{session.id}/"]
+
+        for url in login_required:
+            res = self.client.get(url)
+            self.assertEqual((res.status_code, res.url.split("?")[0]), (302, "/login/"), url)
+        self.assertRedirects(self.client.get("/ai/export-applicants/"), "/login/", fetch_redirect_response=False)
+        self.assertEqual(self.client.post(f"/ai/interview/{session.id}/start/").status_code, 401)
+
+        self.client.force_login(candidate)
+        for url in recruiter_only:
+            self.assertRedirects(self.client.get(url), "/dashboard/", fetch_redirect_response=False, msg_prefix=url)
+        self.assertRedirects(self.client.get("/ai/export-applicants/"), "/dashboard/", fetch_redirect_response=False)
+        self.assertEqual(self.client.get(f"/review/{session.id}/").status_code, 200)
+
+        self.client.force_login(recruiter)
+        self.assertEqual(self.client.get(f"/ai/candidate-detail/{app.id}/").status_code, 200)
+        self.assertEqual(self.client.get(f"/download-session/{session.id}/").status_code, 200)  # their company's report
+        self.assertRedirects(self.client.get(f"/session/?app_id={app.id}"), "/dashboard/", fetch_redirect_response=False)
+        self.assertEqual(self.client.get(f"/review/{session.id}/").status_code, 404)
+        self.assertEqual(self.client.post(f"/ai/interview/{session.id}/start/").status_code, 404)  # can't sit the interview
+
+
 class HealthTest(TestCase):
     def test_healthz(self):
         self.assertEqual(self.client.get("/healthz").json(), {"status": "ok", "database": "ok"})
