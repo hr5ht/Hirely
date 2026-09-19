@@ -602,6 +602,33 @@ class InterviewFlowTest(TestCase):
         self.client.force_login(make_app("intruder")[0])
         self.assertEqual(self.client.get(f"/review/{self.session.id}/").status_code, 404)
 
+    def test_voice_answer_flow_with_deepgram_mocked(self, *_):
+        import base64
+
+        import httpx
+        deepgram_ok = httpx.Response(200, json={"results": {"channels": [{"alternatives": [{"transcript": "I tuned Kafka consumers"}]}]}},
+                                     request=httpx.Request("POST", "https://api.deepgram.com"))
+        feedback = json.dumps({"feedback": "Good.", "confidence": 75, "clarity": 80})
+        audio = base64.b64encode(b"fake-webm-bytes").decode()
+        with patch.dict(os.environ, {"DEEPGRAM_API_KEY": "dg-test"}), \
+             patch.object(InterviewBrain, "generate_initial_question", return_value="Q1?"), \
+             patch.object(InterviewBrain, "get_feedback", return_value=feedback), \
+             patch.object(InterviewBrain, "get_next_question", return_value="Q2?"), \
+             patch("ai_engine.audio_service.httpx.post", return_value=deepgram_ok) as deepgram:
+            self.post("start")
+            msgs = self.post("audio", {"audio": audio, "mimeType": "audio/webm;codecs=opus"}).json()["messages"]
+        self.assertEqual(msgs[0], {"type": "transcription_result", "text": "I tuned Kafka consumers"})
+        self.assertEqual(msgs[-1]["text"], "Q2?")
+        self.assertEqual(deepgram.call_args.kwargs["content"], b"fake-webm-bytes")
+        self.assertEqual(deepgram.call_args.kwargs["headers"]["Content-Type"], "audio/webm")  # codecs suffix stripped
+        self.session.refresh_from_db()
+        self.assertEqual(self.session.transcript[0]["answer"], "I tuned Kafka consumers")
+
+        failed = httpx.Response(500, text="boom", request=httpx.Request("POST", "https://api.deepgram.com"))
+        with patch.dict(os.environ, {"DEEPGRAM_API_KEY": "dg-test"}), patch("ai_engine.audio_service.httpx.post", return_value=failed):
+            msgs = self.post("audio", {"audio": audio}).json()["messages"]
+        self.assertEqual(msgs, [{"type": "transcription_result", "text": "", "error": "Transcription failed"}])
+
     def test_penalties_for_new_alert_types(self, *_):
         for alert in ["Tab Switched Away", "Interview Window Lost Focus", "Camera Stopped", "Tab Switched Away"]:
             self.post("proctor", {"type": alert})
