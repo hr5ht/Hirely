@@ -492,6 +492,27 @@ class AccessMatrixTest(TestCase):
         self.assertEqual(self.client.post(f"/ai/interview/{session.id}/start/").status_code, 404)  # can't sit the interview
 
 
+class ReportTest(TestCase):
+    def test_pdf_sections_and_escaping(self):
+        from ai_engine.reports import compile_performance_report_pdf
+        _, app = make_app()
+        Company.objects.filter(id=app.job.company_id).update(name="Smith & <Sons>")
+        session = InterviewSession.objects.create(
+            application=app, session_status="completed", gap_analysis="Study <b>partitioning</b> & retries",
+            transcript=[{"question": "Why <Kafka>?", "answer": "Because x < y && y > z", "feedback": "Fine & clear"}],
+            proctoring_logs=[{"type": "Tab Switched Away", "timestamp": "2026-09-19T10:00:00Z"}] * 2,
+            heartbeats=[1, 31, 61])
+        self.assertIn("Successfully", compile_performance_report_pdf(session.id))
+        session.refresh_from_db()
+        text = "".join(p.extract_text() for p in PyPDF2.PdfReader(io.BytesIO(bytes(session.pdf_report))).pages)
+        for section in ["Core Evaluation Metrics", "Security & Proctoring Audit Trail", "Skills Gap Analysis", "Evaluation Chat Transcript"]:
+            self.assertIn(section, text)
+        self.assertIn("Tab Switched Away × 2", text)
+        self.assertIn("Camera heartbeats received: 3", text)
+        for literal in ["Smith & <Sons>", "Study <b>partitioning</b> & retries", "Why <Kafka>?", "Because x < y && y > z"]:
+            self.assertIn(literal, text)  # shown as typed, never parsed as markup
+
+
 class HealthTest(TestCase):
     def test_healthz(self):
         self.assertEqual(self.client.get("/healthz").json(), {"status": "ok", "database": "ok"})
