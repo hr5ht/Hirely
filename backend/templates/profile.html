@@ -20,18 +20,7 @@
 {% block body_class %}min-h-screen flex flex-col{% endblock %}
 {% block content %}
 
-    <nav class="bg-white border-b border-gray-200">
-        <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-            <a href="/dashboard/" class="flex items-center gap-3">
-                <img src="{% static 'ai_engine/logo.png' %}" alt="Hirely Logo" class="w-8 h-8 rounded-lg object-cover shadow-sm">
-                <span class="text-lg font-bold text-gray-900">Hirely</span>
-            </a>
-            <div class="flex items-center gap-6 text-sm font-medium">
-                <a href="/dashboard/" class="text-gray-500 hover:text-gray-900 transition-colors">Dashboard</a>
-                <a href="/logout/" class="text-gray-500 hover:text-gray-900 transition-colors">Log out</a>
-            </div>
-        </div>
-    </nav>
+    {% include "partials/navbar.html" %}
 
     <main class="flex-grow max-w-4xl mx-auto w-full py-12 px-6 space-y-8">
         <header class="space-y-2">

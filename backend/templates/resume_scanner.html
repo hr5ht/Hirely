@@ -35,20 +35,7 @@
 {% block body_class %}min-h-screen flex flex-col{% endblock %}
 {% block content %}
 
-    <nav class="bg-white border-b border-gray-200">
-        <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-            <a href="/dashboard/" class="flex items-center gap-2 group text-gray-500 hover:text-gray-900 transition-colors">
-                <i data-lucide="chevron-left" class="w-4 h-4"></i>
-                <span class="text-sm font-medium">Dashboard</span>
-            </a>
-            <div class="flex items-center gap-2">
-                <div class="w-8 h-8 bg-purple-600 rounded flex items-center justify-center">
-                    <i data-lucide="file-text" class="text-white w-4 h-4"></i>
-                </div>
-                <span class="text-lg font-bold text-gray-900">Hirely <span class="text-purple-600 font-medium text-sm ml-1">ATS</span></span>
-            </div>
-        </div>
-    </nav>
+    {% include "partials/navbar.html" %}
 
     <main class="flex-grow max-w-4xl mx-auto py-12 px-6 w-full flex flex-col gap-10">
         
