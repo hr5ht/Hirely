@@ -48,7 +48,7 @@ backend/
     interview.py      Interview steps (start / answer / audio / proctor / end)
     audio_service.py  Deepgram and ElevenLabs clients
     reports.py        Final evaluation and PDF report
-    views.py          Pages and JSON endpoints
+    views/            Pages and JSON endpoints: auth, candidate, recruiter, interview
     tests.py          Test suite (AI calls mocked)
   templates/          Django templates
   vercel.json         Vercel config
