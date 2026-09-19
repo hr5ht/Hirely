@@ -13,15 +13,7 @@
 {% block body_class %}min-h-screen flex flex-col{% endblock %}
 {% block content %}
 
-    <nav class="bg-white border-b border-gray-100">
-        <div class="max-w-7xl mx-auto px-6 h-16 flex justify-between items-center">
-            <a href="/dashboard/" class="flex items-center gap-3">
-                <img src="{% static 'ai_engine/logo.png' %}" alt="Hirely Logo" class="w-8 h-8 rounded-lg object-cover shadow-sm">
-                <span class="text-lg font-bold text-gray-900 tracking-tight">Hirely</span>
-            </a>
-            <a href="/dashboard/" class="text-sm font-medium text-gray-500 hover:text-gray-900">Back to dashboard</a>
-        </div>
-    </nav>
+    {% include "partials/navbar.html" %}
 
     <main class="flex-grow max-w-6xl mx-auto w-full py-12 px-6 space-y-6">
         <h1 class="text-3xl font-extrabold tracking-tight text-gray-900">Compare Candidates</h1>
