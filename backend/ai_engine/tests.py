@@ -450,7 +450,7 @@ class RateLimitTest(TestCase):
         self.assertIn("Too many requests", self.client.post("/ai/score-resume/", {"jd": "x"}).json()["error"])
 
         # Interview limits only cover AI steps; proctoring and heartbeats are never throttled
-        with patch("ai_engine.views.cache.incr", return_value=61):
+        with patch("ai_engine.views.common.cache.incr", return_value=61):
             self.assertEqual(self.client.post(f"/ai/interview/{session.id}/start/").status_code, 429)
             self.assertEqual(self.client.post(f"/ai/interview/{session.id}/heartbeat/").status_code, 200)
 
