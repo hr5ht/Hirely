@@ -50,26 +50,26 @@
                     <input type="hidden" name="action" value="update_profile">
                     
                     <div class="space-y-2">
-                        <label class="text-sm font-semibold text-gray-700">Username</label>
-                        <input type="text" value="{{ user.username }}" disabled
+                        <label for="field-username" class="text-sm font-semibold text-gray-700">Username</label>
+                        <input id="field-username" type="text" value="{{ user.username }}" disabled
                             class="w-full bg-gray-100 border border-gray-300 rounded-lg p-3 text-sm text-gray-500 cursor-not-allowed">
                     </div>
 
                     <div class="space-y-2">
-                        <label class="text-sm font-semibold text-gray-700">Email Address</label>
-                        <input type="email" name="email" value="{{ user.email }}" required
+                        <label for="field-email" class="text-sm font-semibold text-gray-700">Email Address</label>
+                        <input id="field-email" type="email" name="email" value="{{ user.email }}" required
                             class="w-full bg-gray-50 border border-gray-300 rounded-lg p-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all text-sm text-gray-900">
                     </div>
 
                     <div class="flex gap-4">
                         <div class="space-y-2 w-full">
-                            <label class="text-sm font-semibold text-gray-700">First Name</label>
-                            <input type="text" name="first_name" value="{{ user.first_name }}"
+                            <label for="field-first-name" class="text-sm font-semibold text-gray-700">First Name</label>
+                            <input id="field-first-name" type="text" name="first_name" value="{{ user.first_name }}"
                                 class="w-full bg-gray-50 border border-gray-300 rounded-lg p-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all text-sm text-gray-900">
                         </div>
                         <div class="space-y-2 w-full">
-                            <label class="text-sm font-semibold text-gray-700">Last Name</label>
-                            <input type="text" name="last_name" value="{{ user.last_name }}"
+                            <label for="field-last-name" class="text-sm font-semibold text-gray-700">Last Name</label>
+                            <input id="field-last-name" type="text" name="last_name" value="{{ user.last_name }}"
                                 class="w-full bg-gray-50 border border-gray-300 rounded-lg p-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all text-sm text-gray-900">
                         </div>
                     </div>
@@ -125,8 +125,8 @@
                         <input type="hidden" name="action" value="change_password">
                         
                         <div class="space-y-2">
-                            <label class="text-sm font-semibold text-gray-700">New Password</label>
-                            <input type="password" name="new_password" required minlength="6"
+                            <label for="field-new-password" class="text-sm font-semibold text-gray-700">New Password</label>
+                            <input id="field-new-password" type="password" name="new_password" required minlength="6"
                                 class="w-full bg-gray-50 border border-gray-300 rounded-lg p-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all text-sm text-gray-900">
                         </div>
 
