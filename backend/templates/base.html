@@ -9,6 +9,10 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="icon" type="image/png" href="{% static 'ai_engine/logo.png' %}">
+    <style>
+        /* Visible keyboard focus everywhere; Tailwind's outline-none on inputs only hides the mouse ring */
+        :focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+    </style>
     {% block head %}{% endblock %}
 </head>
 

@@ -228,12 +228,12 @@
                     </div>
                     <div class="flex items-center justify-end gap-2">
                         <span id="mic-status" class="text-[10px] font-bold uppercase tracking-widest text-gray-400 mr-2">Tap to speak</span>
-                        <button id="mic-btn"
+                        <button id="mic-btn" aria-label="Record a spoken answer"
                             class="mic-btn-compact w-11 h-11 sm:w-10 sm:h-10 bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 rounded-lg flex items-center justify-center transition-all"
                             title="Tap to Speak">
                             <i data-lucide="mic" class="w-4 h-4"></i>
                         </button>
-                        <button id="toggle-input-btn"
+                        <button id="toggle-input-btn" aria-label="Type your answer instead"
                             class="w-11 h-11 sm:w-10 sm:h-10 bg-gray-50 hover:bg-gray-100 rounded-lg flex items-center justify-center transition-all border border-gray-200 text-gray-500 hover:text-blue-600"
                             title="Switch to Text Input">
                             <i data-lucide="keyboard" class="w-4 h-4"></i>
@@ -243,9 +243,9 @@
 
                 <div id="text-input-container" class="hidden">
                     <div class="relative">
-                        <input type="text" id="manual-answer" placeholder="Type your answer here..."
+                        <input type="text" id="manual-answer" aria-label="Your answer" placeholder="Type your answer here..."
                             class="w-full bg-white border border-gray-300 rounded-xl p-4 pr-14 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all text-base sm:text-sm text-gray-900 shadow-sm">
-                        <button id="send-text-btn"
+                        <button id="send-text-btn" aria-label="Send answer"
                             class="absolute right-2 top-2 w-10 h-10 bg-blue-600 hover:bg-blue-700 rounded-lg flex items-center justify-center transition-all shadow-sm">
                             <i data-lucide="send" class="text-white w-4 h-4"></i>
                         </button>

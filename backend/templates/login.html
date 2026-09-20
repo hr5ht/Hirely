@@ -37,22 +37,22 @@
         <form method="POST" class="space-y-5 pt-2">
             {% csrf_token %}
             <div class="space-y-1.5">
-                <label class="text-sm font-semibold text-gray-700">Username</label>
+                <label for="field-username" class="text-sm font-semibold text-gray-700">Username</label>
                 <div class="relative">
                     <i data-lucide="user" class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4"></i>
-                    <input type="text" name="username" placeholder="Enter your username" required
+                    <input id="field-username" type="text" name="username" placeholder="Enter your username" required
                         class="w-full bg-white border border-gray-300 rounded-lg p-3 pl-11 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all text-sm text-gray-900 shadow-sm">
                 </div>
             </div>
 
             <div class="space-y-1.5">
                 <div class="flex items-center justify-between">
-                    <label class="text-sm font-semibold text-gray-700">Password</label>
+                    <label for="field-password" class="text-sm font-semibold text-gray-700">Password</label>
                     <a href="/password-reset/" class="text-xs font-semibold text-blue-600 hover:text-blue-700">Forgot password?</a>
                 </div>
                 <div class="relative">
                     <i data-lucide="lock" class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4"></i>
-                    <input type="password" name="password" placeholder="••••••••" required
+                    <input id="field-password" type="password" name="password" placeholder="••••••••" required
                         class="w-full bg-white border border-gray-300 rounded-lg p-3 pl-11 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all text-sm text-gray-900 shadow-sm">
                 </div>
             </div>

@@ -44,35 +44,35 @@
             {% csrf_token %}
             {% if invite %}<input type="hidden" name="invite" value="{{ invite.token }}">{% endif %}
             <div class="space-y-1.5">
-                <label class="text-sm font-semibold text-gray-700">Username</label>
+                <label for="field-username" class="text-sm font-semibold text-gray-700">Username</label>
                 <div class="relative">
                     <i data-lucide="user" class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4"></i>
-                    <input type="text" name="username" placeholder="Choose a username" required
+                    <input id="field-username" type="text" name="username" placeholder="Choose a username" required
                         class="w-full bg-white border border-gray-300 rounded-lg p-3 pl-11 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all text-sm text-gray-900 shadow-sm">
                 </div>
             </div>
 
             <div class="space-y-1.5">
-                <label class="text-sm font-semibold text-gray-700">Email Address</label>
+                <label for="field-email" class="text-sm font-semibold text-gray-700">Email Address</label>
                 <div class="relative">
                     <i data-lucide="mail" class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4"></i>
-                    <input type="email" name="email" placeholder="you@example.com" required
+                    <input id="field-email" type="email" name="email" placeholder="you@example.com" required
                         class="w-full bg-white border border-gray-300 rounded-lg p-3 pl-11 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all text-sm text-gray-900 shadow-sm">
                 </div>
             </div>
 
             <div class="space-y-1.5">
-                <label class="text-sm font-semibold text-gray-700">Password</label>
+                <label for="field-password" class="text-sm font-semibold text-gray-700">Password</label>
                 <div class="relative">
                     <i data-lucide="lock" class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4"></i>
-                    <input type="password" name="password" placeholder="••••••••" required
+                    <input id="field-password" type="password" name="password" placeholder="••••••••" required
                         class="w-full bg-white border border-gray-300 rounded-lg p-3 pl-11 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all text-sm text-gray-900 shadow-sm">
                 </div>
             </div>
 
             {% if not invite %}
             <div class="space-y-1.5">
-                <label class="text-sm font-semibold text-gray-700">Account Type</label>
+                <label for="role-select" class="text-sm font-semibold text-gray-700">Account Type</label>
                 <div class="relative">
                     <i data-lucide="shield" class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4"></i>
                     <select name="role" id="role-select" onchange="toggleCompanyInput()"
@@ -84,7 +84,7 @@
             </div>
 
             <div class="space-y-1.5 hidden animate-in slide-in-from-top-2 duration-300" id="company-wrapper">
-                <label class="text-sm font-semibold text-gray-700">Company Name</label>
+                <label for="company-input" class="text-sm font-semibold text-gray-700">Company Name</label>
                 <div class="relative">
                     <i data-lucide="building" class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4"></i>
                     <input type="text" name="company_name" id="company-input" placeholder="e.g. Google, Stripe"
