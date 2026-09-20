@@ -67,6 +67,11 @@
             z-index: 10;
         }
 
+        @media (max-width: 640px) {
+            /* Keep the badge from covering the candidate's face on a small video */
+            .proctoring-badge { top: 0.5rem; right: 0.5rem; padding: 0.25rem 0.6rem; font-size: 0.625rem; }
+        }
+
         .status-safe {
             background: rgba(16, 185, 129, 0.1);
             color: #059669;
@@ -164,7 +169,7 @@
 {% block body_class %}min-h-screen flex flex-col pt-16{% endblock %}
 {% block content %}
     <nav class="fixed top-0 left-0 w-full bg-white border-b border-gray-200 z-40">
-        <div class="max-w-7xl mx-auto px-6 h-16 flex justify-between items-center">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex justify-between items-center">
             <a href="/dashboard/" class="flex items-center gap-2 group text-gray-500 hover:text-gray-900 transition-colors">
                 <i data-lucide="chevron-left" class="w-4 h-4"></i>
                 <span class="text-sm font-medium">Dashboard</span>
@@ -177,11 +182,11 @@
         </div>
     </nav>
 
-    <main class="max-w-6xl mx-auto py-8 px-4 pb-32 w-full grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <main class="max-w-6xl mx-auto py-4 sm:py-8 px-4 pb-32 w-full grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
         <!-- Main Interface -->
         <div class="lg:col-span-2 space-y-6">
             <div class="clean-card overflow-hidden">
-                <div class="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                <div class="p-4 border-b border-gray-100 flex flex-wrap justify-between items-center gap-2 bg-gray-50">
                     <div class="flex items-center gap-2">
                         <i data-lucide="shield-check" class="text-blue-600 w-4 h-4"></i>
                         <span class="text-xs font-bold uppercase tracking-wider text-gray-700">AI Proctoring Active</span>
@@ -211,24 +216,25 @@
                 </div>
             </div>
 
-            <div class="clean-card p-6 flex flex-col gap-4">
-                <div class="flex items-center gap-6">
+            <div class="clean-card p-4 sm:p-6 flex flex-col gap-4">
+                <!-- Stacks on phones so the question gets the full width and the buttons stay thumb-sized -->
+                <div class="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
                     <div class="flex-1 space-y-1">
                         <h3 id="prompt-label" class="text-[10px] font-bold uppercase tracking-widest text-gray-400">
                             Currently Prompting</h3>
                         <p id="countdown" class="hidden text-xs font-bold text-amber-600" aria-live="polite"></p>
-                        <p id="prompt-text" class="text-lg font-semibold text-gray-900">"Ready to start? Enable your mic and say hello."
+                        <p id="prompt-text" class="text-base sm:text-lg font-semibold text-gray-900">"Ready to start? Enable your mic and say hello."
                         </p>
                     </div>
-                    <div class="flex items-center gap-2">
+                    <div class="flex items-center justify-end gap-2">
                         <span id="mic-status" class="text-[10px] font-bold uppercase tracking-widest text-gray-400 mr-2">Tap to speak</span>
                         <button id="mic-btn"
-                            class="mic-btn-compact w-10 h-10 bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 rounded-lg flex items-center justify-center transition-all"
+                            class="mic-btn-compact w-11 h-11 sm:w-10 sm:h-10 bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 rounded-lg flex items-center justify-center transition-all"
                             title="Tap to Speak">
                             <i data-lucide="mic" class="w-4 h-4"></i>
                         </button>
                         <button id="toggle-input-btn"
-                            class="w-10 h-10 bg-gray-50 hover:bg-gray-100 rounded-lg flex items-center justify-center transition-all border border-gray-200 text-gray-500 hover:text-blue-600"
+                            class="w-11 h-11 sm:w-10 sm:h-10 bg-gray-50 hover:bg-gray-100 rounded-lg flex items-center justify-center transition-all border border-gray-200 text-gray-500 hover:text-blue-600"
                             title="Switch to Text Input">
                             <i data-lucide="keyboard" class="w-4 h-4"></i>
                         </button>
@@ -238,7 +244,7 @@
                 <div id="text-input-container" class="hidden">
                     <div class="relative">
                         <input type="text" id="manual-answer" placeholder="Type your answer here..."
-                            class="w-full bg-white border border-gray-300 rounded-xl p-4 pr-14 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all text-sm text-gray-900 shadow-sm">
+                            class="w-full bg-white border border-gray-300 rounded-xl p-4 pr-14 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all text-base sm:text-sm text-gray-900 shadow-sm">
                         <button id="send-text-btn"
                             class="absolute right-2 top-2 w-10 h-10 bg-blue-600 hover:bg-blue-700 rounded-lg flex items-center justify-center transition-all shadow-sm">
                             <i data-lucide="send" class="text-white w-4 h-4"></i>
