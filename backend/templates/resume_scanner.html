@@ -128,6 +128,7 @@
             }
 
             analyzeBtn.disabled = true;
+            analyzeBtn.setAttribute('aria-busy', 'true');
             const originalBtnText = analyzeBtn.innerHTML;
             analyzeBtn.innerHTML = '<div class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div> Scanning...';
 
@@ -199,6 +200,7 @@
                 alert("Scan failed: " + e.message);
             } finally {
                 analyzeBtn.disabled = false;
+                analyzeBtn.removeAttribute('aria-busy');
                 analyzeBtn.innerHTML = originalBtnText;
             }
         };
