@@ -367,7 +367,7 @@
             </div>
             
             <!-- JavaScript Intercepted form -->
-            <div id="apply-loading-state" class="hidden flex flex-col items-center justify-center py-12 space-y-4">
+            <div id="apply-loading-state" class="hidden flex flex-col items-center justify-center py-12 space-y-4" role="status" aria-live="polite">
                 <div class="spinner"></div>
                 <div class="text-center space-y-1">
                     <p class="text-xs font-bold text-slate-900">Analyzing Technical Resume Alignment</p>
@@ -392,7 +392,7 @@
 
                 <div class="flex gap-4 pt-2 border-t border-slate-100">
                     <button type="button" onclick="closeApplyModal()" class="flex-1 py-3 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold rounded-xl text-xs transition-colors">Cancel</button>
-                    <button type="submit" class="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition-colors shadow-sm">Submit Application</button>
+                    <button type="submit" id="apply-submit" class="flex-1 py-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-bold rounded-xl text-xs transition-colors shadow-sm">Submit Application</button>
                 </div>
             </form>
         </div>
@@ -562,6 +562,9 @@
                 alert('Resume is larger than 4 MB. Please upload a smaller PDF.');
                 return;
             }
+            const submitBtn = document.getElementById('apply-submit');
+            if (submitBtn.disabled) return;  // already scoring this resume
+            submitBtn.disabled = true;
             
             // Show loading state, hide form fields
             form.classList.add('hidden');
@@ -584,6 +587,7 @@
                 form.reset();
                 form.classList.remove('hidden');
                 loadingState.classList.add('hidden');
+                submitBtn.disabled = false;
                 closeApplyModal();
                 
                 // Populate Now or Later Modal
@@ -605,6 +609,7 @@
                 alert(err.message);
                 form.classList.remove('hidden');
                 loadingState.classList.add('hidden');
+                submitBtn.disabled = false;
             });
         };
 
