@@ -513,6 +513,19 @@ class ReportTest(TestCase):
             self.assertIn(literal, text)  # shown as typed, never parsed as markup
 
 
+class SeedDemoTest(TestCase):
+    def test_seed_demo_is_idempotent_and_logs_in(self):
+        from django.core.management import call_command
+        for _ in range(2):
+            call_command("seed_demo", stdout=io.StringIO())
+        self.assertEqual(Job.objects.count(), 6)
+        self.assertEqual(Job.objects.filter(company__name="Google").count(), 3)
+        self.assertEqual(Company.objects.filter(name="Google").count(), 1)
+        self.assertEqual(User.objects.get(username="recruiter").profile.company.name, "Google")
+        self.assertTrue(self.client.login(username="candidate", password="1234"))
+        self.assertEqual(len(self.client.get("/dashboard/").context["jobs"]), 6)
+
+
 class HealthTest(TestCase):
     def test_healthz(self):
         self.assertEqual(self.client.get("/healthz").json(), {"status": "ok", "database": "ok"})
