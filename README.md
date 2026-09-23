@@ -73,12 +73,14 @@ GROQ_API_KEY="..."
 GOOGLE_API_KEY="..."        # optional: semantic RAG (falls back to keyword ranking)
 ELEVENLABS_API_KEY="..."    # optional: spoken questions
 DEEPGRAM_API_KEY="..."      # optional: spoken answers
+EMAIL_HOST="..."            # optional: SMTP for password resets and notifications (printed to the console if unset)
 ```
 
 Then:
 
 ```bash
 python manage.py migrate
+python manage.py seed_demo          # optional: demo accounts and job postings
 python manage.py runserver          # http://127.0.0.1:8000
 python manage.py test ai_engine     # run the tests
 pip install -r requirements-dev.txt && ruff check .   # lint
