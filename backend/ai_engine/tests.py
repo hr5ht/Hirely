@@ -528,7 +528,7 @@ class SeedDemoTest(TestCase):
 
 class HealthTest(TestCase):
     def test_healthz(self):
-        self.assertEqual(self.client.get("/healthz").json(), {"status": "ok", "database": "ok"})
+        self.assertEqual(self.client.get("/healthz").json(), {"status": "ok", "database": "ok", "version": "1.0.0"})
         with patch("django.db.backends.utils.CursorWrapper.execute", side_effect=RuntimeError("db down")):
             self.assertEqual(self.client.get("/healthz").status_code, 503)
 
