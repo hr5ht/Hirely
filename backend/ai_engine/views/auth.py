@@ -10,6 +10,7 @@ from django.db import transaction
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
 
+from ai_engine import __version__
 from ai_engine.models import Company, CompanyInvite, UserProfile
 
 log = logging.getLogger(__name__)
@@ -143,4 +144,4 @@ def healthz(request):
     except Exception:
         log.exception("Health check: database unreachable")
         return JsonResponse({'status': 'error', 'database': 'unreachable'}, status=503)
-    return JsonResponse({'status': 'ok', 'database': 'ok'})
+    return JsonResponse({'status': 'ok', 'database': 'ok', 'version': __version__})  # which build is live
