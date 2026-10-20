@@ -81,7 +81,6 @@ Then:
 ```bash
 python manage.py migrate
 python manage.py runserver          # http://127.0.0.1:8000
-python manage.py test ai_engine     # run the tests
 ```
 
 | Key | Where to get it | Free tier |
