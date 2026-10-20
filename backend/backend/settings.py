@@ -151,3 +151,10 @@ CACHES = {'default': {'BACKEND': 'django.core.cache.backends.db.DatabaseCache', 
 
 # Existing tables use 32-bit ids; saying so silences W042 without a migration
 DEFAULT_AUTO_FIELD = 'django.db.models.AutoField'
+
+# Supabase Auth checks passwords and sends confirmation and reset emails.
+# Users, roles and all data stay in this app's own database.
+SUPABASE_URL = os.environ.get('SUPABASE_URL', '').rstrip('/')
+SUPABASE_ANON_KEY = os.environ.get('SUPABASE_ANON_KEY', '')
+if not (SUPABASE_URL and SUPABASE_ANON_KEY):
+    raise ValueError("SUPABASE_URL and SUPABASE_ANON_KEY environment variables are required (sign-in runs on Supabase Auth).")

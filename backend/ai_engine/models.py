@@ -45,6 +45,8 @@ class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     role = models.CharField(max_length=50, choices=ROLE_CHOICES, default='candidate')
     company = models.ForeignKey(Company, on_delete=models.SET_NULL, blank=True, null=True, related_name='employees')
+    # Supabase Auth user id: Supabase checks this user's password
+    supabase_id = models.CharField(max_length=64, unique=True, blank=True, null=True)
     # Default resume saved on profile
     resume_pdf = models.BinaryField(blank=True, null=True)
     resume_text = models.TextField(blank=True, default='')
