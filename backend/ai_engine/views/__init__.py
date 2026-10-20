@@ -1,5 +1,13 @@
 """Views, split by who uses them. URLconfs import everything from here."""
-from ai_engine.views.auth import healthz, home, login_view, logout_view, profile_view, register_view  # noqa: F401
+from ai_engine.views.auth import (  # noqa: F401
+    healthz,
+    home,
+    login_view,
+    logout_view,
+    password_reset,
+    profile_view,
+    register_view,
+)
 from ai_engine.views.candidate import (  # noqa: F401
     apply_to_job,
     dashboard_view,

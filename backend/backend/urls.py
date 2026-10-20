@@ -1,8 +1,11 @@
 from django.contrib import admin
-from django.contrib.auth import views as auth_views
+from django.contrib.auth.views import redirect_to_login
 from django.urls import include, path
 
 from ai_engine import views as ai_views
+
+# The admin has no password form of its own: staff sign in through Supabase like everyone else
+admin.site.login = lambda request, extra_context=None: redirect_to_login(request.GET.get('next', '/admin/'), '/login/')
 
 urlpatterns = [
     path('', ai_views.home, name='home'),
@@ -19,10 +22,7 @@ urlpatterns = [
     path('session/', ai_views.session_view, name='session'),
     path('resume-scanner/', ai_views.resume_scanner_view, name='resume_scanner'),
     path('upload-profile-resume/', ai_views.upload_profile_resume, name='upload_profile_resume'),
-    path('password-reset/', auth_views.PasswordResetView.as_view(), name='password_reset'),
-    path('password-reset/sent/', auth_views.PasswordResetDoneView.as_view(), name='password_reset_done'),
-    path('password-reset/<uidb64>/<token>/', auth_views.PasswordResetConfirmView.as_view(), name='password_reset_confirm'),
-    path('password-reset/complete/', auth_views.PasswordResetCompleteView.as_view(), name='password_reset_complete'),
+    path('password-reset/', ai_views.password_reset, name='password_reset'),
     path('admin/', admin.site.urls),
     path('ai/', include('ai_engine.urls')),
 ]

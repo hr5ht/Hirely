@@ -27,6 +27,10 @@
             <p class="text-gray-500 text-sm">Sign in to your account to continue.</p>
         </div>
 
+        {% for message in messages %}
+        <div class="bg-blue-50 border border-blue-200 text-blue-700 p-4 rounded-lg text-sm text-center">{{ message }}</div>
+        {% endfor %}
+
         {% if error %}
         <div class="bg-red-50 border border-red-200 text-red-600 p-4 rounded-lg text-sm text-center flex items-center justify-center gap-2">
             <i data-lucide="alert-circle" class="w-4 h-4"></i>
@@ -37,10 +41,10 @@
         <form method="POST" class="space-y-5 pt-2">
             {% csrf_token %}
             <div class="space-y-1.5">
-                <label for="field-username" class="text-sm font-semibold text-gray-700">Username</label>
+                <label for="field-username" class="text-sm font-semibold text-gray-700">Username or email</label>
                 <div class="relative">
                     <i data-lucide="user" class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4"></i>
-                    <input id="field-username" type="text" name="username" placeholder="Enter your username" required
+                    <input id="field-username" type="text" name="username" placeholder="Enter your username or email" required
                         class="w-full bg-white border border-gray-300 rounded-lg p-3 pl-11 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all text-sm text-gray-900 shadow-sm">
                 </div>
             </div>

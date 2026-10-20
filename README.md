@@ -72,13 +72,14 @@ GOOGLE_API_KEY="..."        # optional: semantic RAG (falls back to keyword rank
 ELEVENLABS_API_KEY="..."    # optional: spoken questions
 DEEPGRAM_API_KEY="..."      # optional: spoken answers
 EMAIL_HOST="..."            # optional: SMTP for password resets and notifications (printed to the console if unset)
+SUPABASE_URL="https://<project>.supabase.co"   # sign-in (Supabase Auth)
+SUPABASE_ANON_KEY="sb_publishable_..."
 ```
 
 Then:
 
 ```bash
 python manage.py migrate
-python manage.py seed_demo          # optional: demo accounts and job postings
 python manage.py runserver          # http://127.0.0.1:8000
 python manage.py test ai_engine     # run the tests
 ```
@@ -89,6 +90,15 @@ python manage.py test ai_engine     # run the tests
 | `GOOGLE_API_KEY` | aistudio.google.com | Yes, resets daily |
 | `ELEVENLABS_API_KEY` | elevenlabs.io | Yes |
 | `DEEPGRAM_API_KEY` | deepgram.com | Free credits |
+| `SUPABASE_URL`, `SUPABASE_ANON_KEY` | supabase.com → Project Settings → API | Yes |
+
+### Supabase Auth (required)
+
+Supabase checks passwords and sends the confirmation and password-reset emails. Users, roles, companies and everything else stay in this app's Postgres database, which stores no passwords. The app won't start without `SUPABASE_URL` and `SUPABASE_ANON_KEY`.
+
+1. Create a project at supabase.com. Copy the Project URL and the anon key from Project Settings → API.
+2. Go to Authentication → URL Configuration. Set the Site URL to `http://127.0.0.1:8000/login/`, and add `http://127.0.0.1:8000/**` and `https://<your-app>/**` to the redirect URLs.
+3. Optional, for local testing: go to Authentication → Sign In / Providers → Email and turn off "Confirm email". Supabase's built-in mailer only sends to your project team's addresses, and only a few emails an hour.
 
 ## Deployment (Vercel)
 

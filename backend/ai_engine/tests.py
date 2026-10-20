@@ -4,9 +4,10 @@ import json
 import os
 from unittest.mock import patch
 
+import httpx
 import PyPDF2
 from django.contrib.auth.models import User
-from django.test import TestCase
+from django.test import TestCase, override_settings
 
 from ai_engine import rag
 from ai_engine.brain import InterviewBrain
@@ -14,6 +15,18 @@ from ai_engine.models import Application, Company, InterviewSession, Job, UserPr
 
 # Tests never call Gemini: retrieval uses the keyword fallback unless a test opts in with a fake embedding
 _no_embeddings = patch.dict(os.environ, {"GOOGLE_API_KEY": ""})
+
+
+def sb_reply(status=200, **body):
+    return httpx.Response(status, json=body, request=httpx.Request("POST", "https://sb.test"))
+
+
+def fake_supabase(cls):
+    """Sign-ups through /register/ succeed at a stand-in Supabase (confirm-email on), each with a new id."""
+    from uuid import uuid4
+    signup = lambda *args, **kwargs: sb_reply(id=f"sb-{uuid4()}", identities=[{}])  # noqa: E731
+    return override_settings(SUPABASE_URL="https://sb.test", SUPABASE_ANON_KEY="anon")(
+        patch("ai_engine.views.auth.httpx.request", new=signup)(cls))
 setUpModule, tearDownModule = _no_embeddings.start, _no_embeddings.stop
 
 
@@ -121,6 +134,7 @@ class PagesTest(TestCase):
         self.assertRedirects(self.client.get("/session/"), "/dashboard/")
 
 
+@fake_supabase
 class TenantTest(TestCase):
     def register(self, username, company):
         self.client.post("/register/", {"username": username, "email": f"{username}@gmail.com", "password": "Kafka-streams-2026",
@@ -364,6 +378,7 @@ class WeightedScoreTest(TestCase):
         self.assertEqual(self.client.get("/dashboard/").context["applications"][0].interview_score, 70)
 
 
+@fake_supabase
 class InviteTest(TestCase):
     def setUp(self):
         self.company = Company.objects.create(name="Acme")
@@ -513,39 +528,11 @@ class ReportTest(TestCase):
             self.assertIn(literal, text)  # shown as typed, never parsed as markup
 
 
-class SeedDemoTest(TestCase):
-    def test_seed_demo_is_idempotent_and_logs_in(self):
-        from django.core.management import call_command
-        for _ in range(2):
-            call_command("seed_demo", stdout=io.StringIO())
-        self.assertEqual(Job.objects.count(), 6)
-        self.assertEqual(Job.objects.filter(company__name="Google").count(), 3)
-        self.assertEqual(Company.objects.filter(name="Google").count(), 1)
-        self.assertEqual(User.objects.get(username="recruiter").profile.company.name, "Google")
-        self.assertTrue(self.client.login(username="candidate", password="1234"))
-        self.assertEqual(len(self.client.get("/dashboard/").context["jobs"]), 6)
-
-
 class HealthTest(TestCase):
     def test_healthz(self):
         self.assertEqual(self.client.get("/healthz").json(), {"status": "ok", "database": "ok", "version": "1.0.0"})
         with patch("django.db.backends.utils.CursorWrapper.execute", side_effect=RuntimeError("db down")):
             self.assertEqual(self.client.get("/healthz").status_code, 503)
-
-
-class PasswordResetTest(TestCase):
-    def test_reset_by_email(self):
-        import re
-
-        from django.core import mail
-        user = User.objects.create_user("forgetful", "f@x.com", "old-password")
-        self.assertEqual(self.client.get("/password-reset/").status_code, 200)
-        self.assertRedirects(self.client.post("/password-reset/", {"email": "f@x.com"}), "/password-reset/sent/")
-        link = re.search(r"/password-reset/[^/\s]+/[^/\s]+/", mail.outbox[0].body).group()
-        form_url = self.client.get(link).url  # Django swaps the token for a session-bound "set-password" URL
-        self.client.post(form_url, {"new_password1": "Hirely-new-pass-42", "new_password2": "Hirely-new-pass-42"})
-        user.refresh_from_db()
-        self.assertTrue(user.check_password("Hirely-new-pass-42"))
 
 
 class StateChangeTest(TestCase):
@@ -749,3 +736,78 @@ class InterviewFlowTest(TestCase):
         other, _ = make_app("other")
         self.client.force_login(other)
         self.assertEqual(self.post("start").status_code, 404)
+
+
+
+@override_settings(SUPABASE_URL="https://sb.test", SUPABASE_ANON_KEY="anon")
+@patch("ai_engine.views.auth.httpx.request")
+class SupabaseAuthTest(TestCase):
+    form = {"username": "jane", "email": "jane@x.com", "password": "Kafka-streams-2026"}
+
+    def test_register_creates_user_in_our_db_without_a_django_password(self, sb):
+        sb.return_value = sb_reply(id="sb-1", email="jane@x.com", identities=[{"id": "i"}])  # confirm-email on
+        resp = self.client.post("/register/", {**self.form, "role": "admin"})
+        self.assertRedirects(resp, "/login/", fetch_redirect_response=False)
+        self.assertEqual(sb.call_args.args[:2], ("POST", "https://sb.test/auth/v1/signup"))
+        user = User.objects.get(username="jane")
+        self.assertEqual((user.profile.supabase_id, user.profile.role), ("sb-1", "candidate"))  # admin can't be chosen
+        self.assertFalse(user.has_usable_password())
+        self.assertContains(self.client.get("/login/"), "confirm your email")
+
+    def test_register_logs_in_straight_away_when_confirmation_is_off(self, sb):
+        sb.return_value = sb_reply(access_token="a", refresh_token="r1", user={"id": "sb-1", "identities": [{}]})
+        self.assertRedirects(self.client.post("/register/", self.form), "/dashboard/", fetch_redirect_response=False)
+        self.assertEqual(self.client.session["sb_refresh"], "r1")
+
+    def test_existing_supabase_email_is_refused(self, sb):
+        sb.return_value = sb_reply(id="fake", identities=[])
+        self.assertContains(self.client.post("/register/", self.form), "Email already registered")
+        self.assertFalse(User.objects.exists())
+
+    def test_login_by_username_or_email_is_checked_by_supabase(self, sb):
+        user = User.objects.create_user("jane", "jane@x.com")
+        UserProfile.objects.create(user=user, supabase_id="sb-1")
+        sb.return_value = sb_reply(status=400, error_code="invalid_credentials", msg="Invalid login credentials")
+        self.assertContains(self.client.post("/login/", {"username": "jane", "password": "nope"}), "Invalid username or password")
+        sb.return_value = sb_reply(status=400, error_code="email_not_confirmed", msg="Email not confirmed")
+        self.assertContains(self.client.post("/login/", {"username": "jane", "password": "x"}), "Email not confirmed")
+
+        sb.return_value = sb_reply(access_token="a", refresh_token="r1", user={"id": "sb-1"})
+        self.assertEqual(self.client.get("/admin/", follow=True).redirect_chain[-1][0], "/login/?next=/admin/")
+        resp = self.client.post("/login/?next=/admin/", {"username": "JANE@x.com", "password": "Kafka-streams-2026"})
+        self.assertRedirects(resp, "/admin/", fetch_redirect_response=False)  # staff sign in the same way
+        self.client.logout()
+        resp = self.client.post("/login/?next=https://evil.com/", {"username": "jane", "password": "Kafka-streams-2026"})
+        self.assertRedirects(resp, "/dashboard/", fetch_redirect_response=False)
+        self.assertEqual(sb.call_args.kwargs["json"], {"email": "jane@x.com", "password": "Kafka-streams-2026"})
+        self.assertEqual(int(self.client.session["_auth_user_id"]), user.id)
+
+    def test_password_reset_round_trip(self, sb):
+        sb.return_value = sb_reply()
+        self.assertContains(self.client.post("/password-reset/", {"email": "jane@x.com"}), "Check your email")
+        self.assertEqual(sb.call_args.kwargs["json"]["code_challenge_method"], "s256")
+
+        sb.return_value = sb_reply(access_token="reset-token")
+        self.assertContains(self.client.get("/password-reset/", {"code": "c"}), "Set new password")
+        self.assertEqual(sb.call_args.kwargs["json"]["auth_code"], "c")
+        sb.return_value = sb_reply(id="sb-1")
+        resp = self.client.post("/password-reset/", {"new_password1": "Kafka-streams-2027", "new_password2": "Kafka-streams-2027"})
+        self.assertRedirects(resp, "/login/", fetch_redirect_response=False)
+        self.assertEqual((sb.call_args.args[0], sb.call_args.kwargs["headers"]["Authorization"]), ("PUT", "Bearer reset-token"))
+
+        self.assertContains(self.client.get("/password-reset/", {"code": "c"}), "invalid or was already used")  # verifier used up
+
+    def test_profile_password_change_goes_to_supabase(self, sb):
+        user = User.objects.create_user("jane", "jane@x.com")
+        UserProfile.objects.create(user=user, supabase_id="sb-1")
+        self.client.force_login(user)
+        session = self.client.session
+        session["sb_refresh"] = "r1"
+        session.save()
+        sb.side_effect = [sb_reply(access_token="a2", refresh_token="r2"), sb_reply(id="sb-1")]
+        self.client.post("/profile/", {"action": "change_password", "new_password": "Kafka-streams-2027"})
+        self.assertEqual(sb.call_args.kwargs["json"], {"password": "Kafka-streams-2027"})
+        self.assertEqual(self.client.session["sb_refresh"], "r2")
+        self.client.post("/profile/", {"action": "update_profile", "email": "evil@x.com"})
+        user.refresh_from_db()
+        self.assertEqual(user.email, "jane@x.com")  # Supabase signs them in by this email
