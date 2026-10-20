@@ -63,3 +63,5 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+# Tests (kept locally only)
+backend/ai_engine/tests.py
