@@ -18,6 +18,7 @@
             <img src="{% static 'ai_engine/logo.png' %}" alt="Hirely Logo" class="w-14 h-14 rounded-xl object-cover mx-auto mb-4 shadow-sm">
             <h1 class="text-2xl font-bold tracking-tight text-gray-900">{% block heading %}{% endblock %}</h1>
         </div>
+        {% if error %}<p class="text-sm text-red-600 text-center">{{ error }}</p>{% endif %}
         {% block card %}{% endblock %}
         <p class="text-center text-sm"><a href="/login/" class="text-blue-600 hover:text-blue-700 font-semibold">Back to sign in</a></p>
     </div>

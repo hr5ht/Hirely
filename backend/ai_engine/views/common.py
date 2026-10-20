@@ -17,18 +17,28 @@ log = logging.getLogger(__name__)
 MAX_RESUME_BYTES = 4 * 1024 * 1024  # Vercel rejects request bodies over 4.5 MB before Django sees them
 
 
-def rate_limit(per_hour, actions=None):
-    """Per-user cap on an AI endpoint (fixed hourly window). `actions` limits only those interview steps.
+def client_ip(request):
+    """The visitor's IP. Vercel overwrites X-Forwarded-For with the real client address, so it can't be spoofed there."""
+    return request.META.get('HTTP_X_FORWARDED_FOR', '').split(',')[0].strip() or request.META.get('REMOTE_ADDR', '')
 
-    ponytail: DB-cache incr isn't atomic, so a burst can overshoot by a few; fine for cost control.
+
+def too_many(bucket, limit, window):
+    """Count one attempt in `bucket` (fixed window, seconds); True once there were more than `limit`.
+
+    ponytail: DB-cache incr isn't atomic, so a burst can overshoot by a few; fine for abuse control.
     """
+    key = f"rl:{bucket}:{int(time.time() // window)}"
+    cache.add(key, 0, window)
+    return cache.incr(key) > limit
+
+
+def rate_limit(per_hour, actions=None):
+    """Per-user cap on an AI endpoint (fixed hourly window). `actions` limits only those interview steps."""
     def decorator(view):
         @wraps(view)
         def wrapped(request, *args, **kwargs):
             if request.user.is_authenticated and (actions is None or kwargs.get('action') in actions):
-                key = f"rl:{view.__name__}:{request.user.id}:{int(time.time() // 3600)}"
-                cache.add(key, 0, 3600)
-                if cache.incr(key) > per_hour:
+                if too_many(f"{view.__name__}:{request.user.id}", per_hour, 3600):
                     return JsonResponse({'success': False, 'error': 'Too many requests. Please wait a while and try again.'},
                                         status=429)
             return view(request, *args, **kwargs)

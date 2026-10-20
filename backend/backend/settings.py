@@ -14,8 +14,8 @@ load_dotenv(os.path.join(BASE_DIR, '.env'))
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: don't run with debug turned on in production!
-# Off on Vercel (it sets VERCEL); on locally
-DEBUG = not os.environ.get('VERCEL')
+# Off unless DEBUG=1 is set (local .env only), so any host, not just Vercel, runs safely by default
+DEBUG = os.environ.get('DEBUG', '').lower() in ('1', 'true')
 
 # SECURITY WARNING: keep the secret key used in production secret!
 # The dev fallback only applies locally; production must set SECRET_KEY or startup fails.

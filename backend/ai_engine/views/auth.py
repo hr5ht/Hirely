@@ -25,6 +25,7 @@ from django.utils.http import url_has_allowed_host_and_scheme
 
 from ai_engine import __version__
 from ai_engine.models import Company, CompanyInvite, UserProfile
+from ai_engine.views.common import client_ip, too_many
 
 log = logging.getLogger(__name__)
 
@@ -55,6 +56,21 @@ def _supabase(path, payload, token=None, method='POST', **params):
         log.warning("Supabase %s failed (%s): %s", path, resp.status_code, msg)
         return None, msg
     return data, None
+
+
+def _throttled(request, action, per_ip, account=None, per_account=None):
+    """True once this IP, or this username/email, has tried `action` too often in the last 15 minutes.
+    Supabase also limits per IP, but it sees only Vercel's servers, so without this one visitor
+    could use up everyone's allowance."""
+    if too_many(f"{action}:ip:{client_ip(request)}", per_ip, 900):
+        return True
+    if account:
+        digest = hashlib.sha256(account.strip().lower().encode()).hexdigest()  # safe cache key for any input
+        return too_many(f"{action}:acct:{digest}", per_account, 900)
+    return False
+
+
+TOO_MANY = "Too many attempts. Please wait 15 minutes and try again."
 
 
 def _pkce_pair():
@@ -126,6 +142,8 @@ def register_view(request):
             error = "Company name is required for employers."
         elif (error := _password_problem(password, User(username=username, email=email))):
             pass
+        elif _throttled(request, 'register', 5, email, 3):
+            error = TOO_MANY
         else:
             data, error = _supabase('signup', {'email': email, 'password': password},
                                     redirect_to=request.build_absolute_uri(reverse('login')))
@@ -154,6 +172,8 @@ def login_view(request):
     if request.method == 'POST':
         identifier = (request.POST.get('username') or '').strip()
         password = request.POST.get('password')
+        if _throttled(request, 'login', 20, identifier, 10):
+            return render(request, 'login.html', {'error': TOO_MANY}, status=429)
         found = User.objects.filter(Q(username=identifier) | Q(email__iexact=identifier)).order_by('id').first()
         sb_id = UserProfile.objects.filter(user=found).values_list('supabase_id', flat=True).first() if found else None
 
@@ -178,6 +198,10 @@ def login_view(request):
 
 def password_reset(request):
     """Forgot password: Supabase emails a link (PKCE), then the new password is set at Supabase."""
+    if (request.method == 'POST' or request.GET.get('code')) and _throttled(
+            request, 'reset', 10, request.POST.get('email'), 3):
+        return render(request, 'registration/password_reset_form.html',
+                      {'form': PasswordResetForm(), 'error': TOO_MANY}, status=429)
     if request.method == 'GET' and request.GET.get('code'):
         # Back from the email link. The verifier is in this browser's session, so the link must open here.
         verifier = request.session.pop('sb_reset_verifier', None)
