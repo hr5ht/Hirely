@@ -11,8 +11,7 @@ env/
 ENV/
 
 # Environment Variables & Secrets
-.env
-.env.*
+.env*
 secrets.json
 
 # Databases
@@ -30,6 +29,9 @@ dump.rdp
 .DS_Store?
 ehthumbs.db
 Thumbs.db
+
+# Vercel CLI project link
+.vercel/
 
 # IDE, Editors, and Custom Agents
 .vscode/
