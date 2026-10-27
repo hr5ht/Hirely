@@ -1,80 +1,52 @@
 {% extends "base.html" %}
 {% load static %}
 {% block title %}Interview Review | Hirely{% endblock %}
-{% block head %}
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f9fafb;
-            color: #111827;
-        }
-
-        .clean-card {
-            background: #ffffff;
-            border: 1px solid #e5e7eb;
-            border-radius: 12px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-        }
-    </style>
-{% endblock %}
-{% block body_class %}min-h-screen flex flex-col{% endblock %}
 {% block content %}
 
     {% include "partials/navbar.html" %}
 
-    <main class="flex-grow max-w-4xl mx-auto w-full py-12 px-6 space-y-8">
-        <header class="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-            <div class="space-y-2">
-                <p class="text-xs font-bold uppercase tracking-wider text-blue-600">{{ session.application.job.company.name }}</p>
-                <h1 class="text-3xl font-bold tracking-tight text-gray-900">{{ session.application.job.title }} interview</h1>
-                <p class="text-gray-500">{{ session.created_at|date:"M d, Y" }} · Confidence {{ session.avg_confidence }}% · Clarity {{ session.avg_clarity }}%</p>
+    <main class="page container container-md stack-lg">
+        <header class="page-head" style="margin-bottom:0">
+            <div>
+                <span class="label-caps">{{ session.application.job.company.name }}</span>
+                <h1 style="margin-top:6px">{{ session.application.job.title }} interview</h1>
+                <p class="muted small mono" style="margin-top:6px">{{ session.created_at|date:"M d, Y" }} · confidence {{ session.avg_confidence }}% · clarity {{ session.avg_clarity }}%</p>
             </div>
-            <a href="/download-session/{{ session.id }}/" class="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold shadow-sm shrink-0">
-                <i data-lucide="download" class="w-4 h-4"></i> Download PDF report
-            </a>
+            <a href="/download-session/{{ session.id }}/" class="btn btn-primary"><i data-lucide="download" class="i"></i> Download PDF</a>
         </header>
 
-        <section class="grid grid-cols-3 gap-4">
-            <div class="clean-card p-4 text-center">
-                <p class="text-[10px] font-bold uppercase tracking-wider text-gray-400">Tech Knowledge</p>
-                <p class="text-2xl font-bold text-blue-600">{{ session.tech_knowledge }}%</p>
-            </div>
-            <div class="clean-card p-4 text-center">
-                <p class="text-[10px] font-bold uppercase tracking-wider text-gray-400">Behavioral IQ</p>
-                <p class="text-2xl font-bold text-indigo-600">{{ session.behavioral_iq }}%</p>
-            </div>
-            <div class="clean-card p-4 text-center">
-                <p class="text-[10px] font-bold uppercase tracking-wider text-gray-400">Problem Solving</p>
-                <p class="text-2xl font-bold text-emerald-600">{{ session.problem_solving }}%</p>
-            </div>
+        <section class="grid" style="grid-template-columns:repeat(3,1fr)">
+            <div class="card card-pad-sm stack-xs"><span class="label-caps">Technical</span><span class="stat-value">{{ session.tech_knowledge }}<span class="stat-unit">%</span></span></div>
+            <div class="card card-pad-sm stack-xs"><span class="label-caps">Behavioral</span><span class="stat-value">{{ session.behavioral_iq }}<span class="stat-unit">%</span></span></div>
+            <div class="card card-pad-sm stack-xs"><span class="label-caps">Problem solving</span><span class="stat-value">{{ session.problem_solving }}<span class="stat-unit">%</span></span></div>
         </section>
 
         {% if session.gap_analysis %}
-        <section class="clean-card p-6 space-y-2">
-            <h2 class="text-lg font-bold text-gray-900">Skills gap analysis</h2>
-            <p class="text-sm text-gray-600 leading-relaxed whitespace-pre-line">{{ session.gap_analysis }}</p>
+        <section class="card card-pad stack-sm">
+            <h2 class="row-sm" style="font-size:16px"><i data-lucide="brain" class="i faint"></i> Skills gap analysis</h2>
+            <p class="small muted pre-line">{{ session.gap_analysis }}</p>
         </section>
         {% endif %}
 
-        <section class="space-y-4">
-            <h2 class="text-lg font-bold text-gray-900">Transcript</h2>
+        <section class="stack">
+            <h2 style="font-size:17px">Transcript</h2>
             {% for turn in session.transcript %}
-            <article class="clean-card p-6 space-y-3">
-                <p class="text-[10px] font-bold uppercase tracking-wider text-gray-400">Round {{ forloop.counter }}</p>
-                <p class="font-semibold text-gray-900">{{ turn.question }}</p>
-                <p class="text-sm text-gray-700 bg-gray-50 border border-gray-100 rounded-lg p-3">{{ turn.answer|default:"(No answer)" }}</p>
+            <article class="card card-pad stack-sm">
+                <span class="step-num">Round {{ forloop.counter|stringformat:"02d" }}</span>
+                <p class="strong">{{ turn.question }}</p>
+                <p class="inset small">{{ turn.answer|default:"(No answer)" }}</p>
                 {% if turn.feedback %}
-                <div class="text-sm text-gray-600 border-l-2 border-blue-500 pl-3">
-                    <p class="text-[10px] font-bold uppercase tracking-wider text-blue-600">Feedback · confidence {{ turn.confidence }}% · clarity {{ turn.clarity }}%</p>
-                    <p class="mt-1">{{ turn.feedback }}</p>
+                <div class="stack-xs small muted" style="border-left:2px solid var(--accent);padding-left:12px">
+                    <span class="label-caps t-blue">Feedback · confidence {{ turn.confidence }}% · clarity {{ turn.clarity }}%</span>
+                    <p>{{ turn.feedback }}</p>
                 </div>
                 {% endif %}
             </article>
             {% empty %}
-            <p class="text-sm text-gray-500">No questions were answered in this interview.</p>
+            <div class="empty">No questions were answered in this interview.</div>
             {% endfor %}
         </section>
     </main>
 
-    <script>lucide.createIcons();</script>
+    {% include "partials/footer.html" %}
 {% endblock %}

@@ -139,8 +139,8 @@ class InterviewSession(models.Model):
     @property
     def trend_bars(self):
         """(label, score, bar colour) rows for the candidate's score trend."""
-        return [("Technical", self.tech_knowledge, "bg-blue-500"), ("Behavioral", self.behavioral_iq, "bg-purple-500"),
-                ("Problem solving", self.problem_solving, "bg-pink-500")]
+        return [("Technical", self.tech_knowledge, "fill-blue"), ("Behavioral", self.behavioral_iq, "fill-violet"),
+                ("Problem solving", self.problem_solving, "fill-pink")]
 
     def __str__(self):
         return f"Session for {self.application.candidate.username} - {self.application.job.title}"

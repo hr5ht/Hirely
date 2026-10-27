@@ -1,17 +1,26 @@
 {% load static %}
-<nav class="bg-white border-b border-gray-200">
-    <div class="max-w-7xl mx-auto px-6 h-16 flex justify-between items-center">
-        <a href="/dashboard/" class="flex items-center gap-3">
-            <img src="{% static 'ai_engine/logo.png' %}" alt="Hirely Logo" class="w-8 h-8 rounded-lg object-cover shadow-sm">
-            <span class="text-lg font-bold text-gray-900 tracking-tight">Hirely</span>
-        </a>
-        <div class="flex items-center gap-6 text-sm font-medium">
-            <a href="/dashboard/" class="text-gray-500 hover:text-gray-900 transition-colors">Dashboard</a>
-            {% if user.profile.role != 'recruiter' %}
-            <a href="/scores/" class="text-gray-500 hover:text-gray-900 transition-colors">Scores</a>
-            <a href="/profile/" class="text-gray-500 hover:text-gray-900 transition-colors">Profile</a>
+<nav class="nav">
+    <div class="container nav-inner">
+        <div class="row">
+            <a href="/dashboard/" class="brand">
+                <img src="{% static 'ai_engine/logo.svg' %}" alt="">
+                <span>Hirely</span>
+            </a>
+            <div class="segmented" role="navigation" aria-label="Main">
+                <a href="/dashboard/" {% if request.path == '/dashboard/' %}aria-current="page"{% endif %}>Dashboard</a>
+                {% if user.profile.role != 'recruiter' %}
+                <a href="/scores/" {% if request.path == '/scores/' %}aria-current="page"{% endif %}>Scores</a>
+                <a href="/profile/" {% if request.path == '/profile/' %}aria-current="page"{% endif %}>Profile</a>
+                {% endif %}
+            </div>
+        </div>
+        <div class="nav-right">
+            {% if user.profile.role == 'recruiter' %}
+            <span class="badge hide-sm"><span class="dot dot-blue"></span>{{ user.profile.company.name }}</span>
+            {% else %}
+            <span class="badge hide-sm"><span class="dot dot-green dot-live"></span>{{ user.username }}</span>
             {% endif %}
-            <a href="/logout/" class="text-gray-500 hover:text-gray-900 transition-colors">Log out</a>
+            <a href="/logout/" class="btn btn-secondary btn-sm">Log out</a>
         </div>
     </div>
 </nav>

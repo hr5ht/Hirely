@@ -1,208 +1,117 @@
 {% extends "base.html" %}
 {% load static %}
-{% block title %}ATS Resume Scanner | Hirely{% endblock %}
-{% block head %}
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f9fafb;
-            color: #111827;
-        }
-
-        .clean-card {
-            background: #ffffff;
-            border: 1px solid #e5e7eb;
-            border-radius: 12px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-        }
-
-        input[type="file"]::file-selector-button {
-            border: 1px solid #d1d5db;
-            background: #f9fafb;
-            padding: 0.5rem 1rem;
-            border-radius: 0.5rem;
-            color: #374151;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s;
-            margin-right: 1rem;
-        }
-        input[type="file"]::file-selector-button:hover {
-            background: #f3f4f6;
-        }
-    </style>
-{% endblock %}
-{% block body_class %}min-h-screen flex flex-col{% endblock %}
+{% block title %}Resume Scanner | Hirely{% endblock %}
 {% block content %}
 
     {% include "partials/navbar.html" %}
 
-    <main class="flex-grow max-w-4xl mx-auto py-12 px-6 w-full flex flex-col gap-10">
-        
-        <!-- Input Form -->
-        <div id="input-stage" class="space-y-8 animate-in fade-in slide-in-from-left-4 duration-500 w-full max-w-2xl mx-auto">
-            <header class="space-y-2">
-                <h1 class="text-3xl font-bold tracking-tight text-gray-900">Scan Your Resume</h1>
-                <p class="text-gray-500 text-lg">Upload your PDF resume and a Job Description. See if you pass the ATS algorithms.</p>
+    <main class="page container container-md stack-lg">
+        <!-- Input -->
+        <div id="input-stage" class="stack-lg">
+            <header class="page-head" style="margin-bottom:0">
+                <div>
+                    <h1>Scan your resume</h1>
+                    <p class="lead">Paste a job description to see how your saved resume matches it.</p>
+                </div>
             </header>
 
-
-
-            <div class="clean-card p-8 space-y-6">
-                <div class="space-y-2">
-                    <label for="setup-jd" class="text-sm font-semibold text-gray-700">Job Description</label>
-                    <textarea id="setup-jd" placeholder="Paste the target Job Description..."
-                        class="w-full h-40 bg-gray-50 border border-gray-300 rounded-lg p-3 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition-all text-sm text-gray-900 leading-relaxed"></textarea>
+            <div class="card card-pad stack">
+                <div class="field">
+                    <label for="setup-jd">Job description</label>
+                    <textarea id="setup-jd" rows="8" placeholder="Paste the job description…" class="input"></textarea>
                 </div>
-
-                <button id="analyze-btn"
-                    class="w-full py-4 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition-colors flex items-center justify-center gap-2">
-                    Scan Resume <i data-lucide="scan" class="w-5 h-5"></i>
-                </button>
+                <button id="analyze-btn" class="btn btn-primary btn-block">Scan resume <i data-lucide="scan" class="i"></i></button>
             </div>
         </div>
 
-        </div>
-
-        <!-- Results (Hidden by default) -->
-        <div id="results-stage" class="hidden w-full space-y-6 animate-in fade-in zoom-in duration-500">
-            
-            <div class="clean-card p-8 text-center space-y-4 max-w-2xl mx-auto">
-                <h3 class="text-sm font-bold text-gray-500 uppercase tracking-widest">ATS Match Score</h3>
-                <div class="flex items-end justify-center gap-2">
-                    <span id="score-val" class="text-6xl font-bold text-gray-900 tracking-tight">0</span>
-                    <span class="text-xl text-gray-400 font-medium mb-1.5">/ 100</span>
+        <!-- Results -->
+        <div id="results-stage" class="hidden stack">
+            <div class="card card-pad stack center" style="align-items:center">
+                <span class="label-caps">ATS match score</span>
+                <span class="stat-value" style="font-size:64px"><span id="score-val">0</span><span class="stat-unit">/100</span></span>
+                <div class="row mono xs muted">
+                    <span><b id="semantic-score-val" class="strong">-</b>% semantic</span>
+                    <span class="vr"></span>
+                    <span><b id="skill-score-val" class="strong">-</b>% keywords</span>
                 </div>
-                
-                <div class="flex justify-center gap-6 mt-2 text-xs font-semibold text-gray-500 uppercase">
-                    <div class="flex gap-1 items-center"><span class="text-gray-900" id="semantic-score-val">-</span>% Semantic Match</div>
-                    <div class="flex gap-1 items-center"><span class="text-gray-900" id="skill-score-val">-</span>% Keyword Match</div>
-                </div>
-                
-                <div id="feedback-txt" class="text-sm text-gray-600 mt-4 max-w-md mx-auto leading-relaxed border-t border-gray-100 pt-4"></div>
+                <div id="feedback-txt" class="small muted" style="max-width:480px;text-align:left"></div>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1">
-                <!-- Matching Keywords -->
-                <div class="clean-card p-6 flex flex-col border-t-4 border-t-green-500">
-                    <div class="flex items-center gap-2 font-bold text-gray-900 text-sm mb-4">
-                        <i data-lucide="check-circle-2" class="w-5 h-5 text-green-500"></i> Matches Found
-                    </div>
-                    <ul id="match-list" class="space-y-3 text-sm text-gray-600 flex-1 overflow-y-auto pr-2 custom-scrollbar">
-                        <!-- Populated by JS -->
-                    </ul>
+            <div class="grid-2">
+                <div class="card card-pad">
+                    <div class="card-head"><h3><i data-lucide="check-circle-2" class="i t-green"></i> Matches</h3></div>
+                    <ul id="match-list" class="bullets small"></ul>
                 </div>
-
-                <!-- Missing Keywords -->
-                <div class="clean-card p-6 flex flex-col border-t-4 border-t-red-500">
-                    <div class="flex items-center gap-2 font-bold text-gray-900 text-sm mb-4">
-                        <i data-lucide="x-circle" class="w-5 h-5 text-red-500"></i> Missing Keywords
-                    </div>
-                    <ul id="missing-list" class="space-y-3 text-sm text-gray-600 flex-1 overflow-y-auto pr-2 custom-scrollbar">
-                        <!-- Populated by JS -->
-                    </ul>
+                <div class="card card-pad">
+                    <div class="card-head"><h3><i data-lucide="x-circle" class="i t-red"></i> Missing keywords</h3></div>
+                    <ul id="missing-list" class="bullets small"></ul>
                 </div>
             </div>
         </div>
-        
     </main>
 
-    <footer class="bg-white border-t border-gray-200 py-6 mt-auto">
-        <div class="max-w-7xl mx-auto px-6 text-center text-sm text-gray-500">
-            &copy; 2026 Hirely. All rights reserved.
-        </div>
-    </footer>
+    {% include "partials/footer.html" %}
+{% endblock %}
+{% block scripts %}
+<script>
+    const analyzeBtn = document.getElementById('analyze-btn');
+    const resultsStage = document.getElementById('results-stage');
 
-    <script>
-        lucide.createIcons();
+    // Keywords and suggestions come from the LLM: render them as text, never as markup
+    const items = (list, empty) => (list && list.length ? list : [empty])
+        .map(text => Object.assign(document.createElement('li'), { textContent: text }));
 
-        const analyzeBtn = document.getElementById('analyze-btn');
-        const resultsStage = document.getElementById('results-stage');
+    analyzeBtn.onclick = async () => {
+        const jdInput = document.getElementById('setup-jd').value;
+        if (!jdInput) {
+            alert('Please enter a Job Description.');
+            return;
+        }
 
-        analyzeBtn.onclick = async () => {
-            const jdInput = document.getElementById('setup-jd').value;
+        analyzeBtn.disabled = true;
+        analyzeBtn.setAttribute('aria-busy', 'true');
+        const originalBtnText = analyzeBtn.innerHTML;
+        analyzeBtn.innerHTML = '<span class="spinner"></span> Scanning...';
 
-            if (!jdInput) {
-                alert('Please enter a Job Description.');
-                return;
+        const formData = new FormData();
+        formData.append('jd', jdInput);
+
+        try {
+            const response = await fetch('/ai/score-resume/', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+                body: formData
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || "Failed to process resume");
+
+            const score = document.getElementById('score-val');
+            score.innerText = data.score;
+            score.className = data.score < 50 ? 't-red' : data.score < 75 ? 't-amber' : 't-green';
+            document.getElementById('semantic-score-val').innerText = data.semantic_score ?? '-';
+            document.getElementById('skill-score-val').innerText = data.skill_score ?? '-';
+
+            const feedback = document.getElementById('feedback-txt');
+            if (data.improvement_suggestions && data.improvement_suggestions.length) {
+                const ul = Object.assign(document.createElement('ul'), { className: 'bullets' });
+                ul.append(...items(data.improvement_suggestions));
+                feedback.replaceChildren(ul);
+            } else {
+                feedback.innerText = data.feedback || '';
             }
+            document.getElementById('match-list').replaceChildren(...items(data.matching_keywords, 'None found'));
+            document.getElementById('missing-list').replaceChildren(...items(data.missing_keywords, 'Nothing missing'));
 
-            analyzeBtn.disabled = true;
-            analyzeBtn.setAttribute('aria-busy', 'true');
-            const originalBtnText = analyzeBtn.innerHTML;
-            analyzeBtn.innerHTML = '<div class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div> Scanning...';
-
-            const formData = new FormData();
-            formData.append('jd', jdInput);
-
-            try {
-                const response = await fetch('/ai/score-resume/', {
-                    method: 'POST',
-                    headers: { 'X-CSRFToken': '{{ csrf_token }}' },
-                    body: formData
-                });
-
-                const data = await response.json();
-
-                if (!response.ok) {
-                    throw new Error(data.error || "Failed to process resume");
-                }
-
-                // Render Results
-                document.getElementById('score-val').innerText = data.score;
-                document.getElementById('semantic-score-val').innerText = data.semantic_score !== undefined ? data.semantic_score : '-';
-                document.getElementById('skill-score-val').innerText = data.skill_score !== undefined ? data.skill_score : '-';
-                
-                if (data.improvement_suggestions && data.improvement_suggestions.length > 0) {
-                    let suggestionsHTML = '<ul class="text-left list-disc list-outside ml-4 space-y-2 mt-2">';
-                    data.improvement_suggestions.forEach(sug => {
-                        suggestionsHTML += `<li>${sug}</li>`;
-                    });
-                    suggestionsHTML += '</ul>';
-                    document.getElementById('feedback-txt').innerHTML = suggestionsHTML;
-                } else {
-                    document.getElementById('feedback-txt').innerText = data.feedback;
-                }
-                // Render Matches
-                const matchUl = document.getElementById('match-list');
-                matchUl.innerHTML = '';
-                if(data.matching_keywords && data.matching_keywords.length > 0) {
-                    data.matching_keywords.forEach(kw => {
-                        matchUl.innerHTML += `<li class="flex items-start gap-2"><span class="text-green-500">•</span> ${kw}</li>`;
-                    });
-                } else {
-                    matchUl.innerHTML = `<li class="italic text-gray-400">None found</li>`;
-                }
-
-                // Render Missing
-                const missingUl = document.getElementById('missing-list');
-                missingUl.innerHTML = '';
-                if(data.missing_keywords && data.missing_keywords.length > 0) {
-                    data.missing_keywords.forEach(kw => {
-                        missingUl.innerHTML += `<li class="flex items-start gap-2"><span class="text-red-500">•</span> ${kw}</li>`;
-                    });
-                } else {
-                    missingUl.innerHTML = `<li class="italic text-gray-400">None missing!</li>`;
-                }
-
-                resultsStage.classList.remove('hidden');
-                document.getElementById('input-stage').classList.add('hidden');
-
-                // Change color of score based on threshold
-                const scoreSpan = document.getElementById('score-val');
-                scoreSpan.className = "text-6xl font-bold tracking-tight ";
-                if(data.score < 50) scoreSpan.className += "text-red-500";
-                else if(data.score < 75) scoreSpan.className += "text-orange-500";
-                else scoreSpan.className += "text-green-500";
-
-            } catch(e) {
-                console.error(e);
-                alert("Scan failed: " + e.message);
-            } finally {
-                analyzeBtn.disabled = false;
-                analyzeBtn.removeAttribute('aria-busy');
-                analyzeBtn.innerHTML = originalBtnText;
-            }
-        };
-    </script>
+            resultsStage.classList.remove('hidden');
+            document.getElementById('input-stage').classList.add('hidden');
+        } catch (e) {
+            console.error(e);
+            alert("Scan failed: " + e.message);
+        } finally {
+            analyzeBtn.disabled = false;
+            analyzeBtn.removeAttribute('aria-busy');
+            analyzeBtn.innerHTML = originalBtnText;
+        }
+    };
+</script>
 {% endblock %}

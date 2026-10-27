@@ -1,98 +1,52 @@
 {% extends "base.html" %}
 {% load static %}
-{% block title %}Recruiter Console | Hirely{% endblock %}
+{% block title %}Recruiter Dashboard | Hirely{% endblock %}
 {% block head %}
     <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f9fafb;
-            color: #111827;
-        }
-
-        .premium-card {
-            background: rgba(255, 255, 255, 0.85);
-            backdrop-filter: blur(16px);
-            border: 1px solid rgba(229, 231, 235, 0.7);
-            border-radius: 16px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.03), 0 2px 4px -1px rgba(0, 0, 0, 0.02);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .premium-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 12px 20px -3px rgba(0, 0, 0, 0.08);
-            border-color: rgba(59, 130, 246, 0.4);
-        }
-
-        .custom-gradient {
-            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
-        }
-
-        /* Hide scrollbar for Chrome, Safari and Opera */
-        .scrollbar-hide::-webkit-scrollbar {
-            display: none;
-        }
-        /* Hide scrollbar for IE, Edge and Firefox */
-        .scrollbar-hide {
-            -ms-overflow-style: none;  /* IE and Edge */
-            scrollbar-width: none;  /* Firefox */
-        }
+        .job-rail { display: flex; gap: 12px; overflow-x: auto; padding: 2px 2px 12px; scroll-snap-type: x mandatory; scrollbar-width: thin; }
+        .job-item-card { position: relative; flex: 0 0 320px; scroll-snap-align: start; cursor: pointer; display: flex; flex-direction: column; gap: 12px; }
+        .job-item-card.selected { border-color: var(--text); box-shadow: 0 0 0 1px var(--text), var(--shadow-hover); }
+        .analytics { display: grid; grid-template-columns: minmax(0, 1fr) repeat(3, minmax(0, 1.2fr)); gap: 12px 16px; align-items: center; font-size: 13px; }
+        .analytics .bar span:last-child { font-family: var(--mono); font-size: 12px; color: var(--muted); }
     </style>
 {% endblock %}
-{% block body_class %}min-h-screen flex flex-col{% endblock %}
 {% block content %}
 
-    <nav class="bg-white border-b border-gray-100 fixed top-0 w-full z-50">
-        <div class="max-w-7xl mx-auto px-6 h-16 flex justify-between items-center">
-            <div class="flex items-center gap-3">
-                <img src="{% static 'ai_engine/logo.png' %}" alt="Hirely Logo" class="w-8 h-8 rounded-lg object-cover shadow-sm">
-                <span class="text-lg font-bold text-gray-900 tracking-tight">Hirely</span>
-            </div>
-            <div class="flex items-center gap-6 text-sm font-medium">
-                <span class="text-gray-500">Recruiter: <span class="text-gray-900 font-semibold">{{ company.name }}</span></span>
-                <a href="/logout/" class="text-gray-500 hover:text-gray-900 transition-colors flex items-center gap-1">
-                    <i data-lucide="log-out" class="w-4 h-4"></i> Log out
-                </a>
-            </div>
-        </div>
-    </nav>
+    {% include "partials/navbar.html" %}
 
-    <main class="flex-grow max-w-7xl mx-auto w-full py-24 px-6 space-y-10">
-        <header class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-gray-200 pb-6">
-            <div class="space-y-1">
-                <h1 class="text-3xl font-extrabold tracking-tight text-gray-900">Workspace Dashboard</h1>
-                <p class="text-gray-500 text-sm">Review incoming candidate applications and active assessment score telemetry.</p>
+    <main class="page container stack-lg">
+        <header class="page-head" style="margin-bottom:0">
+            <div>
+                <span class="eyebrow"><b>Recruiter</b> {{ company.name }}</span>
+                <h1>Hiring dashboard</h1>
+                <p class="lead">Post roles, review applicants and compare their scores.</p>
             </div>
-            <div class="flex items-center gap-3">
+            <div class="row">
                 <form method="post" action="/ai/invites/">
                     {% csrf_token %}
-                    <button type="submit" class="px-5 py-2.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl text-sm font-bold transition-all flex items-center gap-2">
-                        <i data-lucide="user-plus" class="w-4 h-4"></i> Invite Teammate
-                    </button>
+                    <button type="submit" class="btn btn-secondary"><i data-lucide="user-plus" class="i"></i> Invite teammate</button>
                 </form>
-                <button onclick="openModal()" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold transition-all shadow-md flex items-center gap-2">
-                    <i data-lucide="plus-circle" class="w-4 h-4"></i> Post New Job
-                </button>
+                <button onclick="openModal()" class="btn btn-primary"><i data-lucide="plus" class="i"></i> Post a job</button>
             </div>
         </header>
 
         {% for message in messages %}
-        <div class="p-4 rounded-xl text-sm font-medium break-all {% if message.tags == 'success' %}bg-green-50 text-green-700 border border-green-200{% else %}bg-red-50 text-red-700 border border-red-200{% endif %}">{{ message }}</div>
+        <div class="alert alert-break {% if message.tags == 'success' %}alert-success{% else %}alert-error{% endif %}">{{ message }}</div>
         {% endfor %}
 
         {% if open_invites %}
-        <details class="premium-card p-4 text-sm">
-            <summary class="font-bold text-gray-700 cursor-pointer">Open teammate invites ({{ open_invites|length }})</summary>
-            <ul class="mt-3 divide-y divide-gray-100">
+        <details class="card card-pad-sm">
+            <summary class="strong small" style="cursor:pointer">Open teammate invites ({{ open_invites|length }})</summary>
+            <ul class="list" style="list-style:none;padding:0;margin-top:12px">
                 {% for invite, link in open_invites %}
-                <li class="py-2 flex items-center justify-between gap-4">
-                    <div class="min-w-0">
-                        <p class="text-xs text-gray-700 font-mono truncate">{{ link }}</p>
-                        <p class="text-[10px] text-gray-400">Created by {{ invite.created_by.username|default:"a teammate" }} · expires {{ invite.expires_at|date:"M d" }}</p>
+                <li class="row between">
+                    <div class="stack-xs" style="min-width:0">
+                        <p class="mono xs truncate">{{ link }}</p>
+                        <p class="faint xs">Created by {{ invite.created_by.username|default:"a teammate" }} · expires {{ invite.expires_at|date:"M d" }}</p>
                     </div>
                     <form method="post" action="/ai/invites/{{ invite.id }}/revoke/">
                         {% csrf_token %}
-                        <button type="submit" class="text-xs font-bold text-rose-600 hover:text-rose-700">Revoke</button>
+                        <button type="submit" class="text-btn danger">Revoke</button>
                     </form>
                 </li>
                 {% endfor %}
@@ -100,220 +54,172 @@
         </details>
         {% endif %}
 
-        <!-- Stats Grid -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div class="premium-card p-6 flex items-center gap-5">
-                <div class="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center shadow-sm">
-                    <i data-lucide="folder-git" class="w-5 h-5"></i>
-                </div>
-                <div>
-                    <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Active Openings</p>
-                    <h3 class="text-2xl font-bold text-gray-900 mt-1">{{ total_jobs }}</h3>
-                </div>
+        <!-- Stats -->
+        <div class="grid-3">
+            <div class="card card-pad stack-sm">
+                <span class="row between"><span class="label-caps">Open roles</span><i data-lucide="briefcase" class="i faint"></i></span>
+                <span class="stat-value">{{ total_jobs }}</span>
             </div>
-
-            <div class="premium-card p-6 flex items-center gap-5">
-                <div class="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center shadow-sm">
-                    <i data-lucide="users" class="w-5 h-5"></i>
-                </div>
-                <div>
-                    <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Total Candidates</p>
-                    <h3 class="text-2xl font-bold text-gray-900 mt-1">{{ total_candidates }}</h3>
-                </div>
+            <div class="card card-pad stack-sm">
+                <span class="row between"><span class="label-caps">Candidates</span><i data-lucide="users" class="i faint"></i></span>
+                <span class="stat-value">{{ total_candidates }}</span>
             </div>
-
-            <div class="premium-card p-6 flex items-center gap-5">
-                <div class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center shadow-sm">
-                    <i data-lucide="shield-check" class="w-5 h-5"></i>
-                </div>
-                <div>
-                    <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Average Integrity Score</p>
-                    <h3 class="text-2xl font-bold text-gray-900 mt-1">{% if avg_proctoring_score is not None %}{{ avg_proctoring_score }}%{% else %}--{% endif %}</h3>
-                </div>
+            <div class="card card-pad stack-sm">
+                <span class="row between"><span class="label-caps">Avg integrity</span><i data-lucide="shield-check" class="i faint"></i></span>
+                <span class="stat-value">{% if avg_proctoring_score is not None %}{{ avg_proctoring_score }}<span class="stat-unit">%</span>{% else %}--{% endif %}</span>
             </div>
         </div>
 
         <!-- Per-job analytics: plain CSS bars, no chart library -->
-        <section class="premium-card p-6 space-y-4" aria-labelledby="analytics-title">
-            <h2 id="analytics-title" class="text-md font-bold text-gray-900 flex items-center gap-2">
-                <i data-lucide="bar-chart-3" class="w-4 h-4 text-gray-400"></i> Hiring Analytics
-            </h2>
-            <div class="grid grid-cols-[minmax(0,1fr)_repeat(3,minmax(0,1.2fr))] gap-x-4 gap-y-3 text-xs items-center">
-                <span class="text-[10px] font-bold uppercase tracking-wider text-gray-400">Job</span>
-                <span class="text-[10px] font-bold uppercase tracking-wider text-gray-400">Applicants</span>
-                <span class="text-[10px] font-bold uppercase tracking-wider text-gray-400">Avg ATS</span>
-                <span class="text-[10px] font-bold uppercase tracking-wider text-gray-400">Avg integrity</span>
+        <section class="card card-pad" aria-labelledby="analytics-title">
+            <div class="card-head">
+                <h2 id="analytics-title"><i data-lucide="bar-chart-3" class="i"></i> Hiring analytics</h2>
+                <span class="row-sm xs muted wrap">
+                    <span class="row-sm"><span class="dot" style="background:var(--accent)"></span>Applicants</span>
+                    <span class="row-sm"><span class="dot" style="background:var(--violet)"></span>ATS</span>
+                    <span class="row-sm"><span class="dot" style="background:var(--ok)"></span>Integrity</span>
+                </span>
+            </div>
+            <div class="analytics">
+                <span class="label-caps">Job</span>
+                <span class="label-caps">Applicants</span>
+                <span class="label-caps">Avg ATS</span>
+                <span class="label-caps">Avg integrity</span>
                 {% for job in jobs %}
-                <span class="font-semibold text-gray-700 truncate">{{ job.title }}</span>
-                <div class="flex items-center gap-2"><div class="h-2 bg-blue-500 rounded-full" style="width: {% widthratio job.applicant_count max_applicants 100 %}%"></div><span class="text-gray-500">{{ job.applicant_count }}</span></div>
-                <div class="flex items-center gap-2"><div class="h-2 bg-indigo-500 rounded-full" style="width: {{ job.avg_ats|default:0|floatformat:0 }}%"></div><span class="text-gray-500">{{ job.avg_ats|floatformat:0|default:"--" }}</span></div>
-                <div class="flex items-center gap-2"><div class="h-2 bg-emerald-500 rounded-full" style="width: {{ job.avg_integrity|default:0|floatformat:0 }}%"></div><span class="text-gray-500">{{ job.avg_integrity|floatformat:0|default:"--" }}</span></div>
+                <span class="strong truncate">{{ job.title }}</span>
+                <div class="bar"><span class="fill-blue" style="width: {% widthratio job.applicant_count max_applicants 100 %}%"></span><span>{{ job.applicant_count }}</span></div>
+                <div class="bar"><span class="fill-violet" style="width: {{ job.avg_ats|default:0|floatformat:0 }}%"></span><span>{{ job.avg_ats|floatformat:0|default:"--" }}</span></div>
+                <div class="bar"><span class="fill-green" style="width: {{ job.avg_integrity|default:0|floatformat:0 }}%"></span><span>{{ job.avg_integrity|floatformat:0|default:"--" }}</span></div>
                 {% empty %}
-                <p class="col-span-4 py-6 text-center text-gray-400 italic">Post a job to see applicant, ATS and integrity numbers here.</p>
+                <p class="faint small center" style="grid-column:1/-1;padding:16px">Post a job to see applicant, ATS and integrity numbers here.</p>
                 {% endfor %}
             </div>
         </section>
 
-        <!-- Horizontal Job Catalog Bar -->
-        <div class="space-y-4">
-            <div class="flex items-center justify-between border-b border-gray-200 pb-2.5">
-                <div class="flex items-center gap-3">
-                    <div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shadow-sm">
-                        <i data-lucide="layers" class="w-4 h-4"></i>
-                    </div>
-                    <div>
-                        <h2 class="text-md font-bold text-gray-900 leading-tight">Active Job Catalog</h2>
-                        <p class="text-[10px] text-gray-400 font-medium">Select a role below to isolate applicant matrices</p>
-                    </div>
+        <!-- Job rail -->
+        <section class="stack">
+            <div class="row between">
+                <div class="stack-xs">
+                    <h2 style="font-size:17px">Your jobs</h2>
+                    <p class="faint xs">Select a job to see only its applicants</p>
                 </div>
-                <span class="text-xs bg-blue-50 text-blue-700 border border-blue-100 px-3 py-1 rounded-full font-bold uppercase tracking-wider">{{ jobs.count }} Openings</span>
+                <span class="badge">{{ jobs.count }} jobs</span>
             </div>
 
-            <!-- Scrollable list of jobs -->
-            <div class="flex flex-row overflow-x-auto gap-4 pb-4 pt-1 scrollbar-hide snap-x">
+            <div class="job-rail">
                 {% for job in jobs %}
-                <div onclick="selectJob('{{ job.id }}')" data-title="{{ job.title }}" data-level="{{ job.experience_level }}" data-rounds="{{ job.interview_rounds }}" data-time-limit="{{ job.answer_time_limit }}" data-questions="{{ job.custom_questions|join:'&#10;' }}" data-weights="{{ job.weight_tech }},{{ job.weight_behavioral }},{{ job.weight_problem_solving }}" data-description="{{ job.description }}" class="job-item-card min-w-[280px] md:min-w-[340px] max-w-[340px] {% if job == selected_job %}border-blue-500 bg-blue-50/30 ring-1 ring-blue-500{% else %}bg-white border-gray-200{% endif %} border rounded-2xl p-5 hover:border-blue-300 hover:shadow-md cursor-pointer transition-all flex flex-col justify-between gap-3.5 relative shadow-sm snap-start" data-job-id="{{ job.id }}">
-                    <span class="absolute top-5 right-5 w-2.5 h-2.5 rounded-full {% if job.is_active %}bg-green-500{% else %}bg-gray-300{% endif %}" title="{% if job.is_active %}Active{% else %}Inactive{% endif %}"></span>
-                    
-                    <div class="space-y-1">
-                        <div class="flex items-start justify-between pr-4 gap-2">
-                            <h4 class="font-extrabold text-gray-900 text-sm tracking-tight line-clamp-1 job-title">{{ job.title }}</h4>
-                            <i data-lucide="check-circle-2" class="job-check text-blue-600 w-4.5 h-4.5 {% if job != selected_job %}hidden{% endif %} flex-shrink-0 mt-0.5 animate-bounce"></i>
-                        </div>
-                        <p class="text-[9px] text-gray-400 font-bold uppercase tracking-wider">Level: {{ job.experience_level|default:"All Levels" }}</p>
+                <div onclick="selectJob('{{ job.id }}')" data-title="{{ job.title }}" data-level="{{ job.experience_level }}" data-rounds="{{ job.interview_rounds }}" data-time-limit="{{ job.answer_time_limit }}" data-questions="{{ job.custom_questions|join:'&#10;' }}" data-weights="{{ job.weight_tech }},{{ job.weight_behavioral }},{{ job.weight_problem_solving }}" data-description="{{ job.description }}" class="job-item-card card card-pad-sm card-hover{% if job == selected_job %} selected{% endif %}" data-job-id="{{ job.id }}">
+                    <div class="row between">
+                        <h4 class="truncate small" style="font-size:15px">{{ job.title }}</h4>
+                        <span class="badge shrink-0"><span class="dot {% if job.is_active %}dot-green{% endif %}"></span>{% if job.is_active %}Open{% else %}Closed{% endif %}</span>
                     </div>
-                    
-                    <p class="text-xs text-gray-500 leading-relaxed line-clamp-2">{{ job.description }}</p>
-                    
-                    <div class="flex justify-between items-center border-t border-gray-50 pt-3 mt-1">
-                        <span class="text-[10px] text-gray-400 flex items-center gap-2">Published: {{ job.created_at|date:"M d, Y" }}
-                            <button type="button" onclick="event.stopPropagation(); openModal(this.closest('.job-item-card'))" class="text-gray-400 hover:text-blue-600" title="Edit job" aria-label="Edit job"><i data-lucide="pencil" class="w-3.5 h-3.5"></i></button>
-                            <form method="post" action="/ai/toggle-job/{{ job.id }}/" onclick="event.stopPropagation()" class="inline">
+                    <span class="label-caps">{{ job.experience_level|default:"All levels" }}</span>
+                    <p class="muted xs clamp-2">{{ job.description }}</p>
+                    <div class="row between card-foot" style="padding-top:12px">
+                        <span class="row-sm">
+                            <button type="button" onclick="event.stopPropagation(); openModal(this.closest('.job-item-card'))" class="text-btn" title="Edit job" aria-label="Edit job"><i data-lucide="pencil" class="i-sm"></i></button>
+                            <form method="post" action="/ai/toggle-job/{{ job.id }}/" onclick="event.stopPropagation()">
                                 {% csrf_token %}
-                                <button type="submit" class="text-[10px] font-bold {% if job.is_active %}text-gray-400 hover:text-rose-600{% else %}text-emerald-600 hover:text-emerald-700{% endif %}">{% if job.is_active %}Close{% else %}Reopen{% endif %}</button>
+                                <button type="submit" class="text-btn {% if job.is_active %}danger{% else %}success{% endif %}">{% if job.is_active %}Close{% else %}Reopen{% endif %}</button>
                             </form>
                             {% if job.applicant_count %}
-                            <form method="post" action="/ai/rescore-job/{{ job.id }}/" onclick="event.stopPropagation()" onsubmit="this.querySelector('button').textContent = 'Scoring...'" class="inline">
+                            <form method="post" action="/ai/rescore-job/{{ job.id }}/" onclick="event.stopPropagation()" onsubmit="this.querySelector('button').textContent = 'Scoring...'">
                                 {% csrf_token %}
-                                <button type="submit" class="text-[10px] font-bold text-gray-400 hover:text-blue-600" title="Re-run the ATS scan on every applicant against the current description">Re-score</button>
+                                <button type="submit" class="text-btn" title="Re-run the ATS scan on every applicant against the current description">Re-score</button>
                             </form>
                             {% endif %}
                         </span>
-                        <span class="text-xs text-blue-600 font-bold flex items-center gap-1">
-                            {{ job.applicant_count }} Applicants <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
-                        </span>
+                        <span class="row-sm small strong">{{ job.applicant_count }} <span class="muted" style="font-weight:400">applicants</span> <i data-lucide="chevron-right" class="i-sm faint"></i></span>
                     </div>
                 </div>
                 {% empty %}
-                <div class="w-full text-center py-10 text-gray-400 text-xs border border-dashed border-gray-200 rounded-2xl bg-white shadow-sm">
-                    No active jobs posted. Post your first job listing to receive applications.
-                </div>
+                <div class="empty grow">No jobs posted yet. Post your first job to start receiving applications.</div>
                 {% endfor %}
             </div>
-        </div>
+        </section>
 
-        <!-- Full-Width Candidate Matrix Column -->
-        <div class="space-y-6 mt-8">
-            <div class="flex items-center justify-between border-b border-gray-100 pb-3 min-h-[44px]">
-                <div class="flex items-center gap-3">
-                    <h2 class="text-md font-bold text-gray-900">Incoming Applicant Matrix</h2>
+        <!-- Applicants -->
+        <section class="stack">
+            <div class="row between wrap">
+                <div class="row">
+                    <h2 style="font-size:17px">Applicants</h2>
                     {% if selected_job %}
-                    <div id="filter-badge" class="flex items-center gap-1.5 px-3 py-1 bg-blue-50 text-blue-700 border border-blue-100 rounded-full font-bold text-[10px] uppercase tracking-wider">
-                        <i data-lucide="tag" class="w-3 h-3 text-blue-600"></i>
-                        <span id="filtered-job-title">{{ selected_job.title }}</span>
-                    </div>
+                    <span id="filter-badge" class="badge badge-dark"><i data-lucide="tag" class="i-sm"></i><span id="filtered-job-title">{{ selected_job.title }}</span></span>
                     {% endif %}
                 </div>
-                <form method="get" class="flex items-center gap-2">
+                <form method="get" class="row-sm wrap">
                     {% if selected_job %}<input type="hidden" name="job" value="{{ selected_job.id }}">{% endif %}
-                    <i data-lucide="sliders-horizontal" class="text-gray-400 w-4 h-4"></i>
-                    <select name="status" onchange="this.form.submit()" aria-label="Status" class="px-2 py-1.5 bg-white border border-gray-200 rounded-lg text-xs text-gray-600">
+                    <select name="status" onchange="this.form.submit()" aria-label="Status" class="input input-sm" style="width:auto">
                         <option value="">Any status</option>
                         {% for value, label in statuses %}<option value="{{ value }}" {% if value == status %}selected{% endif %}>{{ label }}</option>{% endfor %}
                     </select>
-                    <input type="number" name="min_score" value="{{ min_score }}" min="0" max="100" placeholder="Min ATS %" aria-label="Minimum ATS score"
-                           class="w-24 px-2 py-1.5 bg-white border border-gray-200 rounded-lg text-xs">
-                    <button type="submit" class="px-3 py-1.5 bg-gray-900 text-white rounded-lg text-xs font-bold">Filter</button>
-                    <a href="/ai/export-applicants/{% querystring page=None %}" class="px-3 py-1.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-lg text-xs font-bold flex items-center gap-1">
-                        <i data-lucide="download" class="w-3.5 h-3.5"></i> CSV
-                    </a>
+                    <input type="number" name="min_score" value="{{ min_score }}" min="0" max="100" placeholder="Min ATS %" aria-label="Minimum ATS score" class="input input-sm" style="width:110px">
+                    <button type="submit" class="btn btn-primary btn-sm">Filter</button>
+                    <a href="/ai/export-applicants/{% querystring page=None %}" class="btn btn-secondary btn-sm"><i data-lucide="download" class="i-sm"></i> CSV</a>
                 </form>
             </div>
 
-            <div class="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
-                <table class="w-full text-left border-collapse">
+            <div class="card table-wrap">
+                <table class="table">
                     <thead>
-                        <tr class="bg-gray-50 border-b border-gray-100 text-[10px] font-bold uppercase tracking-wider text-gray-500">
-                            <th class="p-4 pl-6 w-8"><span class="sr-only">Compare</span></th>
-                            <th class="p-4">Candidate</th>
-                            <th class="p-4">Target Position</th>
-                            <th class="p-4 text-center">ATS Proximity</th>
-                            <th class="p-4 text-center">Integrity Level</th>
-                            <th class="p-4 text-center" title="Weighted by this job's technical / behavioral / problem-solving weights">Interview</th>
-                            <th class="p-4">Status</th>
-                            <th class="p-4 pr-6 text-right">Actions</th>
+                        <tr>
+                            <th style="width:40px"><span class="sr-only">Compare</span></th>
+                            <th>Candidate</th>
+                            <th>Role</th>
+                            <th class="center">ATS</th>
+                            <th class="center">Integrity</th>
+                            <th class="center" title="Weighted by this job's technical / behavioral / problem-solving weights">Interview</th>
+                            <th>Status</th>
+                            <th class="right"><span class="sr-only">Actions</span></th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-gray-100 text-xs">
+                    <tbody>
                         {% for app in applications %}
-                        <tr class="hover:bg-gray-50/50 transition-colors applicant-row">
-                            <td class="p-4 pl-6">
-                                <input type="checkbox" name="ids" value="{{ app.id }}" form="compare-form" aria-label="Compare {{ app.candidate.username }}"
-                                       class="compare-box w-4 h-4 accent-blue-600">
+                        <tr class="applicant-row">
+                            <td>
+                                <input type="checkbox" name="ids" value="{{ app.id }}" form="compare-form" aria-label="Compare {{ app.candidate.username }}" class="compare-box">
                             </td>
-                            <td class="p-4">
-                                <div class="flex items-center gap-3">
-                                    <div class="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xs">
-                                        {{ app.candidate.username|slice:":2"|upper }}
-                                    </div>
-                                    <div>
-                                        <p class="font-bold text-gray-900">{{ app.candidate.username }}</p>
-                                        <p class="text-[10px] text-gray-400 mt-0.5">{{ app.candidate.email }}</p>
+                            <td>
+                                <div class="row">
+                                    <span class="avatar">{{ app.candidate.username|slice:":2"|upper }}</span>
+                                    <div class="stack-xs" style="gap:0">
+                                        <span class="strong">{{ app.candidate.username }}</span>
+                                        <span class="faint xs">{{ app.candidate.email }}</span>
                                     </div>
                                 </div>
                             </td>
-                            <td class="p-4">
-                                <p class="font-medium text-gray-900">{{ app.job.title }}</p>
-                                <p class="text-[10px] text-gray-400 mt-0.5">{{ app.created_at|date:"M d, Y" }}</p>
+                            <td>
+                                <div class="stack-xs" style="gap:0">
+                                    <span>{{ app.job.title }}</span>
+                                    <span class="faint xs">{{ app.created_at|date:"M d, Y" }}</span>
+                                </div>
                             </td>
-                            <td class="p-4 text-center">
-                                <span class="inline-block px-2.5 py-1 rounded-full font-bold text-xs {% if app.ats_match_score >= 80 %}bg-green-50 text-green-700 border border-green-100{% elif app.ats_match_score >= 60 %}bg-blue-50 text-blue-700 border border-blue-100{% else %}bg-yellow-50 text-yellow-700 border border-yellow-100{% endif %}">
-                                    {{ app.ats_match_score|default:"--" }}%
-                                </span>
+                            <td class="center">
+                                <span class="badge mono {% if app.ats_match_score >= 80 %}badge-green{% elif app.ats_match_score >= 60 %}badge-blue{% else %}badge-amber{% endif %}">{{ app.ats_match_score|floatformat:0|default:"--" }}%</span>
                             </td>
-                            <td class="p-4 text-center">
+                            <td class="center">
                                 {% if app.status == 'evaluated' %}
-                                <span class="inline-block px-2.5 py-1 rounded-full font-bold text-xs {% if app.proctoring_score >= 90 %}bg-emerald-50 text-emerald-700 border border-emerald-100{% elif app.proctoring_score >= 70 %}bg-amber-50 text-amber-700 border border-amber-100{% else %}bg-red-50 text-red-700 border border-red-100{% endif %}">
-                                    {{ app.proctoring_score }}%
-                                </span>
+                                <span class="badge mono {% if app.proctoring_score >= 90 %}badge-green{% elif app.proctoring_score >= 70 %}badge-amber{% else %}badge-red{% endif %}">{{ app.proctoring_score }}%</span>
                                 {% elif app.status == 'interviewing' %}
-                                <span class="inline-block px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-100 rounded-full font-bold text-xs">
-                                    Active
-                                </span>
+                                <span class="badge badge-blue"><span class="dot dot-blue dot-live"></span>Live</span>
                                 {% else %}
-                                <span class="inline-block px-2.5 py-1 bg-gray-50 text-gray-500 border border-gray-100 rounded-full font-bold text-xs">
-                                    Not Started
-                                </span>
+                                <span class="faint xs">Not started</span>
                                 {% endif %}
                             </td>
-                            <td class="p-4 text-center font-bold text-gray-700">
-                                {% with score=app.interview_score %}{% if score is not None %}{{ score }}%{% else %}<span class="text-gray-300">--</span>{% endif %}{% endwith %}
+                            <td class="center mono strong">
+                                {% with score=app.interview_score %}{% if score is not None %}{{ score }}%{% else %}<span class="faint">--</span>{% endif %}{% endwith %}
                             </td>
-                            <td class="p-4">
-                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-medium text-[10px] uppercase {% if app.status == 'accepted' %}bg-emerald-100 text-emerald-800{% elif app.status == 'evaluated' %}bg-green-100 text-green-800{% elif app.status == 'interviewing' %}bg-blue-100 text-blue-800{% elif app.status == 'rejected' %}bg-red-100 text-red-800{% else %}bg-gray-100 text-gray-800{% endif %}">
-                                    {{ app.get_status_display }}
-                                </span>
+                            <td>
+                                <span class="badge {% if app.status == 'accepted' or app.status == 'evaluated' %}badge-green{% elif app.status == 'interviewing' %}badge-blue{% elif app.status == 'rejected' %}badge-red{% endif %}">{{ app.get_status_display }}</span>
                             </td>
-                            <td class="p-4 pr-6 text-right">
-                                <a href="/ai/candidate-detail/{{ app.id }}/" class="inline-flex items-center gap-1 font-semibold text-blue-600 hover:text-blue-800 transition-colors bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100 hover:bg-blue-100">
-                                    Audit <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
-                                </a>
+                            <td class="right">
+                                <a href="/ai/candidate-detail/{{ app.id }}/" class="btn btn-secondary btn-sm">Review <i data-lucide="chevron-right" class="i-sm"></i></a>
                             </td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="8" class="p-8 text-center text-gray-400 italic">
-                                {% if selected_job or status or min_score %}No applicants match this selection.{% else %}No candidate applications received yet.{% endif %}
+                            <td colspan="8" class="center faint" style="padding:40px">
+                                {% if selected_job or status or min_score %}No applicants match this selection.{% else %}No applications yet.{% endif %}
                             </td>
                         </tr>
                         {% endfor %}
@@ -321,143 +227,120 @@
                 </table>
             </div>
 
-            <form id="compare-form" action="/ai/compare/" method="get" class="flex items-center gap-3">
-                <button id="compare-btn" type="submit" disabled class="px-4 py-2 bg-blue-600 disabled:bg-gray-200 disabled:text-gray-400 text-white rounded-lg text-xs font-bold">Compare selected</button>
-                <span class="text-xs text-gray-400">Pick 2 or 3 candidates</span>
+            <form id="compare-form" action="/ai/compare/" method="get" class="row">
+                <button id="compare-btn" type="submit" disabled class="btn btn-primary btn-sm">Compare selected</button>
+                <span class="faint xs">Pick 2 or 3 candidates</span>
             </form>
 
             {% if applications.has_other_pages %}
-            <nav class="flex items-center justify-center gap-4 text-sm font-semibold text-gray-500" aria-label="Applicant pages">
-                {% if applications.has_previous %}<a href="{% querystring page=applications.previous_page_number %}" class="hover:text-blue-600">&larr; Previous</a>{% endif %}
-                <span>Page {{ applications.number }} of {{ applications.paginator.num_pages }}</span>
-                {% if applications.has_next %}<a href="{% querystring page=applications.next_page_number %}" class="hover:text-blue-600">Next &rarr;</a>{% endif %}
+            <nav class="row" style="justify-content:center" aria-label="Applicant pages">
+                {% if applications.has_previous %}<a href="{% querystring page=applications.previous_page_number %}" class="btn btn-secondary btn-sm">&larr; Previous</a>{% endif %}
+                <span class="mono xs muted">Page {{ applications.number }} of {{ applications.paginator.num_pages }}</span>
+                {% if applications.has_next %}<a href="{% querystring page=applications.next_page_number %}" class="btn btn-secondary btn-sm">Next &rarr;</a>{% endif %}
             </nav>
             {% endif %}
-        </div>
+        </section>
     </main>
 
-    <!-- Post Job Modal -->
-    <div id="jobModal" class="fixed inset-0 bg-gray-900/40 backdrop-blur-sm z-50 flex items-center justify-center hidden opacity-0 transition-all duration-300">
-        <div class="bg-white rounded-2xl w-full max-w-lg p-8 shadow-xl border border-gray-100 mx-4 transform scale-95 transition-transform duration-300">
-            <div class="flex justify-between items-center border-b border-gray-100 pb-4 mb-6">
-                <h3 id="jobModalTitle" class="text-xl font-bold text-gray-900">Post a Job Opening</h3>
-                <button onclick="closeModal()" aria-label="Close" class="w-8 h-8 rounded-full bg-gray-50 hover:bg-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors">
-                    <i data-lucide="x" class="w-4 h-4"></i>
-                </button>
-            </div>
-            
-            <form id="jobForm" action="/ai/post-job/" method="POST" class="space-y-5">
-                {% csrf_token %}
-                <div class="space-y-1.5">
-                    <label for="field-title" class="text-xs font-bold text-gray-500 uppercase tracking-wider">Position Title</label>
-                    <input id="field-title" type="text" name="title" required placeholder="e.g. Senior Software Engineer" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-blue-500 focus:bg-white focus:ring-1 focus:ring-blue-500 outline-none transition-all">
+    <!-- Post or edit a job -->
+    <dialog id="jobModal" class="modal">
+        <div class="modal-head">
+            <h3 id="jobModalTitle">Post a job</h3>
+            <button onclick="closeModal()" aria-label="Close" class="btn btn-ghost btn-sm btn-icon"><i data-lucide="x" class="i"></i></button>
+        </div>
+        <form id="jobForm" action="/ai/post-job/" method="POST" style="display:contents">
+            {% csrf_token %}
+            <div class="modal-body stack">
+                <div class="field">
+                    <label for="field-title">Job title</label>
+                    <input id="field-title" type="text" name="title" required placeholder="e.g. Senior Software Engineer" class="input">
                 </div>
-                
-                <div class="space-y-1.5">
-                    <label for="field-experience-level" class="text-xs font-bold text-gray-500 uppercase tracking-wider">Experience Level</label>
-                    <input id="field-experience-level" type="text" name="experience_level" placeholder="e.g. 5+ Years, Mid-Senior" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-blue-500 focus:bg-white focus:ring-1 focus:ring-blue-500 outline-none transition-all">
+                <div class="field">
+                    <label for="field-experience-level">Experience level</label>
+                    <input id="field-experience-level" type="text" name="experience_level" placeholder="e.g. 5+ years, Mid-Senior" class="input">
                 </div>
-
-                <div class="space-y-1.5">
-                    <label for="interview_rounds" class="text-xs font-bold text-gray-500 uppercase tracking-wider">Interview Questions</label>
-                    <input type="number" id="interview_rounds" name="interview_rounds" value="5" min="1" max="10" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-blue-500 focus:bg-white focus:ring-1 focus:ring-blue-500 outline-none transition-all">
+                <div class="grid" style="grid-template-columns:1fr 1fr">
+                    <div class="field">
+                        <label for="interview_rounds">Interview questions</label>
+                        <input type="number" id="interview_rounds" name="interview_rounds" value="5" min="1" max="10" class="input">
+                    </div>
+                    <div class="field">
+                        <label for="answer_time_limit">Seconds per answer</label>
+                        <input type="number" id="answer_time_limit" name="answer_time_limit" value="0" min="0" max="600" step="30" class="input" title="0 means no limit">
+                    </div>
                 </div>
-
-                <div class="space-y-1.5">
-                    <label for="answer_time_limit" class="text-xs font-bold text-gray-500 uppercase tracking-wider">Seconds per Answer (0 = no limit)</label>
-                    <input type="number" id="answer_time_limit" name="answer_time_limit" value="0" min="0" max="600" step="30" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-blue-500 focus:bg-white focus:ring-1 focus:ring-blue-500 outline-none transition-all">
+                <div class="field">
+                    <label for="field-description">Job description</label>
+                    <textarea id="field-description" name="description" required rows="5" placeholder="Responsibilities, tech stack, languages and what the interview should cover…" class="input"></textarea>
                 </div>
-
-                <div class="space-y-1.5">
-                    <label for="field-description" class="text-xs font-bold text-gray-500 uppercase tracking-wider">Detailed Job Description</label>
-                    <textarea id="field-description" name="description" required rows="5" placeholder="Specify position goals, system components, expected technical stacks, languages, and interview requirements..." class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-blue-500 focus:bg-white focus:ring-1 focus:ring-blue-500 outline-none transition-all text-sm leading-relaxed"></textarea>
+                <div class="field">
+                    <label for="custom_questions">Must-ask questions <span class="faint" style="font-weight:400">(optional, one per line)</span></label>
+                    <textarea id="custom_questions" name="custom_questions" rows="3" placeholder="Asked in this order, between the AI's questions" class="input"></textarea>
                 </div>
-
-                <div class="space-y-1.5">
-                    <label for="custom_questions" class="text-xs font-bold text-gray-500 uppercase tracking-wider">Must-Ask Questions (optional, one per line)</label>
-                    <textarea id="custom_questions" name="custom_questions" rows="3" placeholder="Asked in this order, between the AI's questions" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-blue-500 focus:bg-white focus:ring-1 focus:ring-blue-500 outline-none transition-all text-sm leading-relaxed"></textarea>
-                </div>
-
-                <fieldset class="space-y-1.5">
-                    <legend class="text-xs font-bold text-gray-500 uppercase tracking-wider">Interview Score Weights</legend>
-                    <div class="grid grid-cols-3 gap-3">
+                <fieldset class="field" style="border:0;padding:0;margin:0">
+                    <legend class="field-label" style="margin-bottom:6px">Interview score weights</legend>
+                    <div class="grid" style="grid-template-columns:repeat(3,1fr);gap:10px">
                         {% for name, label, value in weight_inputs %}
-                        <label for="field-{{ name }}" class="text-[10px] font-semibold text-gray-500">{{ label }}
-                            <input id="field-{{ name }}" type="number" name="{{ name }}" value="{{ value }}" min="0" max="100" class="mt-1 w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:border-blue-500 focus:bg-white outline-none text-sm">
+                        <label for="field-{{ name }}" class="stack-xs xs muted">{{ label }}
+                            <input id="field-{{ name }}" type="number" name="{{ name }}" value="{{ value }}" min="0" max="100" class="input">
                         </label>
                         {% endfor %}
                     </div>
                 </fieldset>
+            </div>
+            <div class="modal-foot">
+                <button type="button" onclick="closeModal()" class="btn btn-secondary">Cancel</button>
+                <button id="jobSubmit" type="submit" class="btn btn-primary">Publish job</button>
+            </div>
+        </form>
+    </dialog>
 
-                <div class="flex gap-4 pt-4 border-t border-gray-100 mt-6">
-                    <button type="button" onclick="closeModal()" class="flex-1 py-3 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 font-bold rounded-xl text-sm transition-colors">Cancel</button>
-                    <button id="jobSubmit" type="submit" class="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-sm transition-colors shadow-sm">Publish Opening</button>
-                </div>
-            </form>
-        </div>
-    </div>
+    {% include "partials/footer.html" %}
+{% endblock %}
+{% block scripts %}
+<script>
+    const modal = document.getElementById('jobModal');
+    const jobForm = document.getElementById('jobForm');
 
-    <footer class="bg-white border-t border-gray-100 py-6 mt-auto w-full text-center flex items-center justify-center">
-        <div class="max-w-7xl mx-auto px-6 text-xs text-gray-400">
-            &copy; 2026 Hirely. All rights reserved. Recruiter Portal.
-        </div>
-    </footer>
-
-    <script>
-        lucide.createIcons();
-
-        const modal = document.getElementById('jobModal');
-        const modalContainer = modal.querySelector('.transform');
-
-        const jobForm = document.getElementById('jobForm');
-
-        function openModal(job = null) {
-            // The same form posts a new job or, given a job card, edits that job
-            jobForm.reset();
-            jobForm.action = job ? `/ai/edit-job/${job.dataset.jobId}/` : '/ai/post-job/';
-            if (job) {
-                jobForm.elements.title.value = job.dataset.title;
-                jobForm.elements.experience_level.value = job.dataset.level;
-                jobForm.elements.interview_rounds.value = job.dataset.rounds;
-                jobForm.elements.answer_time_limit.value = job.dataset.timeLimit;
-                jobForm.elements.custom_questions.value = job.dataset.questions;
-                const [tech, behavioral, problem] = job.dataset.weights.split(',');
-                jobForm.elements.weight_tech.value = tech;
-                jobForm.elements.weight_behavioral.value = behavioral;
-                jobForm.elements.weight_problem_solving.value = problem;
-                jobForm.elements.description.value = job.dataset.description;
-            }
-            document.getElementById('jobModalTitle').textContent = job ? 'Edit Job Opening' : 'Post a Job Opening';
-            document.getElementById('jobSubmit').textContent = job ? 'Save Changes' : 'Publish Opening';
-            modal.classList.remove('hidden');
-            setTimeout(() => {
-                modal.classList.add('opacity-100');
-                modalContainer.classList.replace('scale-95', 'scale-100');
-            }, 50);
+    function openModal(job = null) {
+        // The same form posts a new job or, given a job card, edits that job
+        jobForm.reset();
+        jobForm.action = job ? `/ai/edit-job/${job.dataset.jobId}/` : '/ai/post-job/';
+        if (job) {
+            jobForm.elements.title.value = job.dataset.title;
+            jobForm.elements.experience_level.value = job.dataset.level;
+            jobForm.elements.interview_rounds.value = job.dataset.rounds;
+            jobForm.elements.answer_time_limit.value = job.dataset.timeLimit;
+            jobForm.elements.custom_questions.value = job.dataset.questions;
+            const [tech, behavioral, problem] = job.dataset.weights.split(',');
+            jobForm.elements.weight_tech.value = tech;
+            jobForm.elements.weight_behavioral.value = behavioral;
+            jobForm.elements.weight_problem_solving.value = problem;
+            jobForm.elements.description.value = job.dataset.description;
         }
+        document.getElementById('jobModalTitle').textContent = job ? 'Edit job' : 'Post a job';
+        document.getElementById('jobSubmit').textContent = job ? 'Save changes' : 'Publish job';
+        modal.showModal();
+    }
 
-        function closeModal() {
-            modalContainer.classList.replace('scale-100', 'scale-95');
-            modal.classList.remove('opacity-100');
-            setTimeout(() => {
-                modal.classList.add('hidden');
-            }, 300);
-        }
+    function closeModal() {
+        modal.close();
+    }
 
-        // Compare takes 2-3 candidates: lock the other boxes once three are ticked
-        document.querySelectorAll('.compare-box').forEach(box => box.addEventListener('change', () => {
-            const boxes = [...document.querySelectorAll('.compare-box')];
-            const picked = boxes.filter(b => b.checked).length;
-            boxes.forEach(b => b.disabled = !b.checked && picked >= 3);
-            document.getElementById('compare-btn').disabled = picked < 2;
-        }));
+    // Compare takes 2-3 candidates: lock the other boxes once three are ticked
+    document.querySelectorAll('.compare-box').forEach(box => box.addEventListener('change', () => {
+        const boxes = [...document.querySelectorAll('.compare-box')];
+        const picked = boxes.filter(b => b.checked).length;
+        boxes.forEach(b => b.disabled = !b.checked && picked >= 3);
+        document.getElementById('compare-btn').disabled = picked < 2;
+    }));
 
-        function selectJob(jobId) {
-            // Selection is a query param so the server can filter and paginate applicants per job
-            const params = new URLSearchParams(location.search);
-            if (params.get('job') === jobId) params.delete('job'); else params.set('job', jobId);
-            params.delete('page');
-            location.search = params;
-        }
-    </script>
+    function selectJob(jobId) {
+        // Selection is a query param so the server can filter and paginate applicants per job
+        const params = new URLSearchParams(location.search);
+        if (params.get('job') === jobId) params.delete('job'); else params.set('job', jobId);
+        params.delete('page');
+        location.search = params;
+    }
+</script>
 {% endblock %}

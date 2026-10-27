@@ -27,7 +27,7 @@ An AI recruitment platform: companies post jobs, candidates apply with a resume,
 | Speech | Deepgram (speech-to-text), ElevenLabs (text-to-speech) |
 | Proctoring | MediaPipe Face Mesh (runs in the browser) |
 | Reports | ReportLab |
-| Frontend | Django templates, Tailwind CSS, Lucide icons |
+| Frontend | Django templates, plain HTML/CSS/JavaScript (one stylesheet, Geist font), Lucide icons |
 | Hosting | Vercel (serverless) |
 
 All AI runs on hosted APIs, so the server needs no GPU and very little memory.
@@ -51,7 +51,7 @@ backend/
     audio_service.py  Deepgram and ElevenLabs clients
     reports.py        Final evaluation and PDF report
     views/            Pages and JSON endpoints: auth (Supabase), candidate, recruiter, interview
-    static/ai_engine/ Logo and vendored scripts (Tailwind)
+    static/ai_engine/ Logo and hirely.css, the app's only stylesheet
   templates/          Django templates
   vercel.json         Vercel config
 ```
@@ -134,7 +134,7 @@ python manage.py shell -c "from django.contrib.auth.models import User; User.obj
 
 - **Passwords:** checked by Supabase only. User rows in Neon have no usable password.
 - **Rate limits:** login, sign-up and password resets are limited per visitor IP and per account, in 15-minute windows. This matters because Supabase's own per-IP limits see only Vercel's servers. The AI endpoints are also capped per user per hour.
-- **Third-party scripts:** pinned to exact versions with integrity hashes, so a changed file is refused instead of run. Tailwind's CDN doesn't allow integrity checks, so its script is served from `static/ai_engine/vendor/`.
+- **Third-party scripts:** pinned to exact versions with integrity hashes, so a changed file is refused instead of run.
 - **Company data:** each company only sees its own jobs, applicants, resumes and reports.
 
 ## Deployment (Vercel)

@@ -1,77 +1,49 @@
 {% extends "base.html" %}
 {% load static %}
-{% block title %}Login | Hirely{% endblock %}
-{% block head %}
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f9fafb;
-            color: #111827;
-        }
-
-        .clean-card {
-            background: #ffffff;
-            border: 1px solid #e5e7eb;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
-        }
-    </style>
-{% endblock %}
-{% block body_class %}min-h-screen flex items-center justify-center p-4{% endblock %}
+{% block title %}Log in | Hirely{% endblock %}
 {% block content %}
-    
-    <div class="max-w-md w-full space-y-8 clean-card p-10 animate-in fade-in zoom-in duration-500">
-        <div class="text-center space-y-2">
-            <img src="{% static 'ai_engine/logo.png' %}" alt="Hirely Logo" class="w-16 h-16 rounded-xl object-cover mx-auto mb-6 shadow-sm">
-            <h1 class="text-3xl font-bold tracking-tight text-gray-900">Welcome to Hirely</h1>
-            <p class="text-gray-500 text-sm">Sign in to your account to continue.</p>
-        </div>
-
-        {% for message in messages %}
-        <div class="bg-blue-50 border border-blue-200 text-blue-700 p-4 rounded-lg text-sm text-center">{{ message }}</div>
-        {% endfor %}
-
-        {% if error %}
-        <div class="bg-red-50 border border-red-200 text-red-600 p-4 rounded-lg text-sm text-center flex items-center justify-center gap-2">
-            <i data-lucide="alert-circle" class="w-4 h-4"></i>
-            {{ error }}
-        </div>
-        {% endif %}
-
-        <form method="POST" class="space-y-5 pt-2">
-            {% csrf_token %}
-            <div class="space-y-1.5">
-                <label for="field-username" class="text-sm font-semibold text-gray-700">Username or email</label>
-                <div class="relative">
-                    <i data-lucide="user" class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4"></i>
-                    <input id="field-username" type="text" name="username" placeholder="Enter your username or email" required
-                        class="w-full bg-white border border-gray-300 rounded-lg p-3 pl-11 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all text-sm text-gray-900 shadow-sm">
-                </div>
+    <main class="auth">
+        <div class="card auth-card beam">
+            <div class="auth-head">
+                <h1>Log in to Hirely</h1>
+                <p>Welcome back. Sign in to continue.</p>
             </div>
 
-            <div class="space-y-1.5">
-                <div class="flex items-center justify-between">
-                    <label for="field-password" class="text-sm font-semibold text-gray-700">Password</label>
-                    <a href="/password-reset/" class="text-xs font-semibold text-blue-600 hover:text-blue-700">Forgot password?</a>
-                </div>
-                <div class="relative">
-                    <i data-lucide="lock" class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4"></i>
-                    <input id="field-password" type="password" name="password" placeholder="••••••••" required
-                        class="w-full bg-white border border-gray-300 rounded-lg p-3 pl-11 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all text-sm text-gray-900 shadow-sm">
-                </div>
+            <div class="stack">
+                {% for message in messages %}
+                <div class="alert alert-info">{{ message }}</div>
+                {% endfor %}
+
+                {% if error %}
+                <div class="alert alert-error"><i data-lucide="alert-circle" class="i"></i>{{ error }}</div>
+                {% endif %}
+
+                <form method="POST" class="stack">
+                    {% csrf_token %}
+                    <div class="field">
+                        <label for="field-username">Username or email</label>
+                        <div class="input-icon">
+                            <i data-lucide="user" class="i"></i>
+                            <input id="field-username" class="input" type="text" name="username" placeholder="you@example.com" autocomplete="username" required>
+                        </div>
+                    </div>
+
+                    <div class="field">
+                        <div class="field-row">
+                            <label for="field-password" class="field-label">Password</label>
+                            <a href="/password-reset/" class="link xs">Forgot password?</a>
+                        </div>
+                        <div class="input-icon">
+                            <i data-lucide="lock" class="i"></i>
+                            <input id="field-password" class="input" type="password" name="password" placeholder="••••••••" autocomplete="current-password" required>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-block">Log in</button>
+                </form>
             </div>
 
-            <button type="submit"
-                class="w-full py-3 mt-4 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 shadow-sm">
-                Sign In
-            </button>
-        </form>
-
-        <p class="text-center text-sm text-gray-600">
-            Don't have an account? <a href="/register/"
-                class="text-blue-600 hover:text-blue-700 font-semibold transition-colors">Sign up</a>
-        </p>
-    </div>
-
-    <script>lucide.createIcons();</script>
+            <p class="auth-foot">Don't have an account? <a href="/register/" class="link">Sign up</a></p>
+        </div>
+    </main>
 {% endblock %}

@@ -4,22 +4,79 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#07080a">
     <title>{% block title %}Hirely{% endblock %}</title>
-    {# Third-party scripts are pinned with integrity hashes: a changed or hijacked file is refused, not run.
-       Tailwind's CDN sends no CORS header (needed for integrity checks), so that file is served from here. #}
-    <script src="{% static 'ai_engine/vendor/tailwind-3.4.17.js' %}"></script>
+    {# Third-party scripts are pinned with integrity hashes: a changed or hijacked file is refused, not run. #}
     <script src="https://unpkg.com/lucide@1.52.0/dist/umd/lucide.min.js" integrity="sha384-SSRIJfpvnhji4rCcULgpNXRJjQ9P/odU9OaWxSumsZiokvJ7zAu4PGQVWyWxTG3u" crossorigin="anonymous"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="icon" type="image/png" href="{% static 'ai_engine/logo.png' %}">
-    <style>
-        /* Visible keyboard focus everywhere; Tailwind's outline-none on inputs only hides the mouse ring */
-        :focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
-    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'ai_engine/hirely.css' %}">
+    <link rel="icon" type="image/svg+xml" href="{% static 'ai_engine/logo.svg' %}">
     {% block head %}{% endblock %}
 </head>
 
-<body class="{% block body_class %}{% endblock %}">
+<body>
+<div class="aurora" aria-hidden="true"><i></i><i></i><i></i></div>
 {% block content %}{% endblock %}
+<script>
+    lucide.createIcons();
+
+    // Cards light up around the cursor: one listener for the whole page
+    document.addEventListener('pointermove', e => {
+        const card = e.target.closest?.('.card');
+        if (!card) return;
+        const r = card.getBoundingClientRect();
+        card.style.setProperty('--mx', `${e.clientX - r.left}px`);
+        card.style.setProperty('--my', `${e.clientY - r.top}px`);
+    });
+
+    // Count numbers up from zero, e.g. "86" in <span class="stat-value">86<span>%</span></span>
+    function countUp(el) {
+        const node = [...el.childNodes].find(n => n.nodeType === 3 && /\d/.test(n.textContent));
+        const target = node && parseFloat(node.textContent);
+        if (!node || isNaN(target)) return;
+        const start = performance.now();
+        const tick = now => {
+            const t = Math.min(1, (now - start) / 1100);
+            node.textContent = Math.round(target * (1 - Math.pow(1 - t, 3)));
+            if (t < 1) requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+    }
+
+    // Bars grow from zero to their width
+    function growBars(root) {
+        root.querySelectorAll('.meter-fill[style*="width"], .bar > span:first-child').forEach(bar => {
+            const w = bar.style.width;
+            bar.style.width = '0';
+            requestAnimationFrame(() => requestAnimationFrame(() => bar.style.width = w));
+        });
+    }
+
+    // Fade content in as it scrolls into view, staggered within each group.
+    // Dialog contents are skipped: a closed dialog never scrolls into view.
+    if (!matchMedia('(prefers-reduced-motion: reduce)').matches && 'IntersectionObserver' in window) {
+        const seen = new IntersectionObserver(entries => entries.forEach(entry => {
+            if (!entry.isIntersecting) return;
+            const el = entry.target;
+            el.classList.add('in');
+            el.querySelectorAll('.stat-value').forEach(countUp);
+            growBars(el);
+            setTimeout(() => el.style.removeProperty('--d'), 900);  // later hovers shouldn't wait
+            seen.unobserve(el);
+        }), { threshold: 0.12 });
+
+        document.querySelectorAll('.page-head, .card, .reveal-me, .hero > *, .section-head, .tabs, .empty').forEach(el => {
+            if (el.closest('dialog') || el.parentElement.closest('.card')) return;
+            const index = [...el.parentElement.children].indexOf(el);
+            el.style.setProperty('--d', `${Math.min(index, 6) * 70}ms`);
+            el.classList.add('reveal');
+            seen.observe(el);
+        });
+    }
+</script>
+{% block scripts %}{% endblock %}
 </body>
 
 </html>

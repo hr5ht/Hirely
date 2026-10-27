@@ -1,175 +1,178 @@
 {% extends "base.html" %}
 {% load static %}
-{% block title %}Hirely | The AI Career Co-Pilot{% endblock %}
-{% block head %}
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #ffffff;
-            color: #111827;
-            scroll-behavior: smooth;
-        }
-
-        .nav-glass {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(8px);
-            border-bottom: 1px solid #e5e7eb;
-        }
-
-        .hero-gradient {
-            background: linear-gradient(180deg, #f0fdf4 0%, #ffffff 100%);
-        }
-
-        .glass-card {
-            background: #ffffff;
-            border: 1px solid #e5e7eb;
-            border-radius: 16px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
-            transition: all 0.3s ease;
-        }
-
-        .glass-card:hover {
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-            transform: translateY(-4px);
-        }
-    </style>
-{% endblock %}
-{% block body_class %}selection:bg-blue-100{% endblock %}
+{% block title %}Hirely | AI interviews and ATS scoring{% endblock %}
 {% block content %}
 
-    <!-- Navigation -->
-    <nav class="fixed top-0 left-0 w-full z-50 nav-glass">
-        <div class="max-w-7xl mx-auto px-6 h-16 flex justify-between items-center">
-            <div class="flex items-center gap-2">
-                <img src="{% static 'ai_engine/logo.png' %}" alt="Hirely Logo" class="w-8 h-8 rounded-lg object-cover shadow-sm">
-                <span class="text-xl font-bold tracking-tight">Hirely</span>
+    <nav class="nav">
+        <div class="container nav-inner">
+            <div class="row">
+                <a href="/" class="brand">
+                    <img src="{% static 'ai_engine/logo.svg' %}" alt="">
+                    <span>Hirely</span>
+                </a>
+                <div class="segmented hide-sm">
+                    <a href="#features">Features</a>
+                    <a href="#how">How it works</a>
+                </div>
             </div>
-            <div class="hidden md:flex items-center gap-8 text-sm font-medium text-gray-500">
-                <a href="#features" class="hover:text-gray-900 transition-colors">Features</a>
-            </div>
-            <div class="flex items-center gap-4">
-                <a href="/login/" class="text-sm font-semibold text-gray-600 hover:text-gray-900 transition-colors">Log In</a>
-                <a href="/register/" class="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors shadow-sm">Join Free</a>
+            <div class="nav-right">
+                <a href="/login/" class="btn btn-ghost btn-sm">Log in</a>
+                <a href="/register/" class="btn btn-primary btn-sm">Get started</a>
+                <a href="https://github.com/hr5ht/Hirely" class="btn btn-ghost btn-sm btn-icon" aria-label="GitHub"><svg class="i" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2 0 1.9 1.2 1.9 1.2 1 1.8 2.8 1.3 3.5 1 0-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-6 0-1.2.5-2.3 1.3-3.1-.2-.4-.6-1.6 0-3.2 0 0 1-.3 3.4 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.6.2 2.8 0 3.2.9.8 1.3 1.9 1.3 3.2 0 4.6-2.8 5.6-5.5 5.9.5.4.9 1 .9 2.2v3.3c0 .3.1.7.8.6A12 12 0 0 0 12 .3"/></svg></a>
             </div>
         </div>
     </nav>
 
-    <!-- Hero Section -->
-    <header class="relative pt-32 pb-20 px-6 text-center overflow-hidden hero-gradient">
-        <div class="max-w-4xl mx-auto space-y-8">
-            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-green-50 border border-green-200 text-green-700 mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700">
-                <span class="relative flex h-2 w-2">
-                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                    <span class="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-                </span>
-                <span class="text-xs font-bold uppercase tracking-widest">Hirely is now Live</span>
+    <header class="container hero">
+        <div>
+            <span class="eyebrow"><b>New</b> Interviews written from each candidate's own resume</span>
+            <h1>Don't just apply.<br><span class="gradient-text">Get hired.</span></h1>
+            <p class="lead">Post a role, collect resumes, and let an AI recruiter score every applicant and run a proctored interview. You read the transcript and decide.</p>
+            <div class="hero-actions">
+                <a href="/register/" class="btn btn-primary btn-lg">Create a free account <i data-lucide="arrow-right" class="i arrow"></i></a>
+                <a href="#how" class="btn btn-secondary btn-lg">See how it works</a>
             </div>
-
-            <h1 class="text-5xl md:text-7xl font-extrabold tracking-tight leading-tight text-gray-900 animate-in fade-in slide-in-from-bottom-6 duration-1000">
-                Don't just apply. <br>
-                <span class="text-blue-600">Get Hired.</span>
-            </h1>
-
-            <p class="text-lg md:text-xl text-gray-500 font-medium max-w-2xl mx-auto animate-in fade-in slide-in-from-bottom-8 duration-1000">
-                The all-in-one platform to grade your resume, beat the ATS, and practice high-pressure interviews with a strictly-honest AI recruiter.
-            </p>
-
-            <div class="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4 animate-in fade-in slide-in-from-bottom-10 duration-1000">
-                <a href="/register/" class="w-full sm:w-auto px-8 py-4 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-all shadow-sm flex items-center justify-center gap-2">
-                    Create a Free Account <i data-lucide="arrow-right" class="w-5 h-5"></i>
-                </a>
-                <a href="#features" class="w-full sm:w-auto px-8 py-4 bg-white border border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-50 transition-all flex items-center justify-center gap-2 shadow-sm">
-                    How it Works
-                </a>
+            <div class="hero-meta">
+                <div class="stack-xs"><span class="label-caps">Rounds</span><span class="strong">5 per interview</span></div>
+                <div class="stack-xs"><span class="label-caps">Answers</span><span class="strong">Voice or text</span></div>
+                <div class="stack-xs"><span class="label-caps">Output</span><span class="strong">PDF report</span></div>
             </div>
         </div>
 
-        <!-- Hero Stats -->
-        <div class="mt-20 max-w-5xl mx-auto relative px-6 animate-in fade-in zoom-in duration-1000 delay-300">
-            <div class="bg-white border border-gray-200 rounded-2xl p-8 shadow-xl">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-8 divide-y md:divide-y-0 md:divide-x divide-gray-200">
-                    <div class="space-y-1 text-center py-4">
-                        <p class="text-4xl font-black text-gray-900">98%</p>
-                        <p class="text-sm font-semibold text-gray-500 uppercase">ATS Pass Rate</p>
-                    </div>
-                    <div class="space-y-1 text-center py-4">
-                        <p class="text-4xl font-black text-gray-900">10K+</p>
-                        <p class="text-sm font-semibold text-gray-500 uppercase">Interviews Aced</p>
-                    </div>
-                    <div class="space-y-1 text-center py-4">
-                        <p class="text-4xl font-black text-blue-600">4.9/5</p>
-                        <p class="text-sm font-semibold text-gray-500 uppercase">User Rating</p>
-                    </div>
+        <!-- Live interview console: questions type themselves out, meters move -->
+        <div class="card beam" aria-label="Example interview">
+            <div class="console-bar">
+                <i></i><i></i><i></i>
+                <span class="mono xs faint" style="margin-left:8px">hirely://interview</span>
+                <span class="badge badge-green" style="margin-left:auto"><span class="dot dot-green dot-live"></span>Live</span>
+            </div>
+            <div class="card-pad stack">
+                <div class="row between">
+                    <span id="demo-round" class="label-caps">Round 1 of 5</span>
+                    <span class="label-caps t-accent">Gaze: secure</span>
+                </div>
+                <p class="console-question"><span id="demo-q"></span><span class="caret"></span></p>
+                <div class="grid" style="grid-template-columns:repeat(3,1fr);gap:12px">
+                    <div class="inset stack-sm"><span class="label-caps">ATS</span><span class="mono strong"><span id="demo-ats">86</span>%</span><div class="meter"><div id="demo-ats-bar" class="meter-fill" style="width:86%"></div></div></div>
+                    <div class="inset stack-sm"><span class="label-caps">Confidence</span><span class="mono strong"><span id="demo-conf">78</span>%</span><div class="meter"><div id="demo-conf-bar" class="meter-fill fill-blue" style="width:78%"></div></div></div>
+                    <div class="inset stack-sm"><span class="label-caps">Clarity</span><span class="mono strong"><span id="demo-clar">84</span>%</span><div class="meter"><div id="demo-clar-bar" class="meter-fill fill-violet" style="width:84%"></div></div></div>
                 </div>
             </div>
         </div>
     </header>
 
-    <!-- Features -->
-    <section id="features" class="max-w-7xl mx-auto py-24 px-6 space-y-16">
-        <div class="text-center space-y-4">
-            <h2 class="text-3xl md:text-5xl font-bold tracking-tight text-gray-900">The complete ecosystem.</h2>
-            <p class="text-gray-500 text-lg max-w-2xl mx-auto">Everything you need to land your dream job, packed into a single dashboard.</p>
+    <section id="features" class="section container">
+        <div class="section-head">
+            <span class="label-caps t-accent">Features</span>
+            <h2 style="margin-top:10px">One pipeline, from resume to hire.</h2>
+            <p>Every applicant goes through the same steps and is scored the same way.</p>
         </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div class="glass-card p-8 space-y-6">
-                <div class="w-12 h-12 bg-green-50 rounded-lg flex items-center justify-center">
-                    <i data-lucide="file-check" class="text-green-600 w-6 h-6"></i>
+        <div class="bento">
+            <div class="card span-4">
+                <span class="icon-box"><i data-lucide="file-check" class="i-lg"></i></span>
+                <h3>ATS resume scoring</h3>
+                <p class="muted small" style="max-width:440px">An LLM reads the resume against the job description and returns a score, the skills it found and the ones that are missing.</p>
+                <div class="chip-cloud">
+                    <span class="badge badge-green" style="--i:0">Python</span>
+                    <span class="badge badge-green" style="--i:1">Django</span>
+                    <span class="badge badge-green" style="--i:2">PostgreSQL</span>
+                    <span class="badge badge-green" style="--i:3">Docker</span>
+                    <span class="badge badge-red badge-strike" style="--i:4">Kubernetes</span>
+                    <span class="badge badge-red badge-strike" style="--i:5">AWS</span>
                 </div>
-                <h3 class="text-xl font-bold text-gray-900">ATS Resume Scanner</h3>
-                <p class="text-gray-500 leading-relaxed text-sm">
-                    Upload your PDF and a Target JD. Our algorithm grades exactly what keywords are missing so you never hit the rejection pile.
-                </p>
             </div>
-
-            <div class="glass-card p-8 space-y-6">
-                <div class="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center">
-                    <i data-lucide="mic" class="text-blue-600 w-6 h-6"></i>
-                </div>
-                <h3 class="text-xl font-bold text-gray-900">Live AI Interview</h3>
-                <p class="text-gray-500 leading-relaxed text-sm">
-                    Practice with an ultra-realistic voice AI that dynamically adapts its technical questions to the specific role you configure.
-                </p>
+            <div class="card span-2">
+                <span class="icon-box"><i data-lucide="scan-eye" class="i-lg"></i></span>
+                <h3>Live proctoring</h3>
+                <p class="muted small">Face and gaze tracking in the browser, plus paste and typing-speed checks.</p>
+                <div class="eye-ring"><i data-lucide="eye" class="i-lg t-accent"></i></div>
             </div>
-
-            <div class="glass-card p-8 space-y-6">
-                <div class="w-12 h-12 bg-purple-50 rounded-lg flex items-center justify-center">
-                    <i data-lucide="bar-chart-2" class="text-purple-600 w-6 h-6"></i>
-                </div>
-                <h3 class="text-xl font-bold text-gray-900">Deep Analytics</h3>
-                <p class="text-gray-500 leading-relaxed text-sm">
-                    Track your confidence, clarity, and overall score over time so you have data-backed proof that you are ready for the real thing.
-                </p>
+            <div class="card span-2">
+                <span class="icon-box"><i data-lucide="mic" class="i-lg"></i></span>
+                <h3>Tailored interviews</h3>
+                <p class="muted small">Five rounds built from the candidate's resume and the role, with feedback after every answer.</p>
             </div>
-        </div>
-    </section>
-
-    <!-- Footer CTA -->
-    <section class="border-t border-gray-200 bg-gray-50 py-24 px-6 text-center">
-        <div class="max-w-3xl mx-auto space-y-8">
-            <h2 class="text-4xl font-bold tracking-tight text-gray-900">Ready to level up?</h2>
-            <p class="text-gray-500 text-lg">Create a free account and start practicing in seconds.</p>
-            <div class="pt-4">
-                <a href="/register/" class="inline-flex items-center gap-2 px-8 py-4 bg-gray-900 text-white font-semibold rounded-lg hover:bg-gray-800 transition-colors shadow-lg">
-                    Enter the Portal <i data-lucide="arrow-right" class="w-5 h-5"></i>
-                </a>
+            <div class="card span-2">
+                <span class="icon-box"><i data-lucide="file-text" class="i-lg"></i></span>
+                <h3>PDF reports</h3>
+                <p class="muted small">Scores, a skills-gap analysis, every proctoring alert and the full transcript.</p>
+            </div>
+            <div class="card span-2">
+                <span class="icon-box"><i data-lucide="users" class="i-lg"></i></span>
+                <h3>Teams</h3>
+                <p class="muted small">Invite teammates with a single-use link. Each company sees only its own data.</p>
             </div>
         </div>
     </section>
 
-    <footer class="bg-white border-t border-gray-200 py-12 px-6">
-        <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
-            <div class="flex items-center gap-2">
-                <img src="{% static 'ai_engine/logo.png' %}" alt="Hirely Logo" class="w-5 h-5 rounded object-cover shadow-sm">
-                <span class="text-sm font-bold text-gray-900">Hirely © 2026</span>
+    <section id="how" class="section container">
+        <div class="section-head">
+            <span class="label-caps t-accent">How it works</span>
+            <h2 style="margin-top:10px">Three steps. No scheduling.</h2>
+        </div>
+        <div class="timeline">
+            <div class="stack-sm reveal-me">
+                <span class="step-node">01</span>
+                <h3 style="margin-top:8px">Apply</h3>
+                <p class="muted small">The candidate uploads a PDF resume and gets an ATS score before the interview starts.</p>
             </div>
-            <div class="flex gap-8 text-sm font-semibold text-gray-400">
-                <a href="/login/" class="hover:text-gray-900 transition-colors">Log In</a>
-                <a href="https://github.com/hr5ht/Hirely" class="hover:text-gray-900 transition-colors">GitHub</a>
+            <div class="stack-sm reveal-me">
+                <span class="step-node">02</span>
+                <h3 style="margin-top:8px">Interview</h3>
+                <p class="muted small">Five tailored questions with the camera on. Every step saves, so a reload never loses progress.</p>
             </div>
+            <div class="stack-sm reveal-me">
+                <span class="step-node">03</span>
+                <h3 style="margin-top:8px">Decide</h3>
+                <p class="muted small">Recruiters compare candidates side by side, read the transcript and accept or reject.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="section container">
+        <div class="card cta">
+            <h2 style="font-size:clamp(30px,4.5vw,52px);letter-spacing:-0.05em">Ready when <span class="gradient-text">you are.</span></h2>
+            <p class="muted" style="margin:14px auto 28px;max-width:440px">Create a free account as a candidate or as a recruiter. It takes under a minute.</p>
+            <a href="/register/" class="btn btn-primary btn-lg">Get started <i data-lucide="arrow-right" class="i arrow"></i></a>
+        </div>
+    </section>
+
+    <footer class="footer">
+        <div class="container footer-inner">
+            <span>Hirely &copy; 2026</span>
+            <span class="row"><a href="/login/">Log in</a><a href="https://github.com/hr5ht/Hirely">GitHub</a></span>
         </div>
     </footer>
-
-    <script>lucide.createIcons();</script>
+{% endblock %}
+{% block scripts %}
+<script>
+    // Example interview: type out each question, then nudge the meters
+    const questions = [
+        "Your resume says you cut API latency by 40%. How did you find the bottleneck?",
+        "Walk me through how you'd design rate limiting for a public API.",
+        "Tell me about a time a deploy went wrong. What did you change afterwards?",
+    ];
+    const q = document.getElementById('demo-q');
+    const set = (id, v) => {
+        document.getElementById(id).textContent = v;
+        document.getElementById(id + '-bar').style.width = v + '%';
+    };
+    let round = 0;
+    function ask() {
+        const text = questions[round % questions.length];
+        document.getElementById('demo-round').textContent = `Round ${round % 5 + 1} of 5`;
+        q.textContent = '';
+        let i = 0;
+        const type = setInterval(() => {
+            q.textContent = text.slice(0, ++i);
+            if (i < text.length) return;
+            clearInterval(type);
+            set('demo-conf', 70 + Math.floor(Math.random() * 25));
+            set('demo-clar', 72 + Math.floor(Math.random() * 24));
+            round++;
+            setTimeout(ask, 2600);
+        }, 28);
+    }
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) q.textContent = questions[0]; else ask();
+</script>
 {% endblock %}
