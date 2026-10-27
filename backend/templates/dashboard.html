@@ -1,635 +1,392 @@
 {% extends "base.html" %}
 {% load static %}
-{% block title %}Candidate Hub | Hirely{% endblock %}
-{% block head %}
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f8fafc;
-            color: #0f172a;
-        }
-
-        .premium-card {
-            background: #ffffff;
-            border: 1px solid #e2e8f0;
-            border-radius: 16px;
-            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .premium-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 12px 20px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
-            border-color: #cbd5e1;
-        }
-
-        /* Circular pulse spinner */
-        .spinner {
-            border: 3px solid rgba(59, 130, 246, 0.1);
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            border-left-color: #3b82f6;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-    </style>
-{% endblock %}
-{% block body_class %}min-h-screen flex flex-col pt-16{% endblock %}
+{% block title %}Dashboard | Hirely{% endblock %}
 {% block content %}
 
-    <!-- Navigation -->
-    <nav class="fixed top-0 left-0 w-full bg-white/80 backdrop-blur-md border-b border-slate-100 z-40">
-        <div class="max-w-7xl mx-auto px-6 h-16 flex justify-between items-center">
-            <div class="flex items-center gap-3">
-                <img src="{% static 'ai_engine/logo.png' %}" alt="Hirely Logo" class="w-8 h-8 rounded-lg object-cover shadow-sm">
-                <span class="text-md font-extrabold tracking-tight text-slate-900">Hirely</span>
-            </div>
-            <div class="flex items-center gap-6 text-sm font-semibold">
-                <span class="text-slate-500 text-xs bg-slate-50 border border-slate-100 px-3 py-1 rounded-full flex items-center gap-1.5">
-                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                    Candidate Portal
-                </span>
-                <span class="text-slate-600">Hi, <span class="text-slate-900 font-bold">{{ username }}</span></span>
-                <a href="/profile/" class="text-slate-500 hover:text-slate-900 transition-colors">Profile</a>
-                <a href="/logout/" class="text-slate-500 hover:text-slate-900 transition-colors">Log out</a>
-            </div>
-        </div>
-    </nav>
+    {% include "partials/navbar.html" %}
 
-    <!-- Main Container -->
-    <main class="flex-grow max-w-6xl mx-auto w-full py-10 px-6 space-y-8">
-        
-        <!-- Header -->
-        <header class="space-y-3">
-            <div class="flex items-center gap-2 text-blue-600 font-bold text-xs uppercase tracking-wider">
-                <i data-lucide="sparkles" class="w-4 h-4"></i> Corporate Recruiting marketplace
+    <main class="page container">
+        <header class="page-head">
+            <div>
+                <span class="eyebrow"><b>Candidate</b> Apply, interview and track every role in one place</span>
+                <h1>Find your next role</h1>
+                <p class="lead">Browse open positions, check how your resume matches, and run your AI interview when you're ready.</p>
             </div>
-            <h1 class="text-3xl font-extrabold tracking-tight text-slate-900">Candidate Dashboard</h1>
-            <p class="text-slate-500 text-sm leading-relaxed max-w-2xl">Browse direct corporate job openings, verify your technical resume positioning, and manage active evaluations in your workspace.</p>
         </header>
 
-        <!-- Tabs Navigation -->
-        <div class="flex gap-6 border-b border-slate-200 pb-px">
-            <button id="btn-tab-marketplace" onclick="switchTab('marketplace')" class="pb-3 text-sm font-extrabold border-b-2 border-blue-600 text-blue-600 flex items-center gap-2 transition-all focus:outline-none">
-                <i data-lucide="layout-grid" class="w-4 h-4"></i> Browse Marketplace
+        <div class="tabs" role="tablist">
+            <button id="btn-tab-marketplace" class="tab" role="tab" aria-selected="true" onclick="switchTab('marketplace')">
+                <i data-lucide="layout-grid" class="i"></i> Open roles
+                <span class="badge">{{ jobs.paginator.count }}</span>
             </button>
-            <button id="btn-tab-applied" onclick="switchTab('applied')" class="pb-3 text-sm font-extrabold border-b-2 border-transparent text-slate-400 hover:text-slate-600 flex items-center gap-2 transition-all focus:outline-none">
-                <i data-lucide="clipboard-list" class="w-4 h-4"></i> My Applied Positions
-                {% if applications %}
-                <span class="text-[10px] font-extrabold bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full border border-slate-200 ml-1">{{ applications|length }}</span>
-                {% endif %}
+            <button id="btn-tab-applied" class="tab" role="tab" aria-selected="false" onclick="switchTab('applied')">
+                <i data-lucide="clipboard-list" class="i"></i> My applications
+                {% if applications %}<span class="badge">{{ applications|length }}</span>{% endif %}
             </button>
         </div>
 
-        <!-- Tab Panel 1: Jobs Marketplace -->
-        <div id="panel-marketplace" class="space-y-6">
-            <div class="flex justify-between items-center pb-2">
-                <h2 class="text-md font-extrabold text-slate-900 flex items-center gap-2">
-                    <i data-lucide="briefcase" class="w-4 h-4 text-slate-400"></i> Active Opportunities
-                </h2>
-                <span class="text-xs font-bold bg-blue-50 text-blue-600 px-2.5 py-1 rounded-full border border-blue-100">
-                    {{ jobs.paginator.count }} Active Roles
-                </span>
-            </div>
-
-            <form method="get" class="flex flex-col sm:flex-row gap-3">
-                <input type="search" name="q" value="{{ query }}" placeholder="Search by title, company or skill" aria-label="Search jobs"
-                       class="flex-1 px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none">
-                <select name="level" onchange="this.form.submit()" aria-label="Experience level"
-                        class="px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-600 focus:border-blue-500 outline-none">
+        <!-- Open roles -->
+        <div id="panel-marketplace" class="stack-lg">
+            <form method="get" class="row wrap">
+                <div class="input-icon grow" style="min-width:220px">
+                    <i data-lucide="search" class="i"></i>
+                    <input type="search" name="q" value="{{ query }}" placeholder="Search by title, company or skill" aria-label="Search jobs" class="input">
+                </div>
+                <select name="level" onchange="this.form.submit()" aria-label="Experience level" class="input" style="width:auto">
                     <option value="">All levels</option>
                     {% for lvl in levels %}<option value="{{ lvl }}" {% if lvl == level %}selected{% endif %}>{{ lvl }}</option>{% endfor %}
                 </select>
-                <button type="submit" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold">Search</button>
+                <button type="submit" class="btn btn-primary">Search</button>
             </form>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="grid-2">
                 {% for job in jobs %}
-                <div class="premium-card p-6 flex flex-col gap-5 justify-between relative">
-                    <div class="space-y-3">
-                        <div class="flex justify-between items-start gap-4">
-                            <div>
-                                <span class="text-[10px] text-blue-600 font-bold uppercase tracking-wider bg-blue-50/80 px-2.5 py-0.5 rounded-full border border-blue-100">{{ job.company.name }}</span>
-                                <h3 class="text-lg font-bold text-slate-900 mt-2 hover:text-blue-600 cursor-pointer transition-colors" onclick="openJobDetailsModal('{{ job.id }}', '{{ job.title|escapejs }}', '{{ job.company.name|escapejs }}', '{{ job.experience_level|default:'All Levels'|escapejs }}', '{{ job.description|escapejs }}', {% if job.id in applied_jobs %}true{% else %}false{% endif %})">{{ job.title }}</h3>
-                            </div>
-                            <span class="text-xs font-semibold text-slate-400 bg-slate-50 border border-slate-100 px-2 py-1 rounded-md">{{ job.experience_level|default:"All Levels" }}</span>
-                        </div>
-                        <p class="text-xs text-slate-500 leading-relaxed line-clamp-4">{{ job.description }}</p>
-                        <button onclick="openJobDetailsModal('{{ job.id }}', '{{ job.title|escapejs }}', '{{ job.company.name|escapejs }}', '{{ job.experience_level|default:'All Levels'|escapejs }}', '{{ job.description|escapejs }}', {% if job.id in applied_jobs %}true{% else %}false{% endif %})" class="text-[11px] font-bold text-slate-500 hover:text-blue-600 transition-colors flex items-center gap-1 mt-2">View Full Description <i data-lucide="external-link" class="w-3 h-3"></i></button>
+                <article class="card card-pad card-hover stack">
+                    <div class="card-head" style="margin-bottom:4px">
+                        <span class="row-sm label-caps"><span class="dot dot-green"></span>{{ job.company.name }}</span>
+                        <span class="badge badge-square shrink-0">{{ job.experience_level|default:"All Levels" }}</span>
                     </div>
+                    <h3 style="font-size:20px;cursor:pointer" onclick="openJobDetailsModal('{{ job.id }}', '{{ job.title|escapejs }}', '{{ job.company.name|escapejs }}', '{{ job.experience_level|default:'All Levels'|escapejs }}', '{{ job.description|escapejs }}', {% if job.id in applied_jobs %}true{% else %}false{% endif %})">{{ job.title }}</h3>
+                    <p class="muted small clamp-4">{{ job.description }}</p>
+                    <button type="button" class="text-btn" style="align-self:flex-start" onclick="openJobDetailsModal('{{ job.id }}', '{{ job.title|escapejs }}', '{{ job.company.name|escapejs }}', '{{ job.experience_level|default:'All Levels'|escapejs }}', '{{ job.description|escapejs }}', {% if job.id in applied_jobs %}true{% else %}false{% endif %})">Read full description <i data-lucide="arrow-right" class="i-sm arrow"></i></button>
 
-                    <div class="pt-4 border-t border-slate-100 flex items-center justify-between">
+                    <div class="card-foot">
                         {% if job.id in applied_jobs %}
                             {% for app in applications %}
                                 {% if app.job.id == job.id %}
-                                <div class="flex items-center gap-3 w-full justify-between">
-                                    <div class="flex items-center gap-2">
-                                        <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest leading-none">ATS Proximity</span>
-                                        <span class="text-sm font-extrabold text-blue-600 leading-none">{{ app.ats_match_score|default:"--" }}%</span>
-                                    </div>
-                                    
+                                <div class="row between wrap">
+                                    <span class="row-sm"><span class="label-caps">ATS match</span><span class="mono strong">{{ app.ats_match_score|floatformat:0|default:"--" }}%</span></span>
                                     {% if app.status == 'applied' %}
-                                    <a href="/session/?app_id={{ app.id }}" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-all shadow-sm flex items-center gap-1.5">
-                                        Start Interview <i data-lucide="play" class="w-3.5 h-3.5"></i>
-                                    </a>
+                                    <a href="/session/?app_id={{ app.id }}" class="btn btn-primary btn-sm">Start interview <i data-lucide="play" class="i-sm"></i></a>
                                     {% elif app.status == 'interviewing' %}
-                                    <a href="/session/?app_id={{ app.id }}" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-all shadow-sm flex items-center gap-1.5">
-                                        Resume Interview <i data-lucide="play-circle" class="w-3.5 h-3.5"></i>
-                                    </a>
+                                    <a href="/session/?app_id={{ app.id }}" class="btn btn-primary btn-sm">Resume interview <i data-lucide="play-circle" class="i-sm"></i></a>
                                     {% elif app.status == 'accepted' %}
-                                    <div class="flex flex-col items-end gap-1">
-                                        <span class="px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-1">
-                                            <i data-lucide="check-circle" class="w-3.5 h-3.5"></i> Accepted
-                                        </span>
-                                        <span class="text-[9px] font-semibold text-emerald-600 italic">Will be contacted soon via mail</span>
-                                    </div>
+                                    <span class="badge badge-green" title="You'll be contacted by email"><i data-lucide="check-circle" class="i-sm"></i> Accepted</span>
                                     {% elif app.status == 'rejected' %}
-                                    <span class="px-3 py-1.5 bg-rose-50 text-rose-700 border border-rose-100 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-1">
-                                        <i data-lucide="x-circle" class="w-3.5 h-3.5"></i> Rejected
-                                    </span>
+                                    <span class="badge badge-red"><i data-lucide="x-circle" class="i-sm"></i> Not selected</span>
                                     {% else %}
-                                    <span class="px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-1">
-                                        <i data-lucide="check-circle" class="w-3.5 h-3.5"></i> Evaluated
-                                    </span>
+                                    <span class="badge badge-green"><i data-lucide="check-circle" class="i-sm"></i> Evaluated</span>
                                     {% endif %}
                                 </div>
                                 {% endif %}
                             {% endfor %}
                         {% else %}
-                        <button onclick="openApplyModal('{{ job.id }}', '{{ job.title|escapejs }}', '{{ job.company.name|escapejs }}')" class="w-full py-2.5 bg-blue-50 text-blue-600 border border-blue-100 hover:bg-blue-100 text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1.5">
-                            <i data-lucide="file-up" class="w-4 h-4"></i> Apply & Verify Resume
+                        <button onclick="openApplyModal('{{ job.id }}', '{{ job.title|escapejs }}', '{{ job.company.name|escapejs }}')" class="btn btn-secondary btn-block">
+                            <i data-lucide="file-up" class="i"></i> Apply with resume
                         </button>
                         {% endif %}
                     </div>
-                </div>
+                </article>
                 {% empty %}
-                <div class="col-span-2 text-center py-16 text-slate-400 border border-dashed border-slate-200 rounded-2xl">
-                    <i data-lucide="briefcase" class="w-8 h-8 mx-auto text-slate-300 mb-3"></i>
+                <div class="empty" style="grid-column:1/-1">
+                    <i data-lucide="briefcase" class="i-lg faint"></i>
                     {% if query or level %}
-                    <p class="text-sm font-semibold">No roles match your filters</p>
-                    <a href="/dashboard/" class="text-xs text-blue-600 font-bold mt-1 inline-block">Clear filters</a>
+                    <p class="strong">No roles match your filters</p>
+                    <a href="/dashboard/" class="link small">Clear filters</a>
                     {% else %}
-                    <p class="text-sm font-semibold">No Open Positions Available</p>
-                    <p class="text-xs text-slate-400 mt-1">Corporate openings will appear here as soon as recruiters publish them.</p>
+                    <p class="strong">No open positions yet</p>
+                    <p class="small">Roles appear here as soon as recruiters publish them.</p>
                     {% endif %}
                 </div>
                 {% endfor %}
             </div>
 
             {% if jobs.has_other_pages %}
-            <nav class="flex items-center justify-center gap-4 text-sm font-semibold text-slate-500" aria-label="Job pages">
-                {% if jobs.has_previous %}<a href="{% querystring page=jobs.previous_page_number %}" class="hover:text-blue-600">&larr; Previous</a>{% endif %}
-                <span>Page {{ jobs.number }} of {{ jobs.paginator.num_pages }}</span>
-                {% if jobs.has_next %}<a href="{% querystring page=jobs.next_page_number %}" class="hover:text-blue-600">Next &rarr;</a>{% endif %}
+            <nav class="row" style="justify-content:center" aria-label="Job pages">
+                {% if jobs.has_previous %}<a href="{% querystring page=jobs.previous_page_number %}" class="btn btn-secondary btn-sm">&larr; Previous</a>{% endif %}
+                <span class="mono xs muted">Page {{ jobs.number }} of {{ jobs.paginator.num_pages }}</span>
+                {% if jobs.has_next %}<a href="{% querystring page=jobs.next_page_number %}" class="btn btn-secondary btn-sm">Next &rarr;</a>{% endif %}
             </nav>
             {% endif %}
         </div>
 
-        <!-- Tab Panel 2: Applied Positions & History -->
-        <div id="panel-applied" class="space-y-6 hidden">
-            <div class="flex justify-between items-center pb-2">
-                <h2 class="text-md font-extrabold text-slate-900 flex items-center gap-2">
-                    <i data-lucide="clipboard-list" class="w-4 h-4 text-slate-400"></i> My Applications Ledger
-                </h2>
-            </div>
-
-            <div class="premium-card overflow-hidden">
+        <!-- My applications -->
+        <div id="panel-applied" class="hidden">
+            <div class="card card-pad">
                 {% if applications %}
+                <div class="list">
                     {% for app in applications %}
-                    <div class="border-b border-slate-100 last:border-0 p-6 space-y-4">
-                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                            <div class="flex items-start gap-4">
-                                <div class="w-10 h-10 bg-blue-50/80 rounded-full flex items-center justify-center border border-blue-100 shrink-0">
-                                    <i data-lucide="file-check" class="text-blue-600 w-5 h-5"></i>
-                                </div>
-                                <div>
-                                    <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{{ app.job.company.name }}</span>
-                                    <h3 class="text-md font-extrabold text-slate-900 mt-0.5">{{ app.job.title }}</h3>
-                                    <p class="text-xs text-slate-400 mt-1">Applied on {{ app.created_at|date:"M d, Y" }}</p>
+                    <div class="stack">
+                        <div class="row between wrap">
+                            <div class="row">
+                                <span class="icon-box"><i data-lucide="file-check" class="i"></i></span>
+                                <div class="stack-xs">
+                                    <span class="label-caps">{{ app.job.company.name }}</span>
+                                    <h3 style="font-size:16px">{{ app.job.title }}</h3>
+                                    <span class="faint xs">Applied {{ app.created_at|date:"M d, Y" }}</span>
                                 </div>
                             </div>
-                            
-                            <!-- Application-level parameters -->
-                            <div class="flex items-center gap-6 bg-slate-50 border border-slate-100 px-4 py-3 rounded-xl">
-                                <div class="text-center">
-                                    <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">ATS Score</p>
-                                    <p class="text-sm font-extrabold text-blue-600 mt-0.5">{{ app.ats_match_score|default:"--" }}%</p>
-                                </div>
-                                <div class="w-px h-6 bg-slate-200"></div>
-                                <div class="text-center">
-                                    <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Integrity</p>
-                                    <p class="text-sm font-extrabold text-emerald-600 mt-0.5">{{ app.proctoring_score }}%</p>
-                                </div>
-                                <div class="w-px h-6 bg-slate-200"></div>
-                                <div class="text-center">
-                                    <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Status</p>
-                                    <span class="inline-block text-[10px] font-extrabold uppercase mt-0.5 px-2 py-0.5 rounded-full 
-                                        {% if app.status == 'accepted' %}bg-emerald-100 text-emerald-800 border border-emerald-200
-                                        {% elif app.status == 'evaluated' %}bg-emerald-50 text-emerald-700 border border-emerald-100
-                                        {% elif app.status == 'rejected' %}bg-rose-50 text-rose-700 border border-rose-100
-                                        {% else %}bg-blue-50 text-blue-700 border border-blue-100{% endif %}">
-                                        {{ app.get_status_display }}
-                                    </span>
+                            <div class="inset row" style="gap:20px">
+                                <div class="stack-xs center"><span class="label-caps">ATS</span><span class="mono strong">{{ app.ats_match_score|floatformat:0|default:"--" }}%</span></div>
+                                <span class="vr"></span>
+                                <div class="stack-xs center"><span class="label-caps">Integrity</span><span class="mono strong">{{ app.proctoring_score }}%</span></div>
+                                <span class="vr"></span>
+                                <div class="stack-xs center">
+                                    <span class="label-caps">Status</span>
+                                    <span class="badge {% if app.status == 'accepted' or app.status == 'evaluated' %}badge-green{% elif app.status == 'rejected' %}badge-red{% else %}badge-blue{% endif %}">{{ app.get_status_display }}</span>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Active Sessions, gap analysis and downloads -->
-                        <div class="pl-0 sm:pl-14 space-y-3 pt-2">
-                            {% if app.status == 'applied' %}
-                            <div class="p-4 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-between">
-                                <p class="text-xs text-slate-500 font-medium">Your resume matching is verified. Launch your voice assessment to complete evaluation.</p>
-                                <a href="/session/?app_id={{ app.id }}" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 whitespace-nowrap">
-                                    Start Interview <i data-lucide="play" class="w-3.5 h-3.5"></i>
-                                </a>
-                            </div>
-                            {% elif app.status == 'interviewing' %}
-                            <div class="p-4 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-between">
-                                <p class="text-xs text-slate-500 font-medium">You have an ongoing active evaluation session.</p>
-                                <a href="/session/?app_id={{ app.id }}" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 whitespace-nowrap">
-                                    Resume Interview <i data-lucide="play-circle" class="w-3.5 h-3.5"></i>
-                                </a>
-                            </div>
-                            {% elif app.status == 'accepted' %}
-                            <div class="p-4 bg-emerald-50/50 border border-emerald-100 rounded-xl flex items-center justify-between">
-                                <p class="text-xs text-emerald-800 font-bold">🎉 Congratulations! You have been accepted for this position. Our HR team will contact you soon via email.</p>
-                                <span class="px-3 py-1.5 bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-lg text-xs font-extrabold uppercase tracking-wider flex items-center gap-1">
-                                    <i data-lucide="check-circle" class="w-3.5 h-3.5"></i> Accepted
-                                </span>
-                            </div>
-                            {% elif app.status == 'rejected' %}
-                            <div class="p-4 bg-rose-50/50 border border-rose-100 rounded-xl flex items-center justify-between">
-                                <p class="text-xs text-rose-800 font-semibold">Thank you for your time. Unfortunately, the company has decided to proceed with other candidates at this stage.</p>
-                                <span class="px-3 py-1.5 bg-rose-100 text-rose-800 border border-rose-200 rounded-lg text-xs font-extrabold uppercase tracking-wider flex items-center gap-1">
-                                    <i data-lucide="x-circle" class="w-3.5 h-3.5"></i> Rejected
-                                </span>
-                            </div>
-                            {% elif app.status == 'evaluated' %}
-                                {% for session in app.sessions.all %}
-                                <div class="border border-slate-100 rounded-xl overflow-hidden bg-slate-50/20">
-                                    <div class="flex items-center justify-between p-4 bg-slate-50/50">
-                                        <div class="flex items-center gap-2">
-                                            <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-                                            <span class="text-xs font-bold text-slate-700">Interview Session Evaluation #{{ session.id }}</span>
-                                        </div>
-                                        <div class="flex items-center gap-2">
-                                            {% if session.gap_analysis %}
-                                            <button onclick="toggleGap('{{ session.id }}')" class="inline-flex items-center text-xs font-bold text-indigo-600 hover:text-indigo-800 transition-colors bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100">
-                                                <i data-lucide="brain" class="w-3.5 h-3.5 mr-1"></i> AI Gap Analysis
-                                            </button>
-                                            {% endif %}
-                                            <a href="/review/{{ session.id }}/" class="inline-flex items-center text-xs font-bold text-slate-600 hover:text-slate-900 transition-colors bg-white px-3 py-1.5 rounded-lg border border-slate-200">
-                                                <i data-lucide="message-square-text" class="w-3.5 h-3.5 mr-1"></i> Review
-                                            </a>
-                                            <a href="/download-session/{{ session.id }}/" class="inline-flex items-center text-xs font-bold text-blue-600 hover:text-blue-800 transition-colors bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100">
-                                                <i data-lucide="download" class="w-3.5 h-3.5 mr-1"></i> PDF Profile
-                                            </a>
-                                            <form method="post" action="/delete-session/{{ session.id }}/" onsubmit="return confirm('Are you sure you want to delete this session? This cannot be undone.');">
-                                                {% csrf_token %}
-                                                <button type="submit" class="inline-flex items-center text-slate-400 hover:text-red-600 transition-colors bg-white hover:bg-red-50 flex items-center justify-center w-8 h-8 rounded-lg border border-slate-200 hover:border-red-200" title="Delete Session" aria-label="Delete session">
-                                                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-                                                </button>
-                                            </form>
-                                        </div>
-                                    </div>
-                                    
-                                    {% if session.gap_analysis %}
-                                    <div id="gap-block-{{ session.id }}" class="hidden p-4 bg-white border-t border-slate-100 animate-in slide-in-from-top-2 duration-300">
-                                        <div class="flex items-center gap-2 text-indigo-600 mb-2">
-                                            <i data-lucide="brain" class="w-4 h-4"></i>
-                                            <span class="text-xs font-bold uppercase tracking-wider">Explainable AI Talent Map Feedback</span>
-                                        </div>
-                                        <p class="text-xs text-slate-600 leading-relaxed font-medium">{{ session.gap_analysis }}</p>
-                                    </div>
-                                    {% endif %}
-                                </div>
-                                {% endfor %}
-                            {% endif %}
+                        {% if app.status == 'applied' %}
+                        <div class="inset row between wrap">
+                            <p class="small muted">Your resume is scored. Start the interview to finish your application.</p>
+                            <a href="/session/?app_id={{ app.id }}" class="btn btn-primary btn-sm">Start interview <i data-lucide="play" class="i-sm"></i></a>
                         </div>
+                        {% elif app.status == 'interviewing' %}
+                        <div class="inset row between wrap">
+                            <p class="small muted">You have an interview in progress.</p>
+                            <a href="/session/?app_id={{ app.id }}" class="btn btn-primary btn-sm">Resume interview <i data-lucide="play-circle" class="i-sm"></i></a>
+                        </div>
+                        {% elif app.status == 'accepted' %}
+                        <div class="alert alert-success"><i data-lucide="party-popper" class="i"></i>Congratulations, you've been accepted for this role. The team will contact you by email soon.</div>
+                        {% elif app.status == 'rejected' %}
+                        <div class="alert">Thank you for your time. The company has decided to move forward with other candidates for now.</div>
+                        {% elif app.status == 'evaluated' %}
+                            {% for session in app.sessions.all %}
+                            <div class="inset stack-sm">
+                                <div class="row between wrap">
+                                    <span class="row-sm small strong"><span class="dot dot-green"></span>Interview #{{ session.id }}</span>
+                                    <div class="row-sm wrap">
+                                        {% if session.gap_analysis %}
+                                        <button onclick="toggleGap('{{ session.id }}')" class="btn btn-secondary btn-sm"><i data-lucide="brain" class="i-sm"></i> Gap analysis</button>
+                                        {% endif %}
+                                        <a href="/review/{{ session.id }}/" class="btn btn-secondary btn-sm"><i data-lucide="message-square-text" class="i-sm"></i> Review</a>
+                                        <a href="/download-session/{{ session.id }}/" class="btn btn-primary btn-sm"><i data-lucide="download" class="i-sm"></i> PDF</a>
+                                        <form method="post" action="/delete-session/{{ session.id }}/" onsubmit="return confirm('Are you sure you want to delete this session? This cannot be undone.');">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-ghost-danger btn-sm btn-icon" title="Delete session" aria-label="Delete session"><i data-lucide="trash-2" class="i-sm"></i></button>
+                                        </form>
+                                    </div>
+                                </div>
+                                {% if session.gap_analysis %}
+                                <div id="gap-block-{{ session.id }}" class="hidden stack-sm" style="padding-top:8px">
+                                    <span class="label-caps t-violet">Skills gap analysis</span>
+                                    <p class="small muted">{{ session.gap_analysis }}</p>
+                                </div>
+                                {% endif %}
+                            </div>
+                            {% endfor %}
+                        {% endif %}
                     </div>
                     {% endfor %}
+                </div>
                 {% else %}
-                <div class="flex items-center justify-center p-12 text-slate-400 text-sm">
-                    You haven't applied to any roles yet. Click the "Browse Marketplace" tab to get started!
+                <div class="empty empty-plain">
+                    <i data-lucide="inbox" class="i-lg faint"></i>
+                    <p>You haven't applied to any roles yet. Pick one under <b>Open roles</b> to get started.</p>
                 </div>
                 {% endif %}
             </div>
         </div>
     </main>
 
-    <!-- Job Details Modal -->
-    <div id="jobDetailsModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center hidden opacity-0 transition-all duration-300">
-        <div class="bg-white rounded-2xl w-full max-w-2xl p-6 shadow-xl border border-slate-100 mx-4 transform scale-95 transition-transform duration-300 max-h-[85vh] flex flex-col">
-            <div class="flex justify-between items-start border-b border-slate-100 pb-4 mb-4">
-                <div>
-                    <span id="modal-detail-company" class="text-[10px] text-blue-600 font-bold uppercase tracking-wider bg-blue-50/80 px-2.5 py-0.5 rounded-full border border-slate-100">Company Name</span>
-                    <h3 id="modal-detail-title" class="text-xl font-extrabold text-slate-900 mt-2">Job Position Title</h3>
-                    <div class="flex gap-2 mt-2">
-                        <span id="modal-detail-exp" class="text-[10px] font-bold bg-slate-50 border border-slate-100 text-slate-600 px-2 py-0.5 rounded-md">Experience Level</span>
-                    </div>
-                </div>
-                <button onclick="closeJobDetailsModal()" aria-label="Close" class="w-8 h-8 rounded-full bg-slate-50 hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors">
-                    <i data-lucide="x" class="w-4 h-4"></i>
-                </button>
+    <!-- Job details -->
+    <dialog id="jobDetailsModal" class="modal modal-lg">
+        <div class="modal-head">
+            <div class="stack-sm">
+                <span id="modal-detail-company" class="label-caps">Company</span>
+                <h3 id="modal-detail-title">Job title</h3>
+                <span id="modal-detail-exp" class="badge badge-square" style="align-self:flex-start">Experience</span>
             </div>
-            
-            <div class="overflow-y-auto pr-2 flex-grow space-y-4 py-2">
-                <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400">Position Details & Description</h4>
-                <div id="modal-detail-desc" class="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap font-medium">Full description goes here...</div>
+            <button onclick="closeJobDetailsModal()" aria-label="Close" class="btn btn-ghost btn-sm btn-icon"><i data-lucide="x" class="i"></i></button>
+        </div>
+        <div class="modal-body">
+            <div id="modal-detail-desc" class="small muted pre-wrap"></div>
+        </div>
+        <div class="modal-foot">
+            <div id="modal-detail-status-msg" class="hidden badge badge-green" style="margin-right:auto"><i data-lucide="check-circle" class="i-sm"></i> Applied. Track it under My applications.</div>
+            <button id="modal-detail-close-btn" type="button" onclick="closeJobDetailsModal()" class="btn btn-secondary">Close</button>
+            <button id="modal-detail-apply-btn" type="button" class="btn btn-primary">Apply now <i data-lucide="arrow-right" class="i arrow"></i></button>
+        </div>
+    </dialog>
+
+    <!-- Apply with a resume -->
+    <dialog id="applyModal" class="modal">
+        <div class="modal-head">
+            <div class="stack-xs">
+                <h3>Submit application</h3>
+                <p id="modal-job-sub" class="faint xs">Job title at Company</p>
             </div>
-            
-            <div class="flex gap-4 pt-4 border-t border-slate-100 mt-4 justify-end items-center">
-                <div id="modal-detail-status-msg" class="text-xs text-slate-500 font-semibold hidden flex items-center gap-1.5 bg-emerald-50 border border-emerald-100 px-3 py-2 rounded-xl text-emerald-700">
-                    <i data-lucide="check-circle" class="w-4 h-4"></i> Applied: You can view details in your Assessment History below.
-                </div>
-                <button id="modal-detail-close-btn" type="button" onclick="closeJobDetailsModal()" class="px-6 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold rounded-xl text-xs transition-colors">Close</button>
-                <button id="modal-detail-apply-btn" type="button" class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition-colors shadow-sm flex items-center gap-1.5">Apply Now <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i></button>
+            <button onclick="closeApplyModal()" aria-label="Close" class="btn btn-ghost btn-sm btn-icon"><i data-lucide="x" class="i"></i></button>
+        </div>
+
+        <div id="apply-loading-state" class="hidden modal-body stack" style="align-items:center;padding:48px 24px" role="status" aria-live="polite">
+            <div class="spinner spinner-lg"></div>
+            <p class="strong small">Scoring your resume against this role</p>
+            <p class="faint xs mono">This takes a few seconds…</p>
+        </div>
+
+        <form id="apply-form">
+            {% csrf_token %}
+            <input type="hidden" name="job_id" id="modal-job-id">
+            <div class="modal-body">
+                <label class="dropzone">
+                    <input type="file" name="resume" id="resume-file-input" required accept=".pdf" class="sr-only" onchange="updateFileName(this)">
+                    <span class="icon-box"><i data-lucide="upload" class="i"></i></span>
+                    <span id="file-label" class="strong small">Choose your PDF resume</span>
+                    <span class="faint xs">Unencrypted PDF, up to 4 MB</span>
+                </label>
+            </div>
+            <div class="modal-foot">
+                <button type="button" onclick="closeApplyModal()" class="btn btn-secondary">Cancel</button>
+                <button type="submit" id="apply-submit" class="btn btn-primary">Submit application</button>
+            </div>
+        </form>
+    </dialog>
+
+    <!-- After applying: interview now or later -->
+    <dialog id="nowOrLaterModal" class="modal">
+        <div class="modal-body stack center" style="align-items:center;padding:32px 24px">
+            <span class="icon-box"><i data-lucide="sparkles" class="i"></i></span>
+            <div class="stack-xs">
+                <h3 style="font-size:20px">Application submitted</h3>
+                <p id="nol-job-sub" class="faint small">Job at Company</p>
+            </div>
+            <div class="inset stack-xs" style="width:100%">
+                <span class="label-caps">ATS match</span>
+                <span id="nol-ats-score" class="stat-value">--%</span>
+            </div>
+            <div id="nol-ats-tips" class="hidden stack-sm" style="width:100%;text-align:left">
+                <span class="label-caps">Missing from your resume</span>
+                <div id="nol-missing" class="row-sm wrap"></div>
+                <ul id="nol-suggestions" class="bullets small muted"></ul>
+            </div>
+            <p class="muted small">Start your proctored interview now, or come back to it later from your dashboard.</p>
+            <div class="stack-sm" style="width:100%">
+                <a id="nol-start-btn" href="#" class="btn btn-primary btn-block">Start interview now <i data-lucide="play" class="i-sm"></i></a>
+                <button type="button" onclick="closeNowOrLaterModal(true)" class="btn btn-secondary btn-block">Do it later</button>
             </div>
         </div>
-    </div>
+    </dialog>
 
-    <!-- Apply & Upload Resume Modal -->
-    <div id="applyModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center hidden opacity-0 transition-all duration-300">
-        <div class="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl border border-slate-100 mx-4 transform scale-95 transition-transform duration-300 mx-4">
-            <div class="flex justify-between items-center border-b border-slate-100 pb-4 mb-5">
-                <div>
-                    <h3 class="text-md font-extrabold text-slate-900">Submit Application</h3>
-                    <p id="modal-job-sub" class="text-[10px] text-slate-400 mt-0.5 uppercase tracking-wider font-semibold">Job Title @ Company</p>
-                </div>
-                <button onclick="closeApplyModal()" aria-label="Close" class="w-8 h-8 rounded-full bg-slate-50 hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors">
-                    <i data-lucide="x" class="w-4 h-4"></i>
-                </button>
-            </div>
-            
-            <!-- JavaScript Intercepted form -->
-            <div id="apply-loading-state" class="hidden flex flex-col items-center justify-center py-12 space-y-4" role="status" aria-live="polite">
-                <div class="spinner"></div>
-                <div class="text-center space-y-1">
-                    <p class="text-xs font-bold text-slate-900">Analyzing Technical Resume Alignment</p>
-                    <p class="text-[10px] text-slate-400 uppercase tracking-widest">Running context-aware ATS matching algorithms...</p>
-                </div>
-            </div>
+    {% include "partials/footer.html" %}
+{% endblock %}
+{% block scripts %}
+<script>
+    const applyModal = document.getElementById('applyModal');
+    const jobDetailsModal = document.getElementById('jobDetailsModal');
+    const nowOrLaterModal = document.getElementById('nowOrLaterModal');
+    const fileLabel = document.getElementById('file-label');
 
-            <form id="apply-form" class="space-y-5">
-                {% csrf_token %}
-                <input type="hidden" name="job_id" id="modal-job-id">
-                
-                <div class="border-2 border-dashed border-slate-200 hover:border-blue-400 rounded-xl p-8 text-center cursor-pointer transition-all bg-slate-50/50 relative group" onclick="document.getElementById('resume-file-input').click()">
-                    <input type="file" name="resume" id="resume-file-input" required accept=".pdf" class="hidden" onchange="updateFileName(this)">
-                    <div class="space-y-2">
-                        <div class="w-10 h-10 bg-white group-hover:bg-blue-50 text-slate-400 group-hover:text-blue-500 rounded-lg flex items-center justify-center shadow-sm border border-slate-100 mx-auto transition-colors">
-                            <i data-lucide="upload-cloud" class="w-5 h-5"></i>
-                        </div>
-                        <p id="file-label" class="text-xs text-slate-500 font-semibold">Select PDF resume for this position</p>
-                        <p class="text-[10px] text-slate-400 uppercase tracking-widest">Only unencrypted PDF support</p>
-                    </div>
-                </div>
+    function switchTab(tabName) {
+        const marketplace = tabName === 'marketplace';
+        document.getElementById('btn-tab-marketplace').setAttribute('aria-selected', marketplace);
+        document.getElementById('btn-tab-applied').setAttribute('aria-selected', !marketplace);
+        document.getElementById('panel-marketplace').classList.toggle('hidden', !marketplace);
+        document.getElementById('panel-applied').classList.toggle('hidden', marketplace);
+    }
 
-                <div class="flex gap-4 pt-2 border-t border-slate-100">
-                    <button type="button" onclick="closeApplyModal()" class="flex-1 py-3 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold rounded-xl text-xs transition-colors">Cancel</button>
-                    <button type="submit" id="apply-submit" class="flex-1 py-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-bold rounded-xl text-xs transition-colors shadow-sm">Submit Application</button>
-                </div>
-            </form>
-        </div>
-    </div>
+    function openJobDetailsModal(jobId, jobTitle, companyName, experienceLevel, description, hasApplied) {
+        document.getElementById('modal-detail-company').innerText = companyName;
+        document.getElementById('modal-detail-title').innerText = jobTitle;
+        document.getElementById('modal-detail-exp').innerText = experienceLevel;
+        document.getElementById('modal-detail-desc').innerText = description;
 
-    <!-- Now or Later Modal -->
-    <div id="nowOrLaterModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center hidden opacity-0 transition-all duration-300">
-        <div class="bg-white rounded-2xl w-full max-w-md p-8 shadow-xl border border-slate-100 mx-4 transform scale-95 transition-transform duration-300 text-center flex flex-col items-center gap-6">
-            <div class="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center border border-blue-100 shadow-sm animate-bounce">
-                <i data-lucide="sparkles" class="w-8 h-8"></i>
-            </div>
-            
-            <div class="space-y-1">
-                <h3 class="text-xl font-extrabold text-slate-900">Application Submitted!</h3>
-                <p id="nol-job-sub" class="text-xs text-slate-400 font-semibold uppercase tracking-wider">Job Position at Company</p>
-            </div>
-            
-            <!-- Dynamic ATS score matching badge -->
-            <div class="bg-blue-50/50 border border-blue-100 rounded-2xl px-6 py-4 flex flex-col items-center w-full">
-                <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-none">ATS Profile Match Proximity</p>
-                <p id="nol-ats-score" class="text-3xl font-black text-blue-600 mt-2">--%</p>
-            </div>
-
-            <div id="nol-ats-tips" class="hidden w-full text-left space-y-2">
-                <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Missing from your resume</p>
-                <div id="nol-missing" class="flex flex-wrap gap-1"></div>
-                <ul id="nol-suggestions" class="list-disc pl-4 text-xs text-slate-500 space-y-1"></ul>
-            </div>
-            
-            <p class="text-slate-500 text-xs leading-relaxed max-w-xs">Would you like to initiate your stateful voice-proctored evaluation now, or complete it later from your dashboard?</p>
-            
-            <div class="flex flex-col gap-3 w-full pt-2">
-                <a id="nol-start-btn" href="#" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition-colors shadow-md flex items-center justify-center gap-1.5">
-                    Start Interview Now <i data-lucide="play" class="w-3.5 h-3.5"></i>
-                </a>
-                <button type="button" onclick="closeNowOrLaterModal(true)" class="w-full py-3 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold rounded-xl text-xs transition-colors">
-                    Do It Later
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Premium Footer -->
-    <footer class="bg-white border-t border-slate-100 py-6 mt-auto w-full text-center flex items-center justify-center">
-        <div class="max-w-7xl mx-auto px-6 text-xs text-slate-400">
-            &copy; 2026 Hirely. All rights reserved. Candidate Hub & Recruiter Marketplace.
-        </div>
-    </footer>
-
-    <script>
-        lucide.createIcons();
-
-        const applyModal = document.getElementById('applyModal');
-        const modalContainer = applyModal.querySelector('.transform');
-        const fileLabel = document.getElementById('file-label');
-
-        const jobDetailsModal = document.getElementById('jobDetailsModal');
-        const detailsContainer = jobDetailsModal.querySelector('.transform');
-
-        const nowOrLaterModal = document.getElementById('nowOrLaterModal');
-        const nolContainer = nowOrLaterModal.querySelector('.transform');
-
-        function switchTab(tabName) {
-            const btnMarketplace = document.getElementById('btn-tab-marketplace');
-            const btnApplied = document.getElementById('btn-tab-applied');
-            const panelMarketplace = document.getElementById('panel-marketplace');
-            const panelApplied = document.getElementById('panel-applied');
-            
-            if (tabName === 'marketplace') {
-                btnMarketplace.classList.add('border-blue-600', 'text-blue-600');
-                btnMarketplace.classList.remove('border-transparent', 'text-slate-400');
-                
-                btnApplied.classList.add('border-transparent', 'text-slate-400');
-                btnApplied.classList.remove('border-blue-600', 'text-blue-600');
-                
-                panelMarketplace.classList.remove('hidden');
-                panelApplied.classList.add('hidden');
-            } else {
-                btnApplied.classList.add('border-blue-600', 'text-blue-600');
-                btnApplied.classList.remove('border-transparent', 'text-slate-400');
-                
-                btnMarketplace.classList.add('border-transparent', 'text-slate-400');
-                btnMarketplace.classList.remove('border-blue-600', 'text-blue-600');
-                
-                panelApplied.classList.remove('hidden');
-                panelMarketplace.classList.add('hidden');
-            }
-        }
-
-        function openJobDetailsModal(jobId, jobTitle, companyName, experienceLevel, description, hasApplied) {
-            document.getElementById('modal-detail-company').innerText = companyName;
-            document.getElementById('modal-detail-title').innerText = jobTitle;
-            document.getElementById('modal-detail-exp').innerText = experienceLevel;
-            document.getElementById('modal-detail-desc').innerText = description;
-            
-            const applyBtn = document.getElementById('modal-detail-apply-btn');
-            const statusMsg = document.getElementById('modal-detail-status-msg');
-            
-            if (hasApplied) {
-                applyBtn.classList.add('hidden');
-                statusMsg.classList.remove('hidden');
-            } else {
-                applyBtn.classList.remove('hidden');
-                statusMsg.classList.add('hidden');
-                applyBtn.onclick = function() {
-                    closeJobDetailsModal();
-                    setTimeout(() => {
-                        openApplyModal(jobId, jobTitle, companyName);
-                    }, 350);
-                };
-            }
-            
-            jobDetailsModal.classList.remove('hidden');
-            setTimeout(() => {
-                jobDetailsModal.classList.add('opacity-100');
-                detailsContainer.classList.replace('scale-95', 'scale-100');
-            }, 50);
-        }
-
-        function closeJobDetailsModal() {
-            detailsContainer.classList.replace('scale-100', 'scale-95');
-            jobDetailsModal.classList.remove('opacity-100');
-            setTimeout(() => {
-                jobDetailsModal.classList.add('hidden');
-            }, 300);
-        }
-
-        function openApplyModal(jobId, jobTitle, companyName) {
-            document.getElementById('modal-job-id').value = jobId;
-            document.getElementById('modal-job-sub').innerText = `${jobTitle} at ${companyName}`;
-            fileLabel.innerText = "Select PDF resume for this position";
-            applyModal.classList.remove('hidden');
-            setTimeout(() => {
-                applyModal.classList.add('opacity-100');
-                modalContainer.classList.replace('scale-95', 'scale-100');
-            }, 50);
-        }
-
-        function closeApplyModal() {
-            modalContainer.classList.replace('scale-100', 'scale-95');
-            applyModal.classList.remove('opacity-100');
-            setTimeout(() => {
-                applyModal.classList.add('hidden');
-            }, 300);
-        }
-
-        function updateFileName(input) {
-            if (input.files && input.files[0]) {
-                fileLabel.innerHTML = `Selected File: <span class="text-blue-600 font-bold">${input.files[0].name}</span>`;
-            }
-        }
-
-        function toggleGap(sessionId) {
-            const el = document.getElementById(`gap-block-${sessionId}`);
-            el.classList.toggle('hidden');
-        }
-
-        // AJAX submit interceptor
-        document.getElementById('apply-form').onsubmit = function(e) {
-            e.preventDefault();
-            
-            const form = this;
-            const formData = new FormData(form);
-            const loadingState = document.getElementById('apply-loading-state');
-            const resume = formData.get('resume');
-            if (resume && resume.size > 4 * 1024 * 1024) {
-                alert('Resume is larger than 4 MB. Please upload a smaller PDF.');
-                return;
-            }
-            const submitBtn = document.getElementById('apply-submit');
-            if (submitBtn.disabled) return;  // already scoring this resume
-            submitBtn.disabled = true;
-            
-            // Show loading state, hide form fields
-            form.classList.add('hidden');
-            loadingState.classList.remove('hidden');
-            
-            fetch('/ai/apply-to-job/', {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-CSRFToken': formData.get('csrfmiddlewaretoken')
-                }
-            })
-            .then(async res => {
-                const data = await res.json().catch(() => ({}));
-                if (!res.ok) throw new Error(data.error || 'Application submission failed.');
-                return data;
-            })
-            .then(data => {
-                // Reset form and modal state
-                form.reset();
-                form.classList.remove('hidden');
-                loadingState.classList.add('hidden');
-                submitBtn.disabled = false;
-                closeApplyModal();
-                
-                // Populate Now or Later Modal
-                document.getElementById('nol-job-sub').innerText = `${data.job_title} at ${data.company_name}`;
-                document.getElementById('nol-ats-score').innerText = `${data.ats_score}%`;
-                document.getElementById('nol-start-btn').href = `/session/?app_id=${data.app_id}`;
-                const missing = document.getElementById('nol-missing'), tips = document.getElementById('nol-suggestions');
-                missing.replaceChildren(...(data.missing_keywords || []).map(kw => Object.assign(document.createElement('span'),
-                    { textContent: kw, className: 'px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 border border-rose-100 text-[10px] font-semibold' })));
-                tips.replaceChildren(...(data.improvement_suggestions || []).map(t => Object.assign(document.createElement('li'), { textContent: t })));
-                document.getElementById('nol-ats-tips').classList.toggle('hidden', !missing.children.length && !tips.children.length);
-                
-                // Open Now or Later Modal
-                setTimeout(() => {
-                    openNowOrLaterModal();
-                }, 400);
-            })
-            .catch(err => {
-                alert(err.message);
-                form.classList.remove('hidden');
-                loadingState.classList.add('hidden');
-                submitBtn.disabled = false;
-            });
+        const applyBtn = document.getElementById('modal-detail-apply-btn');
+        applyBtn.classList.toggle('hidden', hasApplied);
+        document.getElementById('modal-detail-status-msg').classList.toggle('hidden', !hasApplied);
+        applyBtn.onclick = () => {
+            closeJobDetailsModal();
+            openApplyModal(jobId, jobTitle, companyName);
         };
+        jobDetailsModal.showModal();
+    }
 
-        function openNowOrLaterModal() {
-            nowOrLaterModal.classList.remove('hidden');
-            setTimeout(() => {
-                nowOrLaterModal.classList.add('opacity-100');
-                nolContainer.classList.replace('scale-95', 'scale-100');
-            }, 50);
-        }
+    function closeJobDetailsModal() {
+        jobDetailsModal.close();
+    }
 
-        function closeNowOrLaterModal(shouldReload = false) {
-            nolContainer.classList.replace('scale-100', 'scale-95');
-            nowOrLaterModal.classList.remove('opacity-100');
-            setTimeout(() => {
-                nowOrLaterModal.classList.add('hidden');
-                if (shouldReload) {
-                    window.location.reload();
-                }
-            }, 300);
+    function openApplyModal(jobId, jobTitle, companyName) {
+        document.getElementById('modal-job-id').value = jobId;
+        document.getElementById('modal-job-sub').innerText = `${jobTitle} at ${companyName}`;
+        fileLabel.innerText = "Choose your PDF resume";
+        applyModal.showModal();
+    }
+
+    function closeApplyModal() {
+        applyModal.close();
+    }
+
+    function updateFileName(input) {
+        if (input.files && input.files[0]) {
+            fileLabel.textContent = input.files[0].name;
         }
-    </script>
+    }
+
+    function toggleGap(sessionId) {
+        document.getElementById(`gap-block-${sessionId}`).classList.toggle('hidden');
+    }
+
+    // Scoring takes a few seconds: don't let Escape close the dialog halfway through
+    applyModal.addEventListener('cancel', e => {
+        if (document.getElementById('apply-submit').disabled) e.preventDefault();
+    });
+
+    document.getElementById('apply-form').onsubmit = function(e) {
+        e.preventDefault();
+
+        const form = this;
+        const formData = new FormData(form);
+        const loadingState = document.getElementById('apply-loading-state');
+        const resume = formData.get('resume');
+        if (resume && resume.size > 4 * 1024 * 1024) {
+            alert('Resume is larger than 4 MB. Please upload a smaller PDF.');
+            return;
+        }
+        const submitBtn = document.getElementById('apply-submit');
+        if (submitBtn.disabled) return;  // already scoring this resume
+        submitBtn.disabled = true;
+
+        form.classList.add('hidden');
+        loadingState.classList.remove('hidden');
+
+        fetch('/ai/apply-to-job/', {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-CSRFToken': formData.get('csrfmiddlewaretoken') }
+        })
+        .then(async res => {
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || 'Application submission failed.');
+            return data;
+        })
+        .then(data => {
+            form.reset();
+            form.classList.remove('hidden');
+            loadingState.classList.add('hidden');
+            submitBtn.disabled = false;
+            closeApplyModal();
+
+            document.getElementById('nol-job-sub').innerText = `${data.job_title} at ${data.company_name}`;
+            document.getElementById('nol-ats-score').innerText = `${data.ats_score}%`;
+            document.getElementById('nol-start-btn').href = `/session/?app_id=${data.app_id}`;
+            const missing = document.getElementById('nol-missing'), tips = document.getElementById('nol-suggestions');
+            missing.replaceChildren(...(data.missing_keywords || []).map(kw => Object.assign(document.createElement('span'),
+                { textContent: kw, className: 'badge badge-red badge-square' })));
+            tips.replaceChildren(...(data.improvement_suggestions || []).map(t => Object.assign(document.createElement('li'), { textContent: t })));
+            document.getElementById('nol-ats-tips').classList.toggle('hidden', !missing.children.length && !tips.children.length);
+
+            openNowOrLaterModal();
+        })
+        .catch(err => {
+            alert(err.message);
+            form.classList.remove('hidden');
+            loadingState.classList.add('hidden');
+            submitBtn.disabled = false;
+        });
+    };
+
+    function openNowOrLaterModal() {
+        nowOrLaterModal.showModal();
+    }
+
+    function closeNowOrLaterModal(shouldReload = false) {
+        nowOrLaterModal.close();
+        if (shouldReload) window.location.reload();
+    }
+
+    // The new application should show up on the page however the dialog is dismissed
+    nowOrLaterModal.addEventListener('cancel', () => window.location.reload());
+</script>
 {% endblock %}

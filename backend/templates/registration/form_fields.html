@@ -1,13 +1,13 @@
-<form method="post" class="auth-form space-y-4">
+<form method="post" class="auth-form stack">
     {% csrf_token %}
     {{ form.non_field_errors }}
     {% for field in form %}
-    <div class="space-y-1.5">
-        <label for="{{ field.id_for_label }}" class="text-sm font-semibold text-gray-700">{{ field.label }}</label>
+    <div class="field">
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
         {{ field }}
         {{ field.errors }}
         {% if field.help_text %}<div class="helptext">{{ field.help_text|safe }}</div>{% endif %}
     </div>
     {% endfor %}
-    <button type="submit" class="w-full py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors shadow-sm">{{ submit_label }}</button>
+    <button type="submit" class="btn btn-primary btn-block">{{ submit_label }}</button>
 </form>

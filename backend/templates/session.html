@@ -1,310 +1,105 @@
 {% extends "base.html" %}
 {% load static %}
-{% block title %}AI Interview Session | Hirely{% endblock %}
+{% block title %}Interview | Hirely{% endblock %}
 {% block head %}
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/face_mesh.js" integrity="sha384-nKiz5QrpRlMQLw5nrZcprT7N9vmmAcIgV8TuGuep4x91V4JIPsXa+D44Wxj0guoa" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js" integrity="sha384-q1KhAZhJcJXr3zfC3Tz07pBqQSabwFIZhXlmlUAB8s0zk4ETWERkIKGBCFQ5Jc3e" crossorigin="anonymous"></script>
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f9fafb;
-            color: #111827;
-        }
-
-        .clean-card {
-            background: #ffffff;
-            border: 1px solid #e5e7eb;
-            border-radius: 12px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-        }
-
-        .video-placeholder {
-            background: #f3f4f6;
-            position: relative;
-            overflow: hidden;
-            border-radius: 12px;
-            border: 1px solid #e5e7eb;
-        }
-
-        .video-container {
-            position: relative;
-            width: 100%;
-            height: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        #input-video {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            border-radius: 12px;
-            transform: scaleX(-1);
-        }
-
-        #output-canvas {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            transform: scaleX(-1);
-        }
-
-        .proctoring-badge {
-            position: absolute;
-            top: 1rem;
-            right: 1rem;
-            padding: 0.5rem 1rem;
-            border-radius: 99px;
-            font-size: 0.75rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            backdrop-filter: blur(10px);
-            z-index: 10;
-        }
-
-        @media (max-width: 640px) {
-            /* Keep the badge from covering the candidate's face on a small video */
-            .proctoring-badge { top: 0.5rem; right: 0.5rem; padding: 0.25rem 0.6rem; font-size: 0.625rem; }
-        }
-
-        .status-safe {
-            background: rgba(16, 185, 129, 0.1);
-            color: #059669;
-            border: 1px solid rgba(16, 185, 129, 0.2);
-        }
-
-        .status-warning {
-            background: rgba(245, 158, 11, 0.1);
-            color: #d97706;
-            border: 1px solid rgba(245, 158, 11, 0.2);
-            animation: pulse-ring 1.25s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
-        }
-
-        .status-danger {
-            background: rgba(239, 68, 68, 0.1);
-            color: #dc2626;
-            border: 1px solid rgba(239, 68, 68, 0.2);
-            animation: shake 0.5s cubic-bezier(.36, .07, .19, .97) both;
-        }
-
-        @keyframes shake {
-            10%, 90% { transform: translate3d(-1px, 0, 0); }
-            20%, 80% { transform: translate3d(2px, 0, 0); }
-            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
-            40%, 60% { transform: translate3d(4px, 0, 0); }
-        }
-
-        @keyframes pulse-ring {
-            0% { transform: scale(.95); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); }
-            70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(245, 158, 11, 0); }
-            100% { transform: scale(.95); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
-        }
-
-        .pulse {
-            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: .5; }
-        }
-
-        .mic-bar {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            z-index: 50;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 1rem;
-            background: rgba(255, 255, 255, 0.9);
-            backdrop-filter: blur(10px);
-            border-top: 1px solid #e5e7eb;
-        }
-
-        .mic-bar-btn {
-            width: 64px;
-            height: 64px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border: 2px solid #e5e7eb;
-            background: #ffffff;
-            color: #4b5563;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            position: relative;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        }
-        .mic-bar-btn:hover {
-            background: #f3f4f6;
-            border-color: #d1d5db;
-            transform: scale(1.05);
-            color: #111827;
-        }
-        .mic-btn-compact.recording {
-            background: #fee2e2;
-            border-color: #fca5a5;
-            color: #dc2626;
-            animation: pulse-recording 1.5s infinite;
-        }
-        @keyframes pulse-recording {
-            0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
-            50% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
-        }
-        @keyframes mic-pulse {
-            0%, 100% { transform: scale(1); opacity: 1; }
-            50% { transform: scale(1.15); opacity: 0; }
-        }
-    </style>
 {% endblock %}
-{% block body_class %}min-h-screen flex flex-col pt-16{% endblock %}
 {% block content %}
-    <nav class="fixed top-0 left-0 w-full bg-white border-b border-gray-200 z-40">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex justify-between items-center">
-            <a href="/dashboard/" class="flex items-center gap-2 group text-gray-500 hover:text-gray-900 transition-colors">
-                <i data-lucide="chevron-left" class="w-4 h-4"></i>
-                <span class="text-sm font-medium">Dashboard</span>
-            </a>
-            <div class="flex items-center gap-2">
-                <div id="conn-indicator" class="w-2 h-2 rounded-full bg-yellow-500 pulse"></div>
-                <span id="conn-text"
-                    class="text-xs font-bold uppercase tracking-widest text-yellow-600">Connecting...</span>
-            </div>
+    <nav class="nav">
+        <div class="container nav-inner">
+            <a href="/dashboard/" class="text-btn"><i data-lucide="arrow-left" class="i-sm"></i> Dashboard</a>
+            <span class="badge">
+                <span id="conn-indicator" class="dot dot-amber dot-live"></span>
+                <span id="conn-text" class="mono">Connecting...</span>
+            </span>
         </div>
     </nav>
 
-    <main class="max-w-6xl mx-auto py-4 sm:py-8 px-4 pb-32 w-full grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
-        <!-- Main Interface -->
-        <div class="lg:col-span-2 space-y-6">
-            <div class="clean-card overflow-hidden">
-                <div class="p-4 border-b border-gray-100 flex flex-wrap justify-between items-center gap-2 bg-gray-50">
-                    <div class="flex items-center gap-2">
-                        <i data-lucide="shield-check" class="text-blue-600 w-4 h-4"></i>
-                        <span class="text-xs font-bold uppercase tracking-wider text-gray-700">AI Proctoring Active</span>
-                    </div>
-                    <div id="cheating-status-text"
-                        class="text-[10px] font-mono text-gray-500 uppercase tracking-widest">Gaze: Tracking...</div>
+    <main class="page container session-layout" style="padding-top:24px">
+        <!-- Camera and question -->
+        <div class="stack">
+            <div class="card" style="overflow:hidden">
+                <div class="row between wrap" style="padding:12px 16px;border-bottom:1px solid var(--border)">
+                    <span class="row-sm small strong"><i data-lucide="shield-check" class="i t-blue"></i> Proctoring on</span>
+                    <span id="cheating-status-text" class="label-caps">Gaze: Tracking...</span>
                 </div>
-                <div class="aspect-video video-placeholder flex items-center justify-center bg-gray-100">
-                    <div id="camera-setup" class="text-center space-y-4 p-6">
-                        <div
-                            class="w-16 h-16 bg-white rounded-full mx-auto flex items-center justify-center shadow-sm border border-gray-200">
-                            <i data-lucide="video" class="text-gray-400 w-8 h-8"></i>
-                        </div>
-                        <p class="text-gray-500 text-sm font-medium">Permissions required for eye tracking</p>
-                        <button id="enable-camera-btn"
-                            class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full text-sm font-bold transition-all shadow-sm">
-                            Enable Camera
-                        </button>
+                <div class="video-stage">
+                    <div id="camera-setup" class="stack center" style="align-items:center;padding:24px">
+                        <span class="icon-box" style="width:56px;height:56px;border-radius:50%"><i data-lucide="video" class="i-lg"></i></span>
+                        <p class="muted small">Your camera is needed for eye tracking</p>
+                        <button id="enable-camera-btn" class="btn btn-primary btn-pill">Enable camera</button>
                     </div>
                     <div id="video-wrapper" class="hidden video-container">
                         <video id="input-video" playsinline></video>
                         <canvas id="output-canvas"></canvas>
-                        <div id="proctoring-badge" class="proctoring-badge status-safe shadow-sm">
-                            <i data-lucide="eye" class="inline-block w-3 h-3 mr-1"></i> Eye Tracking: Secure
+                        <div id="proctoring-badge" class="proctoring-badge status-safe">
+                            <i data-lucide="eye" class="i-sm"></i> Eye Tracking: Secure
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div class="clean-card p-4 sm:p-6 flex flex-col gap-4">
+            <div class="card card-pad stack">
                 <!-- Stacks on phones so the question gets the full width and the buttons stay thumb-sized -->
-                <div class="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
-                    <div class="flex-1 space-y-1">
-                        <h3 id="prompt-label" class="text-[10px] font-bold uppercase tracking-widest text-gray-400">
-                            Currently Prompting</h3>
-                        <p id="countdown" class="hidden text-xs font-bold text-amber-600" aria-live="polite"></p>
-                        <p id="prompt-text" class="text-base sm:text-lg font-semibold text-gray-900">"Ready to start? Enable your mic and say hello."
-                        </p>
+                <div class="row row-top wrap" style="gap:16px">
+                    <div class="stack-sm grow" style="min-width:240px">
+                        <span id="prompt-label" class="label-caps">Currently asking</span>
+                        <p id="countdown" class="hidden xs mono t-amber" aria-live="polite"></p>
+                        <p id="prompt-text" class="prompt-text">"Ready to start? Enable your mic and say hello."</p>
                     </div>
-                    <div class="flex items-center justify-end gap-2">
-                        <span id="mic-status" class="text-[10px] font-bold uppercase tracking-widest text-gray-400 mr-2">Tap to speak</span>
-                        <button id="mic-btn" aria-label="Record a spoken answer"
-                            class="mic-btn-compact w-11 h-11 sm:w-10 sm:h-10 bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 rounded-lg flex items-center justify-center transition-all"
-                            title="Tap to Speak">
-                            <i data-lucide="mic" class="w-4 h-4"></i>
+                    <div class="row-sm">
+                        <span id="mic-status" class="label-caps" style="margin-right:4px">Tap to speak</span>
+                        <button id="mic-btn" aria-label="Record a spoken answer" title="Tap to speak" class="mic-btn-compact btn btn-secondary btn-icon">
+                            <i data-lucide="mic" class="i"></i>
                         </button>
-                        <button id="toggle-input-btn" aria-label="Type your answer instead"
-                            class="w-11 h-11 sm:w-10 sm:h-10 bg-gray-50 hover:bg-gray-100 rounded-lg flex items-center justify-center transition-all border border-gray-200 text-gray-500 hover:text-blue-600"
-                            title="Switch to Text Input">
-                            <i data-lucide="keyboard" class="w-4 h-4"></i>
+                        <button id="toggle-input-btn" aria-label="Type your answer instead" title="Type instead" class="btn btn-secondary btn-icon">
+                            <i data-lucide="keyboard" class="i"></i>
                         </button>
                     </div>
                 </div>
 
                 <div id="text-input-container" class="hidden">
-                    <div class="relative">
-                        <input type="text" id="manual-answer" aria-label="Your answer" placeholder="Type your answer here..."
-                            class="w-full bg-white border border-gray-300 rounded-xl p-4 pr-14 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all text-base sm:text-sm text-gray-900 shadow-sm">
-                        <button id="send-text-btn" aria-label="Send answer"
-                            class="absolute right-2 top-2 w-10 h-10 bg-blue-600 hover:bg-blue-700 rounded-lg flex items-center justify-center transition-all shadow-sm">
-                            <i data-lucide="send" class="text-white w-4 h-4"></i>
+                    <div class="row-sm">
+                        <input type="text" id="manual-answer" aria-label="Your answer" placeholder="Type your answer here..." class="input grow" style="height:44px">
+                        <button id="send-text-btn" aria-label="Send answer" class="btn btn-primary btn-icon" style="height:44px;width:44px">
+                            <i data-lucide="send" class="i"></i>
                         </button>
                     </div>
-                </div>
-
-                <div id="next-btn"
-                    class="hidden w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl cursor-pointer transition-all shadow-sm flex items-center justify-center gap-2 group mt-2">
-                    <span>Next Question</span>
-                    <i data-lucide="arrow-right" class="w-4 h-4 group-hover:translate-x-1 transition-transform"></i>
                 </div>
             </div>
         </div>
 
-        <!-- Sidebar / Analysis -->
-        <div class="space-y-6">
-            <div class="clean-card p-6 space-y-6">
-                <h3 class="text-sm font-bold text-gray-900 border-b border-gray-100 pb-3">Real-time Insights</h3>
-                <div class="space-y-5 mt-4">
-                    <div class="space-y-2">
-                        <div class="flex justify-between text-[10px] font-bold uppercase tracking-wider">
-                            <span class="text-gray-500">Confidence Score</span>
-                            <span id="confidence-val" class="text-blue-600">0%</span>
-                        </div>
-                        <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                            <div id="confidence-bar" class="h-full bg-blue-500 w-0 transition-all duration-1000">
-                            </div>
-                        </div>
-                    </div>
-                    <div class="space-y-2">
-                        <div class="flex justify-between text-[10px] font-bold uppercase tracking-wider">
-                            <span class="text-gray-500">Speaking Clarity</span>
-                            <span id="clarity-val" class="text-purple-600">0%</span>
-                        </div>
-                        <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                            <div id="clarity-bar" class="h-full bg-purple-500 w-0 transition-all duration-1000"></div>
-                        </div>
-                    </div>
+        <!-- Live insights -->
+        <div class="stack">
+            <div class="card card-pad stack">
+                <span class="label-caps">Live insights</span>
+                <div class="stack-sm">
+                    <div class="row between small"><span class="muted">Confidence</span><span id="confidence-val" class="mono strong">0%</span></div>
+                    <div class="meter"><div id="confidence-bar" class="meter-fill fill-blue"></div></div>
                 </div>
-                <div class="pt-2">
-                    <div class="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg border border-gray-100">
-                        <i data-lucide="brain" class="text-blue-500 w-4 h-4"></i>
-                        <span id="tone-display" class="text-xs font-medium text-gray-600">Tone: Detecting...</span>
-                    </div>
+                <div class="stack-sm">
+                    <div class="row between small"><span class="muted">Clarity</span><span id="clarity-val" class="mono strong">0%</span></div>
+                    <div class="meter"><div id="clarity-bar" class="meter-fill fill-violet"></div></div>
+                </div>
+                <div class="inset row-sm">
+                    <i data-lucide="brain" class="i faint"></i>
+                    <span id="tone-display" class="small muted">Tone: Detecting...</span>
                 </div>
             </div>
 
-            <div class="clean-card flex flex-col h-64 border-blue-100 bg-blue-50/30">
-                <div class="p-4 border-b border-gray-100 bg-white rounded-t-xl">
-                    <h4 class="text-xs font-bold uppercase tracking-widest text-blue-600">Live Transcript</h4>
+            <div class="card transcript">
+                <div class="row between" style="padding:12px 16px;border-bottom:1px solid var(--border)">
+                    <span class="label-caps">Transcript</span>
+                    <span class="dot dot-green dot-live"></span>
                 </div>
-                <div id="transcript-area" class="p-4 flex-1 overflow-y-auto space-y-3 custom-scrollbar text-sm text-gray-600">
-                    <p class="text-xs italic text-gray-400">Listening for input...</p>
+                <div id="transcript-area" class="transcript-body">
+                    <p class="faint xs">Listening for input...</p>
                 </div>
             </div>
 
-            <button id="end-btn" onclick="endSessionAndSave()"
-                class="w-full py-3 bg-white border border-gray-300 text-gray-900 font-bold rounded-xl hover:bg-gray-50 transition-all shadow-sm gap-2 flex items-center justify-center text-sm mt-4">
-                <i data-lucide="stop-circle" class="w-4 h-4 text-red-500"></i> End Session Early
+            <button id="end-btn" onclick="endSessionAndSave()" class="btn btn-secondary btn-block">
+                <i data-lucide="square" class="i-sm t-red"></i> End interview early
             </button>
         </div>
     </main>
@@ -523,10 +318,9 @@
                 mediaRecorder.start(250);
                 isListening = true;
                 micBtn.classList.add('recording');
-                micBtn.innerHTML = `<i data-lucide="mic-off" class="text-red-400 w-7 h-7"></i>`;
+                micBtn.innerHTML = `<i data-lucide="mic-off" class="i"></i>`;
                 micStatus.innerText = '● Recording...';
-                micStatus.classList.add('text-red-400');
-                micStatus.classList.remove('text-gray-500');
+                micStatus.classList.add('recording-text');
                 lucide.createIcons();
             } catch (err) {
                 console.error('Microphone error:', err);
@@ -540,10 +334,9 @@
             }
             isListening = false;
             micBtn.classList.remove('recording');
-            micBtn.innerHTML = `<i data-lucide="mic" class="text-gray-300 w-7 h-7"></i>`;
+            micBtn.innerHTML = `<i data-lucide="mic" class="i"></i>`;
             micStatus.innerText = 'Tap to Speak';
-            micStatus.classList.remove('text-red-400');
-            micStatus.classList.add('text-gray-500');
+            micStatus.classList.remove('recording-text');
             lucide.createIcons();
         }
 
@@ -551,19 +344,16 @@
 
         function addTranscript(role, text) {
             const p = document.createElement('p');
-            p.className = 'text-xs leading-relaxed text-gray-400';
-            const label = document.createElement('span');
-            label.className = `${role === 'You' ? 'text-indigo-400' : 'text-purple-400'} font-bold`;
+            const label = document.createElement('b');
+            if (role !== 'You') label.className = 'ai';
             label.textContent = `${role}:`;
             // Answers and AI output are untrusted text, never markup
             p.append(label, ` ${text}`);
             transcriptArea.prepend(p);
         }
 
-        document.getElementById('conn-indicator').classList.replace('bg-yellow-500', 'bg-green-500');
-        document.getElementById('conn-indicator').classList.remove('pulse');
-        document.getElementById('conn-text').innerText = 'AI Online';
-        document.getElementById('conn-text').classList.replace('text-yellow-400', 'text-green-400');
+        document.getElementById('conn-indicator').classList.replace('dot-amber', 'dot-green');
+        document.getElementById('conn-text').innerText = 'AI online';
         // The first question is only requested once the camera is running (see enableCameraBtn), so proctoring can't be skipped
         promptLabel.innerText = "Camera required";
         promptText.innerText = "Enable your camera to begin the interview.";
@@ -624,33 +414,29 @@
         function showSummary(text) {
             interviewActive = false;
             document.querySelector('main').innerHTML = `
-                <div class="max-w-3xl mx-auto py-12 px-4">
-                    <div class="clean-card p-12 space-y-8 shadow-lg">
-                        <div class="text-center space-y-4">
-                            <h2 class="text-4xl font-bold text-gray-900 tracking-tight">Interview Summary</h2>
-                            <p id="summary-text" class="text-gray-600 text-lg leading-relaxed italic"></p>
-                        </div>
-                        <div class="flex flex-col gap-4">
-                            <button onclick="endSessionAndSave()" class="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-all shadow-sm flex items-center justify-center gap-2">
-                                <i data-lucide="check-circle" class="w-5 h-5"></i> Finish & Return to Dashboard
-                            </button>
-                            <button onclick="window.location.href='/dashboard/'" class="w-full py-4 bg-white hover:bg-gray-50 text-gray-900 font-bold rounded-xl transition-all border border-gray-300 shadow-sm">Return to Dashboard</button>
-                        </div>
+                <div class="card card-pad-lg stack-lg center" style="grid-column:1/-1;max-width:680px;width:100%;margin:24px auto">
+                    <div class="stack">
+                        <span class="label-caps">Interview complete</span>
+                        <h2 style="font-size:32px;letter-spacing:-0.04em">Summary</h2>
+                        <p id="summary-text" class="muted"></p>
+                    </div>
+                    <div class="stack-sm">
+                        <button onclick="endSessionAndSave()" class="btn btn-primary btn-lg btn-block">
+                            <i data-lucide="check-circle" class="i"></i> Finish and return to dashboard
+                        </button>
+                        <button onclick="window.location.href='/dashboard/'" class="btn btn-secondary btn-lg btn-block">Return to dashboard</button>
                     </div>
                 </div>`;
             document.getElementById('summary-text').textContent = `"${text}"`;
             lucide.createIcons();
 
-            // Hide mic bar
-            const micBar = document.querySelector('.mic-bar');
-            if (micBar) micBar.style.display = 'none';
         }
 
         async function endSessionAndSave() {
             interviewActive = false;  // leaving the page now is expected
             const endBtnEl = document.getElementById('end-btn');
             if (endBtnEl) {
-                endBtnEl.innerHTML = `<div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block mr-1"></div> Saving...`;
+                endBtnEl.innerHTML = `<span class="spinner"></span> Saving...`;
                 endBtnEl.disabled = true;
             }
 
@@ -861,8 +647,8 @@
         }
 
         // Inline SVGs so we never need to call lucide.createIcons() per frame
-        const eyeSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block mr-1"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg>`;
-        const alertSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block mr-1"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>`;
+        const eyeSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg>`;
+        const alertSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>`;
 
         let lastProctoringStatus = '';
 
@@ -877,9 +663,9 @@
             cheatingStatusText.innerText = `Gaze: ${message}`;
 
             if (status === 'warning' || status === 'danger') {
-                cheatingStatusText.classList.add('text-red-400');
+                cheatingStatusText.classList.add('t-red');
             } else {
-                cheatingStatusText.classList.remove('text-red-400');
+                cheatingStatusText.classList.remove('t-red');
             }
         }
 
