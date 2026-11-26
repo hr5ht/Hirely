@@ -128,7 +128,9 @@ uv run python manage.py runserver   # http://127.0.0.1:8000
 docker compose up --build           # Postgres + backend at http://127.0.0.1:8000
 ```
 
-The backend container uses its own Postgres, not Neon (the `DATABASE_URL` in `.env` is overridden), and reads the API keys from `backend/.env`. Leave `SUPABASE_URL` and `SUPABASE_ANON_KEY` unset there and sign-in uses Django's own accounts in the local database (passwords hashed by Django, reset emails printed to the backend's log). This only works with `DEBUG=1`, which compose sets; production refuses to start without Supabase. It runs migrations on start and reloads when you edit code. If port 8000 is taken, run `PORT=8001 docker compose up`.
+The backend container uses its own Postgres, not Neon (the `DATABASE_URL` in `.env` is overridden), and reads the API keys from `backend/.env`. Leave `SUPABASE_URL` and `SUPABASE_ANON_KEY` unset there and sign-in uses Django's own accounts in the local database (passwords hashed by Django, reset emails printed to the backend's log). This only works with `DEBUG=1`, which compose sets; production refuses to start without Supabase.
+
+For sample data, run `docker compose exec backend python manage.py seed_demo`: three companies with a recruiter each (`maya`, `arjun`, `sofia`), six job posts and a candidate (`alex`), all with the password `hirely-demo-123`. It only runs locally and is safe to run again. It runs migrations on start and reloads when you edit code. If port 8000 is taken, run `PORT=8001 docker compose up`.
 
 Sign up at `/register/` as a candidate, or as a recruiter with a company name.
 
