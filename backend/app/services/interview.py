@@ -204,7 +204,10 @@ async def end(db, session, data):
     for start_at, seconds in heartbeat_gaps(session.heartbeats, _now()):
         await proctor(db, session, {"type": f"Camera heartbeat gap ({seconds} s)",
                                     "timestamp": time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(start_at))})
-    transcript = [t for t in session.transcript if 'answer' in t]  # drop the unanswered pending question
+    # Lock the session row before the save touches the application row: the same order proctor() uses, so an
+    # alert arriving with "end" waits instead of deadlocking it
+    await _locked(db, session)
+    transcript =[t for t in session.transcript if 'answer' in t]  # drop the unanswered pending question
     valid_conf = [t['confidence'] for t in transcript if t.get('confidence', 0) > 0]
     valid_clar = [t['clarity'] for t in transcript if t.get('clarity', 0) > 0]
 
