@@ -53,21 +53,23 @@ backend/
     views/            Pages and JSON endpoints: auth (Supabase), candidate, recruiter, interview
     static/ai_engine/ Logo and hirely.css, the app's only stylesheet
   templates/          Django templates
+  pyproject.toml      Dependencies (uv); uv.lock pins exact versions
+  Dockerfile          Backend image, used by compose.yaml at the repo root
   vercel.json         Vercel config
 ```
 
 ## Local Setup
 
-Requires Python 3.11+, plus two free accounts: a **Neon** database and a **Supabase** project. No local PostgreSQL is needed.
+Requires [uv](https://docs.astral.sh/uv/) (it installs Python 3.11+ itself), plus two free accounts: a **Neon** database and a **Supabase** project. No local PostgreSQL is needed, unless you run with Docker (below).
 
 ### 1. Install
 
 ```bash
 cd backend
-python3 -m venv venv
-source venv/bin/activate          # Windows: venv\Scripts\activate
-pip install -r requirements.txt
+uv sync                           # creates backend/.venv from uv.lock
 ```
+
+Add a package with `uv add <name>`; it updates `pyproject.toml` and `uv.lock`, which Vercel installs from.
 
 ### 2. Database (Neon)
 
@@ -116,9 +118,17 @@ EMAIL_HOST="..."            # optional: SMTP for application and interview notif
 ### 5. Run
 
 ```bash
-python manage.py migrate            # creates the tables in Neon (also the production migration)
-python manage.py runserver          # http://127.0.0.1:8000
+uv run python manage.py migrate     # creates the tables in Neon (also the production migration)
+uv run python manage.py runserver   # http://127.0.0.1:8000
 ```
+
+### Run with Docker (local PostgreSQL)
+
+```bash
+docker compose up --build           # Postgres + backend at http://127.0.0.1:8000
+```
+
+The backend container uses its own Postgres, not Neon (the `DATABASE_URL` in `.env` is overridden), and still reads the Supabase and API keys from `backend/.env`. It runs migrations on start and reloads when you edit code. If port 8000 is taken, run `PORT=8001 docker compose up`.
 
 Sign up at `/register/` as a candidate, or as a recruiter with a company name.
 
@@ -127,7 +137,7 @@ Sign up at `/register/` as a candidate, or as a recruiter with a company name.
 `/admin/` has no password form of its own: it sends you to the normal sign-in page. To make your account an admin, sign up first, then run:
 
 ```bash
-python manage.py shell -c "from django.contrib.auth.models import User; User.objects.filter(email='you@example.com').update(is_staff=True, is_superuser=True)"
+uv run python manage.py shell -c "from django.contrib.auth.models import User; User.objects.filter(email='you@example.com').update(is_staff=True, is_superuser=True)"
 ```
 
 ## Security
@@ -142,6 +152,6 @@ python manage.py shell -c "from django.contrib.auth.models import User; User.obj
 1. Import the GitHub repo and set **Root Directory** to `backend`.
 2. Add the environment variables from `.env`, with a different `SECRET_KEY` for production. The app refuses to start without `SECRET_KEY`, `DATABASE_URL`, `SUPABASE_URL` and `SUPABASE_ANON_KEY`.
 3. Add `https://<your-app>.vercel.app/**` to Supabase's redirect URLs (Authentication → URL Configuration).
-4. Vercel doesn't run migrations. After a change to the models, run `python manage.py migrate` from your machine **before** pushing.
+4. Vercel doesn't run migrations. After a change to the models, run `uv run python manage.py migrate` from your machine **before** pushing.
 
 Every push to `main` then deploys automatically.

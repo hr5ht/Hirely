@@ -1,0 +1,31 @@
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: hirely
+      POSTGRES_PASSWORD: hirely
+      POSTGRES_DB: hirely
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hirely"]
+      interval: 2s
+      retries: 15
+
+  backend:
+    build: ./backend
+    ports: ["${PORT:-8000}:8000"]   # PORT=8001 docker compose up, if 8000 is taken
+    env_file:
+      - path: backend/.env   # Supabase, Groq and other API keys
+        required: false
+    environment:
+      # Overrides any Neon DATABASE_URL in .env, so Docker never touches production data
+      DATABASE_URL: postgresql://hirely:hirely@db:5432/hirely
+      DEBUG: "1"
+    volumes:
+      - ./backend:/app
+      - /app/.venv   # keep the image's Linux venv, not the host's macOS one
+    depends_on:
+      db: {condition: service_healthy}
+
+volumes:
+  pgdata:
