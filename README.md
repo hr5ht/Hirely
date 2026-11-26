@@ -36,10 +36,11 @@ All AI runs on hosted APIs, so the server needs no GPU and very little memory.
 
 1. **Sign in:** the password is checked against its PBKDF2 hash, and a signed session cookie keeps the user signed in.
 2. **Apply:** the resume PDF's text is extracted and scored against the job by the LLM.
-3. **Interview:** each step (start, answer, voice answer, proctoring alert, end) is a stateless HTTP request, so the interview survives page reloads.
-4. **Retrieve:** both documents are split into chunks and embedded; the closest resume and job-description chunks go into each question prompt.
-5. **Answer:** scoring the answer and writing the next question run at the same time, and the database connection is released while the AI calls run, so slow AI calls don't tie up the connection pool.
-6. **Evaluate:** when the interview ends, the LLM scores technical knowledge, behavioral IQ and problem solving, and the PDF report is generated.
+3. **Interview:** the page opens a WebSocket for its steps (start, answer, voice answer, proctoring alert, end); each step reloads the session from the database, so the interview survives page reloads, and every step also works as a plain HTTP POST if the socket can't connect.
+4. **Speak:** while the candidate talks, the microphone streams over the socket to Deepgram's live transcription, so the transcript is ready about 0.3 s after they stop. The next question's text is sent as soon as it's written and its audio follows separately.
+5. **Retrieve:** both documents are split into chunks and embedded; the closest resume and job-description chunks go into each question prompt.
+6. **Answer:** scoring the answer and writing the next question run at the same time, and the database connection is released while the AI calls run, so slow AI calls don't tie up the connection pool.
+7. **Evaluate:** when the interview ends, the LLM scores technical knowledge, behavioral IQ and problem solving, and the PDF report is generated.
 
 ## Project Structure
 
@@ -131,24 +132,28 @@ With `DEBUG` off, the app needs `SECRET_KEY` and `DATABASE_URL`, and session coo
 
 ## Performance
 
-Measured in November 2026, from Docker on a laptop, against the live APIs on their free tiers (20 voice turns, one 12-second spoken answer):
+### Voice turns over the WebSocket
 
-| Stage of one voice turn | p50 | p95 |
+Measured in November 2026 with 5 voice turns from Docker on a laptop, against the live APIs on their free tiers. Each turn streamed a 12-second spoken answer at real-time pace. Times are counted from the moment the candidate stops speaking:
+
+| | Median | Range |
 |---|---|---|
-| Deepgram speech-to-text | 2.3 s | 2.8 s |
-| Groq, scoring the answer | 0.5 s | 9.5 s |
-| Gemini embeddings (excerpt lookup) | 0.6 s | 1.0 s |
-| Groq, writing the next question | 0.5 s | 6.6 s |
-| ElevenLabs text-to-speech | 1.5 s | 2.1 s |
+| Transcript ready (Deepgram live) | 0.3 s | 0.30–0.37 s |
+| Next question text on screen | 1.5 s | 1.3–2.8 s |
+| Next question audio ready | 2.6 s | 2.1–3.7 s |
 
-- The Groq p95s come from the free tier's limit of 1,000 output tokens per minute: throttled calls wait and retry. Unthrottled, a whole voice turn took 4.5–7 s.
-- These were measured before the FastAPI port, when every stage ran one after another. Since the port, scoring the answer runs alongside the excerpt lookup and the next question. With the AI stubbed at the times above, that cut the server's part of a text answer from about 1.56 s to 1.08 s.
-- Concurrent sessions have not been load-tested on FastAPI yet. The Django version failed past about 25 candidates answering at once, because each request held its own Postgres connection; FastAPI shares a pool of up to 30 and frees it during AI calls.
+Inside each turn, Groq scored the answer in 0.4–0.8 s while the excerpt lookup and the next question (Groq, 0.3–0.5 s) ran alongside it, and ElevenLabs took 0.7–1.5 s.
+
+### Before (HTTP, Django)
+
+The same kind of turn over HTTP, measured earlier with 20 runs, took 4.5–7 s when Groq wasn't throttled (10.3 s median and 15.2 s p95 with free-tier throttling). The answer was uploaded whole and transcribed afterwards (about 2.3 s), and every step ran one after another.
+
+Groq's free tier allows 1,000 output tokens a minute, so turns closer together than about 20 s get throttled and slow down. Concurrent sessions haven't been load-tested on FastAPI yet.
 
 ## Known Limits
 
 - **No migrations:** tables are created on startup, and existing tables are never altered. Add Alembic before changing a column.
-- **Audio isn't streamed:** spoken answers are uploaded whole after recording, and each question's audio arrives in full inside the reply, so speech-to-text and text-to-speech add their whole duration to every turn.
+- **Question audio isn't streamed:** it's made in one piece after the text is sent, so it starts playing about 1 s after the question appears. Over the HTTP fallback, answers are uploaded whole and the audio arrives inside the reply.
 - **Upload size:** requests over 10 MB are refused by `Content-Length`; chunked uploads without one aren't capped, so put a proxy with a body limit in front if the app is public.
 
 ## Security

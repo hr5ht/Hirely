@@ -57,10 +57,19 @@ def heartbeat_gaps(beats, until):
 SEVERE_ALERTS = {"Camera Stopped"}
 
 
-async def _question(text, session):
+async def _speech(text, data):
+    """Base64 audio for text; or, when the caller collects data['speak_later'] (the WebSocket), None now
+    and the text is queued, so the question's text goes out without waiting ~1.5 s for its audio."""
+    if (later := data.get('speak_later')) is not None:
+        later.append(text)
+        return None
+    return await AudioService().text_to_speech(text)
+
+
+async def _question(text, session, data):
     job = session.application.job
     remaining = job.answer_time_limit - (_now() - session.transcript[-1].get('asked_at', _now())) if job.answer_time_limit else 0
-    return {"type": "interview_message", "message_type": "question", "text": text, "audio": await AudioService().text_to_speech(text),
+    return {"type": "interview_message", "message_type": "question", "text": text, "audio": await _speech(text, data),
             "round": len(session.transcript), "total_rounds": job.interview_rounds,
             "seconds_left": max(remaining, 1) if job.answer_time_limit else None}
 
@@ -72,7 +81,7 @@ async def start(db, session, data):
         # Page reload: re-serve the pending question instead of paying for a new one,
         # and flag it so a reload can't be used to escape a question unnoticed
         await proctor(db, session, {"type": "Interview page reloaded"})
-        return [await _question(transcript[-1]['question'], session)]
+        return [await _question(transcript[-1]['question'], session, data)]
 
     await db.commit()  # frees the DB connection for the AI calls
     resume_ctx, jd_ctx = await rag.retrieve(f"{app.job.title} {ROUND_TOPICS[0]}", app.resume_text, app.job.description,
@@ -80,7 +89,7 @@ async def start(db, session, data):
     question = await InterviewBrain().generate_initial_question(app.job.title, jd_ctx, resume_ctx, level=app.job.experience_level)
     session.transcript = transcript + [{"question": question, "context": {"resume": resume_ctx, "jd": jd_ctx}, "asked_at": _now()}]
     await save(db, session, 'transcript', 'rag_cache')
-    return [await _question(question, session)]
+    return [await _question(question, session, data)]
 
 
 async def answer(db, session, data):
@@ -137,15 +146,15 @@ async def answer(db, session, data):
         qa = [{k: v for k, v in t.items() if k != 'context'} for t in transcript]  # excerpts would only cost tokens
         summary = await brain.get_summary(app.job.title, json.dumps(qa))
         messages.append({"type": "interview_message", "message_type": "summary", "text": summary,
-                         "audio": await AudioService().text_to_speech(summary)})
+                         "audio": await _speech(summary, data)})
     elif custom:
         transcript.append({"question": custom, "custom": True, "asked_at": _now()})
-        messages.append(await _question(custom, session))
+        messages.append(await _question(custom, session, data))
     else:
         resume_ctx, jd_ctx, next_q = follow
         # Kept with the turn so a reviewer can see what each question was grounded in
         transcript.append({"question": next_q, "context": {"resume": resume_ctx, "jd": jd_ctx}, "asked_at": _now()})
-        messages.append(await _question(next_q, session))
+        messages.append(await _question(next_q, session, data))
 
     await save(db, session, 'transcript', 'rag_cache')
     return messages
@@ -156,7 +165,7 @@ async def audio(db, session, data):
     text = await AudioService().transcribe_audio(data.get('audio', ''), data.get('mimeType', 'audio/webm'))
     if not text:
         return [{"type": "transcription_result", "text": "", "error": "Transcription failed"}]
-    return [{"type": "transcription_result", "text": text}] + await answer(db, session, {"answer": text})
+    return [{"type": "transcription_result", "text": text}] + await answer(db, session, {**data, "answer": text})
 
 
 async def _locked(db, session):

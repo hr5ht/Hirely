@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, Request
+from starlette.requests import HTTPConnection
 from sqlalchemy import delete
 from sqlalchemy.dialects.postgresql import insert
 from starlette.concurrency import run_in_threadpool
@@ -141,9 +142,10 @@ def csrf_token(request):
     return token
 
 
-async def csrf_protect(request: Request):
-    """Every POST carries the session's token: forms as csrfmiddlewaretoken, fetch() as X-CSRFToken."""
-    if request.method in ('GET', 'HEAD', 'OPTIONS'):
+async def csrf_protect(request: HTTPConnection):
+    """Every POST carries the session's token: forms as csrfmiddlewaretoken, fetch() as X-CSRFToken.
+    WebSockets are checked by Origin in their own handler instead."""
+    if request.scope['type'] != 'http' or request.scope['method'] in ('GET', 'HEAD', 'OPTIONS'):
         return
     sent = request.headers.get('x-csrftoken')
     if not sent and request.headers.get('content-type', '').startswith(('application/x-www-form-urlencoded', 'multipart/form-data')):

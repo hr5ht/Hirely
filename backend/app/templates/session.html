@@ -110,8 +110,45 @@
         const session_id = "{{ session_id }}";
         const csrfToken = "{{ csrf_token }}";
 
-        // Each interview step is a plain POST; the server replies with messages for handleMessage()
+        // Live channel: steps and the microphone stream share one WebSocket. Until it's open (or if it drops),
+        // each step falls back to a plain POST. Either way the server replies with messages for handleMessage().
+        let ws = null, wsReady = false, nextId = 0;
+        const pending = new Map();  // step id -> resolve(ok), settled by the server's {"type": "done"}
+        function connectSocket() {
+            ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws/interview/${session_id}/`);
+            ws.onopen = () => { wsReady = true; };
+            ws.onclose = () => {
+                wsReady = false;
+                pending.forEach(resolve => resolve(false));
+                pending.clear();
+            };
+            ws.onmessage = (event) => {
+                const message = JSON.parse(event.data);
+                if (message.type === 'done') {
+                    pending.get(message.id)?.(message.ok);
+                    pending.delete(message.id);
+                } else if (message.type === 'audio') {
+                    // The question's voice, sent after its text; skip it if they've already started answering
+                    if (isListening) return;
+                    stopAIAudio();
+                    currentAudio = new Audio(`data:audio/mpeg;base64,${message.audio}`);
+                    currentAudio.onended = () => { currentAudio = null; };
+                    currentAudio.play();
+                } else {
+                    handleMessage(message);
+                }
+            };
+        }
+        connectSocket();
+
         async function send(action, data = {}) {
+            if (wsReady) {
+                return new Promise(resolve => {
+                    const id = ++nextId;
+                    pending.set(id, resolve);
+                    ws.send(JSON.stringify({ ...data, action, id }));
+                });
+            }
             try {
                 const res = await fetch(`/ai/interview/${session_id}/${action}/`, {
                     method: 'POST',
@@ -188,7 +225,7 @@
 
         // One answer at a time: a double click or Enter during the AI call would otherwise be sent twice
         let answerInFlight = false;
-        async function sendAnswer(action, data) {
+        async function sendAnswer(action, data = {}) {
             answerInFlight = true;
             [sendTextBtn, micBtn, manualAnswerInput].forEach(el => el.disabled = true);
             try {
@@ -282,14 +319,28 @@
                 const options = mimeType ? { mimeType } : {};
                 mediaRecorder = new MediaRecorder(stream, options);
                 audioChunks = [];
+                // With the socket open, audio streams to live transcription as it's recorded;
+                // the chunks are kept too, so a dropped socket can still upload the whole clip
+                const streaming = wsReady;
+                if (streaming) ws.send(JSON.stringify({ action: 'audio_start', mimeType: mediaRecorder.mimeType || mimeType }));
 
                 mediaRecorder.ondataavailable = (event) => {
                     if (event.data && event.data.size > 0) {
                         audioChunks.push(event.data);
+                        if (streaming && wsReady) ws.send(event.data);
                     }
                 };
 
                 mediaRecorder.onstop = async () => {
+                    if (streaming && wsReady) {
+                        if (activeStream) {
+                            activeStream.getTracks().forEach(track => track.stop());
+                            activeStream = null;
+                        }
+                        promptText.innerText = "Finishing transcription...";
+                        sendAnswer('audio_end');
+                        return;
+                    }
                     const actualType = mediaRecorder.mimeType || mimeType || 'audio/webm';
                     const audioBlob = new Blob(audioChunks, { type: actualType });
 
