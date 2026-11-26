@@ -37,9 +37,9 @@ All AI runs on hosted APIs, so the server needs no GPU and very little memory.
 1. **Sign in:** the password is checked against its PBKDF2 hash, and a signed session cookie keeps the user signed in.
 2. **Apply:** the resume PDF's text is extracted and scored against the job by the LLM.
 3. **Interview:** the page opens a WebSocket for its steps (start, answer, voice answer, proctoring alert, end); each step reloads the session from the database, so the interview survives page reloads, and every step also works as a plain HTTP POST if the socket can't connect.
-4. **Speak:** while the candidate talks, the microphone streams over the socket to Deepgram's live transcription, so the transcript is ready about 0.3 s after they stop. The next question's text is sent as soon as it's written and its audio follows separately.
+4. **Speak:** while the candidate talks, the microphone streams over the socket to Deepgram's live transcription, so the transcript is ready about 0.3 s after they stop. The next question's text is sent as soon as it's written, with a link to its audio, which the browser plays while ElevenLabs is still streaming it (first sound in about 0.2 s).
 5. **Retrieve:** both documents are split into chunks and embedded; the closest resume and job-description chunks go into each question prompt.
-6. **Answer:** scoring the answer and writing the next question run at the same time, and the database connection is released while the AI calls run, so slow AI calls don't tie up the connection pool.
+6. **Answer:** scoring the answer and writing the next question run at the same time, and the database connection is released while the AI calls run, so slow AI calls don't tie up the connection pool. If Groq rate-limits or fails a call, it's retried at once on a smaller model (`openai/gpt-oss-20b`, which Groq limits separately) instead of waiting out the limit.
 7. **Evaluate:** when the interview ends, the LLM scores technical knowledge, behavioral IQ and problem solving, and the PDF report is generated.
 
 ## Project Structure
@@ -144,16 +144,19 @@ Measured in November 2026 with 5 voice turns from Docker on a laptop, against th
 
 Inside each turn, Groq scored the answer in 0.4–0.8 s while the excerpt lookup and the next question (Groq, 0.3–0.5 s) ran alongside it, and ElevenLabs took 0.7–1.5 s.
 
+Since then, question audio streams: in 3 tries the first audio byte reached the browser in about 0.2 s (1.0 s on a cold first call), instead of after the whole 0.7–1.5 s clip, so the voice starts right after the question appears. The turns above haven't been re-run with streaming audio.
+
 ### Before (HTTP, Django)
 
 The same kind of turn over HTTP, measured earlier with 20 runs, took 4.5–7 s when Groq wasn't throttled (10.3 s median and 15.2 s p95 with free-tier throttling). The answer was uploaded whole and transcribed afterwards (about 2.3 s), and every step ran one after another.
 
-Groq's free tier allows 1,000 output tokens a minute, so turns closer together than about 20 s get throttled and slow down. Concurrent sessions haven't been load-tested on FastAPI yet.
+Groq's free tier allows 1,000 output tokens a minute. Throttled calls used to wait and retry (the 10 s+ turns above); they now switch to the fallback model at once (1.2 s for a score and a question in testing). Concurrent sessions haven't been load-tested on FastAPI yet.
 
 ## Known Limits
 
 - **No migrations:** tables are created on startup, and existing tables are never altered. Add Alembic before changing a column.
-- **Question audio isn't streamed:** it's made in one piece after the text is sent, so it starts playing about 1 s after the question appears. Over the HTTP fallback, answers are uploaded whole and the audio arrives inside the reply.
+- **Question audio isn't cached:** reloading the page asks ElevenLabs to read the question again. Over the HTTP fallback, spoken answers are uploaded whole instead of streamed.
+- **Fallback answers:** when Groq throttles the main model, scores and questions come from a smaller model, so their quality can dip during busy minutes.
 - **Upload size:** requests over 10 MB are refused by `Content-Length`; chunked uploads without one aren't capped, so put a proxy with a body limit in front if the app is public.
 
 ## Security

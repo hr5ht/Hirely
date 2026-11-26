@@ -58,8 +58,8 @@ SEVERE_ALERTS = {"Camera Stopped"}
 
 
 async def _speech(text, data):
-    """Base64 audio for text; or, when the caller collects data['speak_later'] (the WebSocket), None now
-    and the text is queued, so the question's text goes out without waiting ~1.5 s for its audio."""
+    """Base64 audio for the end-of-interview summary; or, when the caller collects data['speak_later'] (the
+    WebSocket), None now and the text is queued, so the summary's text goes out without waiting for its audio."""
     if (later := data.get('speak_later')) is not None:
         later.append(text)
         return None
@@ -69,7 +69,10 @@ async def _speech(text, data):
 async def _question(text, session, data):
     job = session.application.job
     remaining = job.answer_time_limit - (_now() - session.transcript[-1].get('asked_at', _now())) if job.answer_time_limit else 0
-    return {"type": "interview_message", "message_type": "question", "text": text, "audio": await _speech(text, data),
+    # The page plays this URL as it downloads, so speech starts after ElevenLabs' first chunk, not its last.
+    # text is always the pending question, transcript[-1]; the URL names it by position, never by text.
+    audio_url = f"/ai/interview/{session.id}/speech/{len(session.transcript) - 1}/" if AudioService().speaks else None
+    return {"type": "interview_message", "message_type": "question", "text": text, "audio_url": audio_url,
             "round": len(session.transcript), "total_rounds": job.interview_rounds,
             "seconds_left": max(remaining, 1) if job.answer_time_limit else None}
 

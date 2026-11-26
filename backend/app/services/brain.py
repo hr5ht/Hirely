@@ -3,6 +3,7 @@ import logging
 import os
 import time
 
+import groq
 from dotenv import load_dotenv
 from langchain_groq import ChatGroq
 
@@ -10,15 +11,22 @@ log = logging.getLogger(__name__)
 
 load_dotenv()
 
+# Groq limits each model separately, so a rate-limited call switches to this small, fast one instead of waiting
+FALLBACK_MODEL = "openai/gpt-oss-20b"
+FALLBACK_REASONING_TOKENS = 1024  # it always reasons a little, and those tokens count toward max_tokens
+RETRYABLE = (groq.RateLimitError, groq.InternalServerError, groq.APIConnectionError, groq.APITimeoutError)
+
 SKILL_WEIGHT = 0.6  # ATS overall = 60% required-skill coverage + 40% experience/context match
 
 class InterviewBrain:
     def __init__(self, model="qwen/qwen3.8-27b"):
         # Reasoning tokens count toward max_tokens and can leave short answers empty; "none" turns thinking off.
-        # The Groq SDK retries 429/5xx with backoff (honouring Retry-After); one retry and a timeout
-        # keep a slow call inside the serverless function's time limit.
+        # No retries here: a 429 (free tier: 1,000 output tokens a minute) goes straight to the fallback
+        # model instead of sleeping through the SDK's backoff, which is what made slow turns take 10 s+.
         self.llm = ChatGroq(model=model, api_key=os.getenv("GROQ_API_KEY"), reasoning_effort="none",
-                            max_retries=1, timeout=20)
+                            max_retries=0, timeout=20)
+        self.fallback = ChatGroq(model=FALLBACK_MODEL, api_key=os.getenv("GROQ_API_KEY"), reasoning_effort="low",
+                                 max_retries=1, timeout=20)
         self.system_prompt = (
             "You are a 'Brutally Honest' evaluator. "
             "Your goal is to conduct a realistic, high-pressure assessment or interview. "
@@ -29,12 +37,22 @@ class InterviewBrain:
             "Keep responses concise to ensure low latency for voice conversion."
         )
 
-    async def _chat(self, label, system, prompt, max_tokens=None, json_mode=False):
-        llm = self.llm.bind(max_tokens=max_tokens) if max_tokens else self.llm
+    @staticmethod
+    def _bound(llm, max_tokens, json_mode):
+        llm = llm.bind(max_tokens=max_tokens) if max_tokens else llm
         if json_mode:  # JSON calls are the scoring/evaluation ones: the same answer should get the same score
             llm = llm.bind(response_format={"type": "json_object"}, temperature=0)
+        return llm
+
+    async def _chat(self, label, system, prompt, max_tokens=None, json_mode=False):
+        messages = [("system", system), ("human", prompt)]
         start_time = time.perf_counter()
-        response = await llm.ainvoke([("system", system), ("human", prompt)])
+        try:
+            response = await self._bound(self.llm, max_tokens, json_mode).ainvoke(messages)
+        except RETRYABLE as e:
+            log.warning("Groq %s: %s on the main model; using %s", label, type(e).__name__, FALLBACK_MODEL)
+            room = max_tokens and max_tokens + FALLBACK_REASONING_TOKENS
+            response = await self._bound(self.fallback, room, json_mode).ainvoke(messages)
         log.info("Groq %s took %.3fs", label, time.perf_counter() - start_time)
         return response.content
 

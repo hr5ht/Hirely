@@ -31,7 +31,9 @@ class User(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     date_joined: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
 
-    profile: Mapped['UserProfile | None'] = relationship(back_populates='user', lazy='selectin', passive_deletes=True)
+    # Deleting a user (e.g. in /admin/) deletes the profile; without the cascade the ORM would blank its user_id and fail
+    profile: Mapped['UserProfile | None'] = relationship(back_populates='user', lazy='selectin', cascade='all, delete-orphan',
+                                                         passive_deletes=True)
 
     def __str__(self):
         return self.username
@@ -131,8 +133,8 @@ class Application(Base):
 
     job: Mapped[Job] = relationship(lazy='selectin')
     candidate: Mapped[User] = relationship(lazy='selectin')
-    sessions: Mapped[list['InterviewSession']] = relationship(back_populates='application', lazy='selectin',
-                                                              order_by='InterviewSession.id', passive_deletes=True)
+    sessions: Mapped[list['InterviewSession']] = relationship(back_populates='application', lazy='selectin', order_by='InterviewSession.id',
+                                                              cascade='all, delete-orphan', passive_deletes=True)
 
     @property
     def status_display(self):

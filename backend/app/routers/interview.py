@@ -5,7 +5,7 @@ import logging
 from urllib.parse import urlparse
 
 from fastapi import APIRouter, HTTPException, Request, WebSocket
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import JSONResponse, Response, StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.orm import undefer
 
@@ -86,6 +86,33 @@ async def interview_action(request: Request, session_id: int, action: str, db: D
         log.exception("Interview %s failed on session %s", action, session_id)
         await db.rollback()
         return JSONResponse({'error': ai_error(e)}, status_code=502)
+
+
+@router.get('/ai/interview/{session_id}/speech/{index}/')
+async def question_speech(session_id: int, index: int, db: DB, user: CurrentUser):
+    """A question's audio, relayed from ElevenLabs as it streams. Only questions already in the candidate's own
+    transcript can be spoken, so the endpoint can't be used to synthesize arbitrary text on our account."""
+    if not user:
+        return JSONResponse({'error': 'Authentication required'}, status_code=401)
+    if await over_hourly_limit(user, 'question_speech', 120):
+        return too_many_response()
+    session = await _own_session(db, user, session_id)
+    question = session.transcript[index].get('question') if session and 0 <= index < len(session.transcript) else None
+    await db.commit()  # frees the DB connection while the audio streams
+    if not question:
+        raise HTTPException(404)
+    # shortcut: every request synthesizes again (a reload replays the question); cache the bytes if that costs too much
+    upstream = await AudioService().open_speech_stream(question)
+    if upstream is None:
+        return Response(status_code=502)
+
+    async def relay():
+        try:
+            async for chunk in upstream.aiter_bytes():
+                yield chunk
+        finally:
+            await upstream.aclose()
+    return StreamingResponse(relay(), media_type='audio/mpeg')
 
 
 @router.websocket('/ws/interview/{session_id}/')

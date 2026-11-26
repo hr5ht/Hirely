@@ -436,9 +436,10 @@
                     promptText.innerText = message.text;
                     addTranscript('AI', message.text);
 
-                    if (message.audio) {
+                    if (message.audio_url || message.audio) {
                         stopAIAudio(); // Stop any previous AI audio before playing new one
-                        currentAudio = new Audio(`data:audio/mpeg;base64,${message.audio}`);
+                        // audio_url streams: playback starts with ElevenLabs' first chunk
+                        currentAudio = new Audio(message.audio_url || `data:audio/mpeg;base64,${message.audio}`);
                         currentAudio.onended = () => { currentAudio = null; };
                         currentAudio.play();
                     }

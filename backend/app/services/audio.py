@@ -68,6 +68,29 @@ class AudioService:
         # Default ElevenLabs Voice ID (Josh - deep, professional)
         self.voice_id = "pNInz6obpgDQGcFmaJgB"
 
+    @property
+    def speaks(self):
+        return bool(self.elevenlabs_key) and "your_" not in self.elevenlabs_key
+
+    async def open_speech_stream(self, text):
+        """ElevenLabs' streaming endpoint, opened: the caller relays chunks as they arrive and must aclose() it.
+        None if ElevenLabs is unset or refuses."""
+        if not self.speaks:
+            return None
+        request = _http.build_request(
+            "POST", f"https://api.elevenlabs.io/v1/text-to-speech/{self.voice_id}/stream",
+            headers={"Accept": "audio/mpeg", "xi-api-key": self.elevenlabs_key},
+            json={"text": text, "model_id": "eleven_flash_v2", "voice_settings": {"stability": 0.5, "similarity_boost": 0.75}})
+        start_time = time.perf_counter()
+        response = await _http.send(request, stream=True)
+        if response.status_code != 200:
+            await response.aread()
+            log.error("ElevenLabs stream failed (%s): %s", response.status_code, response.text[:200])
+            await response.aclose()
+            return None
+        log.info("ElevenLabs stream started in %.3fs", time.perf_counter() - start_time)
+        return response
+
     async def text_to_speech(self, text):
         """Converts text to speech using ElevenLabs and returns base64 audio."""
         if not self.elevenlabs_key or "your_" in self.elevenlabs_key:
