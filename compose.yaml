@@ -13,9 +13,10 @@ services:
 
   backend:
     build: ./backend
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload   # reloads on code edits
     ports: ["${PORT:-8000}:8000"]   # PORT=8001 docker compose up, if 8000 is taken
     env_file:
-      - path: backend/.env   # Supabase, Groq and other API keys
+      - path: backend/.env   # Groq, Gemini, Deepgram and ElevenLabs keys
         required: false
     environment:
       # Overrides any Neon DATABASE_URL in .env, so Docker never touches production data

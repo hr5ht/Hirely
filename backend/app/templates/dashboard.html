@@ -1,0 +1,391 @@
+{% extends "base.html" %}
+{% block title %}Dashboard | Hirely{% endblock %}
+{% block content %}
+
+    {% include "partials/navbar.html" %}
+
+    <main class="page container">
+        <header class="page-head">
+            <div>
+                <span class="eyebrow"><b>Candidate</b> Apply, interview and track every role in one place</span>
+                <h1>Find your next role</h1>
+                <p class="lead">Browse open positions, check how your resume matches, and run your AI interview when you're ready.</p>
+            </div>
+        </header>
+
+        <div class="tabs" role="tablist">
+            <button id="btn-tab-marketplace" class="tab" role="tab" aria-selected="true" onclick="switchTab('marketplace')">
+                <i data-lucide="layout-grid" class="i"></i> Open roles
+                <span class="badge">{{ jobs.paginator.count }}</span>
+            </button>
+            <button id="btn-tab-applied" class="tab" role="tab" aria-selected="false" onclick="switchTab('applied')">
+                <i data-lucide="clipboard-list" class="i"></i> My applications
+                {% if applications %}<span class="badge">{{ applications|length }}</span>{% endif %}
+            </button>
+        </div>
+
+        <!-- Open roles -->
+        <div id="panel-marketplace" class="stack-lg">
+            <form method="get" class="row wrap">
+                <div class="input-icon grow" style="min-width:220px">
+                    <i data-lucide="search" class="i"></i>
+                    <input type="search" name="q" value="{{ query }}" placeholder="Search by title, company or skill" aria-label="Search jobs" class="input">
+                </div>
+                <select name="level" onchange="this.form.submit()" aria-label="Experience level" class="input" style="width:auto">
+                    <option value="">All levels</option>
+                    {% for lvl in levels %}<option value="{{ lvl }}" {% if lvl == level %}selected{% endif %}>{{ lvl }}</option>{% endfor %}
+                </select>
+                <button type="submit" class="btn btn-primary">Search</button>
+            </form>
+
+            <div class="grid-2">
+                {% for job in jobs %}
+                <article class="card card-pad card-hover stack">
+                    <div class="card-head" style="margin-bottom:4px">
+                        <span class="row-sm label-caps"><span class="dot dot-green"></span>{{ job.company.name }}</span>
+                        <span class="badge badge-square shrink-0">{{ job.experience_level|default("All Levels", true) }}</span>
+                    </div>
+                    <h3 style="font-size:20px;cursor:pointer" onclick="openJobDetailsModal('{{ job.id }}', '{{ job.title|escapejs }}', '{{ job.company.name|escapejs }}', '{{ job.experience_level|default("All Levels", true)|escapejs }}', '{{ job.description|escapejs }}', {% if job.id in applied_jobs %}true{% else %}false{% endif %})">{{ job.title }}</h3>
+                    <p class="muted small clamp-4">{{ job.description }}</p>
+                    <button type="button" class="text-btn" style="align-self:flex-start" onclick="openJobDetailsModal('{{ job.id }}', '{{ job.title|escapejs }}', '{{ job.company.name|escapejs }}', '{{ job.experience_level|default("All Levels", true)|escapejs }}', '{{ job.description|escapejs }}', {% if job.id in applied_jobs %}true{% else %}false{% endif %})">Read full description <i data-lucide="arrow-right" class="i-sm arrow"></i></button>
+
+                    <div class="card-foot">
+                        {% if job.id in applied_jobs %}
+                            {% for app in applications %}
+                                {% if app.job.id == job.id %}
+                                <div class="row between wrap">
+                                    <span class="row-sm"><span class="label-caps">ATS match</span><span class="mono strong">{{ app.ats_match_score|floatformat(0)|default("--", true) }}%</span></span>
+                                    {% if app.status == 'applied' %}
+                                    <a href="/session/?app_id={{ app.id }}" class="btn btn-primary btn-sm">Start interview <i data-lucide="play" class="i-sm"></i></a>
+                                    {% elif app.status == 'interviewing' %}
+                                    <a href="/session/?app_id={{ app.id }}" class="btn btn-primary btn-sm">Resume interview <i data-lucide="play-circle" class="i-sm"></i></a>
+                                    {% elif app.status == 'accepted' %}
+                                    <span class="badge badge-green" title="You'll be contacted by email"><i data-lucide="check-circle" class="i-sm"></i> Accepted</span>
+                                    {% elif app.status == 'rejected' %}
+                                    <span class="badge badge-red"><i data-lucide="x-circle" class="i-sm"></i> Not selected</span>
+                                    {% else %}
+                                    <span class="badge badge-green"><i data-lucide="check-circle" class="i-sm"></i> Evaluated</span>
+                                    {% endif %}
+                                </div>
+                                {% endif %}
+                            {% endfor %}
+                        {% else %}
+                        <button onclick="openApplyModal('{{ job.id }}', '{{ job.title|escapejs }}', '{{ job.company.name|escapejs }}')" class="btn btn-secondary btn-block">
+                            <i data-lucide="file-up" class="i"></i> Apply with resume
+                        </button>
+                        {% endif %}
+                    </div>
+                </article>
+                {% else %}
+                <div class="empty" style="grid-column:1/-1">
+                    <i data-lucide="briefcase" class="i-lg faint"></i>
+                    {% if query or level %}
+                    <p class="strong">No roles match your filters</p>
+                    <a href="/dashboard/" class="link small">Clear filters</a>
+                    {% else %}
+                    <p class="strong">No open positions yet</p>
+                    <p class="small">Roles appear here as soon as recruiters publish them.</p>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+
+            {% if jobs.has_other_pages %}
+            <nav class="row" style="justify-content:center" aria-label="Job pages">
+                {% if jobs.has_previous %}<a href="{{ querystring(page=jobs.previous_page_number) }}" class="btn btn-secondary btn-sm">&larr; Previous</a>{% endif %}
+                <span class="mono xs muted">Page {{ jobs.number }} of {{ jobs.paginator.num_pages }}</span>
+                {% if jobs.has_next %}<a href="{{ querystring(page=jobs.next_page_number) }}" class="btn btn-secondary btn-sm">Next &rarr;</a>{% endif %}
+            </nav>
+            {% endif %}
+        </div>
+
+        <!-- My applications -->
+        <div id="panel-applied" class="hidden">
+            <div class="card card-pad">
+                {% if applications %}
+                <div class="list">
+                    {% for app in applications %}
+                    <div class="stack">
+                        <div class="row between wrap">
+                            <div class="row">
+                                <span class="icon-box"><i data-lucide="file-check" class="i"></i></span>
+                                <div class="stack-xs">
+                                    <span class="label-caps">{{ app.job.company.name }}</span>
+                                    <h3 style="font-size:16px">{{ app.job.title }}</h3>
+                                    <span class="faint xs">Applied {{ app.created_at|date("M d, Y") }}</span>
+                                </div>
+                            </div>
+                            <div class="inset row" style="gap:20px">
+                                <div class="stack-xs center"><span class="label-caps">ATS</span><span class="mono strong">{{ app.ats_match_score|floatformat(0)|default("--", true) }}%</span></div>
+                                <span class="vr"></span>
+                                <div class="stack-xs center"><span class="label-caps">Integrity</span><span class="mono strong">{{ app.proctoring_score }}%</span></div>
+                                <span class="vr"></span>
+                                <div class="stack-xs center">
+                                    <span class="label-caps">Status</span>
+                                    <span class="badge {% if app.status == 'accepted' or app.status == 'evaluated' %}badge-green{% elif app.status == 'rejected' %}badge-red{% else %}badge-blue{% endif %}">{{ app.status_display }}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {% if app.status == 'applied' %}
+                        <div class="inset row between wrap">
+                            <p class="small muted">Your resume is scored. Start the interview to finish your application.</p>
+                            <a href="/session/?app_id={{ app.id }}" class="btn btn-primary btn-sm">Start interview <i data-lucide="play" class="i-sm"></i></a>
+                        </div>
+                        {% elif app.status == 'interviewing' %}
+                        <div class="inset row between wrap">
+                            <p class="small muted">You have an interview in progress.</p>
+                            <a href="/session/?app_id={{ app.id }}" class="btn btn-primary btn-sm">Resume interview <i data-lucide="play-circle" class="i-sm"></i></a>
+                        </div>
+                        {% elif app.status == 'accepted' %}
+                        <div class="alert alert-success"><i data-lucide="party-popper" class="i"></i>Congratulations, you've been accepted for this role. The team will contact you by email soon.</div>
+                        {% elif app.status == 'rejected' %}
+                        <div class="alert">Thank you for your time. The company has decided to move forward with other candidates for now.</div>
+                        {% elif app.status == 'evaluated' %}
+                            {% for session in app.sessions %}
+                            <div class="inset stack-sm">
+                                <div class="row between wrap">
+                                    <span class="row-sm small strong"><span class="dot dot-green"></span>Interview #{{ session.id }}</span>
+                                    <div class="row-sm wrap">
+                                        {% if session.gap_analysis %}
+                                        <button onclick="toggleGap('{{ session.id }}')" class="btn btn-secondary btn-sm"><i data-lucide="brain" class="i-sm"></i> Gap analysis</button>
+                                        {% endif %}
+                                        <a href="/review/{{ session.id }}/" class="btn btn-secondary btn-sm"><i data-lucide="message-square-text" class="i-sm"></i> Review</a>
+                                        <a href="/download-session/{{ session.id }}/" class="btn btn-primary btn-sm"><i data-lucide="download" class="i-sm"></i> PDF</a>
+                                        <form method="post" action="/delete-session/{{ session.id }}/" onsubmit="return confirm('Are you sure you want to delete this session? This cannot be undone.');">
+                                            {{ csrf_input }}
+                                            <button type="submit" class="btn btn-ghost-danger btn-sm btn-icon" title="Delete session" aria-label="Delete session"><i data-lucide="trash-2" class="i-sm"></i></button>
+                                        </form>
+                                    </div>
+                                </div>
+                                {% if session.gap_analysis %}
+                                <div id="gap-block-{{ session.id }}" class="hidden stack-sm" style="padding-top:8px">
+                                    <span class="label-caps t-violet">Skills gap analysis</span>
+                                    <p class="small muted">{{ session.gap_analysis }}</p>
+                                </div>
+                                {% endif %}
+                            </div>
+                            {% endfor %}
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="empty empty-plain">
+                    <i data-lucide="inbox" class="i-lg faint"></i>
+                    <p>You haven't applied to any roles yet. Pick one under <b>Open roles</b> to get started.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </main>
+
+    <!-- Job details -->
+    <dialog id="jobDetailsModal" class="modal modal-lg">
+        <div class="modal-head">
+            <div class="stack-sm">
+                <span id="modal-detail-company" class="label-caps">Company</span>
+                <h3 id="modal-detail-title">Job title</h3>
+                <span id="modal-detail-exp" class="badge badge-square" style="align-self:flex-start">Experience</span>
+            </div>
+            <button onclick="closeJobDetailsModal()" aria-label="Close" class="btn btn-ghost btn-sm btn-icon"><i data-lucide="x" class="i"></i></button>
+        </div>
+        <div class="modal-body">
+            <div id="modal-detail-desc" class="small muted pre-wrap"></div>
+        </div>
+        <div class="modal-foot">
+            <div id="modal-detail-status-msg" class="hidden badge badge-green" style="margin-right:auto"><i data-lucide="check-circle" class="i-sm"></i> Applied. Track it under My applications.</div>
+            <button id="modal-detail-close-btn" type="button" onclick="closeJobDetailsModal()" class="btn btn-secondary">Close</button>
+            <button id="modal-detail-apply-btn" type="button" class="btn btn-primary">Apply now <i data-lucide="arrow-right" class="i arrow"></i></button>
+        </div>
+    </dialog>
+
+    <!-- Apply with a resume -->
+    <dialog id="applyModal" class="modal">
+        <div class="modal-head">
+            <div class="stack-xs">
+                <h3>Submit application</h3>
+                <p id="modal-job-sub" class="faint xs">Job title at Company</p>
+            </div>
+            <button onclick="closeApplyModal()" aria-label="Close" class="btn btn-ghost btn-sm btn-icon"><i data-lucide="x" class="i"></i></button>
+        </div>
+
+        <div id="apply-loading-state" class="hidden modal-body stack" style="align-items:center;padding:48px 24px" role="status" aria-live="polite">
+            <div class="spinner spinner-lg"></div>
+            <p class="strong small">Scoring your resume against this role</p>
+            <p class="faint xs mono">This takes a few seconds…</p>
+        </div>
+
+        <form id="apply-form">
+            {{ csrf_input }}
+            <input type="hidden" name="job_id" id="modal-job-id">
+            <div class="modal-body">
+                <label class="dropzone">
+                    <input type="file" name="resume" id="resume-file-input" required accept=".pdf" class="sr-only" onchange="updateFileName(this)">
+                    <span class="icon-box"><i data-lucide="upload" class="i"></i></span>
+                    <span id="file-label" class="strong small">Choose your PDF resume</span>
+                    <span class="faint xs">Unencrypted PDF, up to 4 MB</span>
+                </label>
+            </div>
+            <div class="modal-foot">
+                <button type="button" onclick="closeApplyModal()" class="btn btn-secondary">Cancel</button>
+                <button type="submit" id="apply-submit" class="btn btn-primary">Submit application</button>
+            </div>
+        </form>
+    </dialog>
+
+    <!-- After applying: interview now or later -->
+    <dialog id="nowOrLaterModal" class="modal">
+        <div class="modal-body stack center" style="align-items:center;padding:32px 24px">
+            <span class="icon-box"><i data-lucide="sparkles" class="i"></i></span>
+            <div class="stack-xs">
+                <h3 style="font-size:20px">Application submitted</h3>
+                <p id="nol-job-sub" class="faint small">Job at Company</p>
+            </div>
+            <div class="inset stack-xs" style="width:100%">
+                <span class="label-caps">ATS match</span>
+                <span id="nol-ats-score" class="stat-value">--%</span>
+            </div>
+            <div id="nol-ats-tips" class="hidden stack-sm" style="width:100%;text-align:left">
+                <span class="label-caps">Missing from your resume</span>
+                <div id="nol-missing" class="row-sm wrap"></div>
+                <ul id="nol-suggestions" class="bullets small muted"></ul>
+            </div>
+            <p class="muted small">Start your proctored interview now, or come back to it later from your dashboard.</p>
+            <div class="stack-sm" style="width:100%">
+                <a id="nol-start-btn" href="#" class="btn btn-primary btn-block">Start interview now <i data-lucide="play" class="i-sm"></i></a>
+                <button type="button" onclick="closeNowOrLaterModal(true)" class="btn btn-secondary btn-block">Do it later</button>
+            </div>
+        </div>
+    </dialog>
+
+    {% include "partials/footer.html" %}
+{% endblock %}
+{% block scripts %}
+<script>
+    const applyModal = document.getElementById('applyModal');
+    const jobDetailsModal = document.getElementById('jobDetailsModal');
+    const nowOrLaterModal = document.getElementById('nowOrLaterModal');
+    const fileLabel = document.getElementById('file-label');
+
+    function switchTab(tabName) {
+        const marketplace = tabName === 'marketplace';
+        document.getElementById('btn-tab-marketplace').setAttribute('aria-selected', marketplace);
+        document.getElementById('btn-tab-applied').setAttribute('aria-selected', !marketplace);
+        document.getElementById('panel-marketplace').classList.toggle('hidden', !marketplace);
+        document.getElementById('panel-applied').classList.toggle('hidden', marketplace);
+    }
+
+    function openJobDetailsModal(jobId, jobTitle, companyName, experienceLevel, description, hasApplied) {
+        document.getElementById('modal-detail-company').innerText = companyName;
+        document.getElementById('modal-detail-title').innerText = jobTitle;
+        document.getElementById('modal-detail-exp').innerText = experienceLevel;
+        document.getElementById('modal-detail-desc').innerText = description;
+
+        const applyBtn = document.getElementById('modal-detail-apply-btn');
+        applyBtn.classList.toggle('hidden', hasApplied);
+        document.getElementById('modal-detail-status-msg').classList.toggle('hidden', !hasApplied);
+        applyBtn.onclick = () => {
+            closeJobDetailsModal();
+            openApplyModal(jobId, jobTitle, companyName);
+        };
+        jobDetailsModal.showModal();
+    }
+
+    function closeJobDetailsModal() {
+        jobDetailsModal.close();
+    }
+
+    function openApplyModal(jobId, jobTitle, companyName) {
+        document.getElementById('modal-job-id').value = jobId;
+        document.getElementById('modal-job-sub').innerText = `${jobTitle} at ${companyName}`;
+        fileLabel.innerText = "Choose your PDF resume";
+        applyModal.showModal();
+    }
+
+    function closeApplyModal() {
+        applyModal.close();
+    }
+
+    function updateFileName(input) {
+        if (input.files && input.files[0]) {
+            fileLabel.textContent = input.files[0].name;
+        }
+    }
+
+    function toggleGap(sessionId) {
+        document.getElementById(`gap-block-${sessionId}`).classList.toggle('hidden');
+    }
+
+    // Scoring takes a few seconds: don't let Escape close the dialog halfway through
+    applyModal.addEventListener('cancel', e => {
+        if (document.getElementById('apply-submit').disabled) e.preventDefault();
+    });
+
+    document.getElementById('apply-form').onsubmit = function(e) {
+        e.preventDefault();
+
+        const form = this;
+        const formData = new FormData(form);
+        const loadingState = document.getElementById('apply-loading-state');
+        const resume = formData.get('resume');
+        if (resume && resume.size > 4 * 1024 * 1024) {
+            alert('Resume is larger than 4 MB. Please upload a smaller PDF.');
+            return;
+        }
+        const submitBtn = document.getElementById('apply-submit');
+        if (submitBtn.disabled) return;  // already scoring this resume
+        submitBtn.disabled = true;
+
+        form.classList.add('hidden');
+        loadingState.classList.remove('hidden');
+
+        fetch('/ai/apply-to-job/', {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-CSRFToken': formData.get('csrfmiddlewaretoken') }
+        })
+        .then(async res => {
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || 'Application submission failed.');
+            return data;
+        })
+        .then(data => {
+            form.reset();
+            form.classList.remove('hidden');
+            loadingState.classList.add('hidden');
+            submitBtn.disabled = false;
+            closeApplyModal();
+
+            document.getElementById('nol-job-sub').innerText = `${data.job_title} at ${data.company_name}`;
+            document.getElementById('nol-ats-score').innerText = `${data.ats_score}%`;
+            document.getElementById('nol-start-btn').href = `/session/?app_id=${data.app_id}`;
+            const missing = document.getElementById('nol-missing'), tips = document.getElementById('nol-suggestions');
+            missing.replaceChildren(...(data.missing_keywords || []).map(kw => Object.assign(document.createElement('span'),
+                { textContent: kw, className: 'badge badge-red badge-square' })));
+            tips.replaceChildren(...(data.improvement_suggestions || []).map(t => Object.assign(document.createElement('li'), { textContent: t })));
+            document.getElementById('nol-ats-tips').classList.toggle('hidden', !missing.children.length && !tips.children.length);
+
+            openNowOrLaterModal();
+        })
+        .catch(err => {
+            alert(err.message);
+            form.classList.remove('hidden');
+            loadingState.classList.add('hidden');
+            submitBtn.disabled = false;
+        });
+    };
+
+    function openNowOrLaterModal() {
+        nowOrLaterModal.showModal();
+    }
+
+    function closeNowOrLaterModal(shouldReload = false) {
+        nowOrLaterModal.close();
+        if (shouldReload) window.location.reload();
+    }
+
+    // The new application should show up on the page however the dialog is dismissed
+    nowOrLaterModal.addEventListener('cancel', () => window.location.reload());
+</script>
+{% endblock %}

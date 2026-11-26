@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+{% block title %}Hirely | AI interviews and ATS scoring{% endblock %}
+{% block content %}
+
+    <nav class="nav">
+        <div class="container nav-inner">
+            <div class="row">
+                <a href="/" class="brand">
+                    <img src="{{ static('logo.svg') }}" alt="">
+                    <span>Hirely</span>
+                </a>
+                <div class="segmented hide-sm">
+                    <a href="#features">Features</a>
+                    <a href="#how">How it works</a>
+                </div>
+            </div>
+            <div class="nav-right">
+                <a href="/login/" class="btn btn-ghost btn-sm">Log in</a>
+                <a href="/register/" class="btn btn-primary btn-sm">Get started</a>
+                <a href="https://github.com/hr5ht/Hirely" class="btn btn-ghost btn-sm btn-icon" aria-label="GitHub"><svg class="i" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2 0 1.9 1.2 1.9 1.2 1 1.8 2.8 1.3 3.5 1 0-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-6 0-1.2.5-2.3 1.3-3.1-.2-.4-.6-1.6 0-3.2 0 0 1-.3 3.4 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.6.2 2.8 0 3.2.9.8 1.3 1.9 1.3 3.2 0 4.6-2.8 5.6-5.5 5.9.5.4.9 1 .9 2.2v3.3c0 .3.1.7.8.6A12 12 0 0 0 12 .3"/></svg></a>
+            </div>
+        </div>
+    </nav>
+
+    <header class="container hero">
+        <div>
+            <span class="eyebrow"><b>New</b> Interviews written from each candidate's own resume</span>
+            <h1>Don't just apply.<br><span class="gradient-text">Get hired.</span></h1>
+            <p class="lead">Post a role, collect resumes, and let an AI recruiter score every applicant and run a proctored interview. You read the transcript and decide.</p>
+            <div class="hero-actions">
+                <a href="/register/" class="btn btn-primary btn-lg">Create a free account <i data-lucide="arrow-right" class="i arrow"></i></a>
+                <a href="#how" class="btn btn-secondary btn-lg">See how it works</a>
+            </div>
+            <div class="hero-meta">
+                <div class="stack-xs"><span class="label-caps">Rounds</span><span class="strong">5 per interview</span></div>
+                <div class="stack-xs"><span class="label-caps">Answers</span><span class="strong">Voice or text</span></div>
+                <div class="stack-xs"><span class="label-caps">Output</span><span class="strong">PDF report</span></div>
+            </div>
+        </div>
+
+        <!-- Live interview console: questions type themselves out, meters move -->
+        <div class="card beam" aria-label="Example interview">
+            <div class="console-bar">
+                <i></i><i></i><i></i>
+                <span class="mono xs faint" style="margin-left:8px">hirely://interview</span>
+                <span class="badge badge-green" style="margin-left:auto"><span class="dot dot-green dot-live"></span>Live</span>
+            </div>
+            <div class="card-pad stack">
+                <div class="row between">
+                    <span id="demo-round" class="label-caps">Round 1 of 5</span>
+                    <span class="label-caps t-accent">Gaze: secure</span>
+                </div>
+                <p class="console-question"><span id="demo-q"></span><span class="caret"></span></p>
+                <div class="grid" style="grid-template-columns:repeat(3,1fr);gap:12px">
+                    <div class="inset stack-sm"><span class="label-caps">ATS</span><span class="mono strong"><span id="demo-ats">86</span>%</span><div class="meter"><div id="demo-ats-bar" class="meter-fill" style="width:86%"></div></div></div>
+                    <div class="inset stack-sm"><span class="label-caps">Confidence</span><span class="mono strong"><span id="demo-conf">78</span>%</span><div class="meter"><div id="demo-conf-bar" class="meter-fill fill-blue" style="width:78%"></div></div></div>
+                    <div class="inset stack-sm"><span class="label-caps">Clarity</span><span class="mono strong"><span id="demo-clar">84</span>%</span><div class="meter"><div id="demo-clar-bar" class="meter-fill fill-violet" style="width:84%"></div></div></div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <section id="features" class="section container">
+        <div class="section-head">
+            <span class="label-caps t-accent">Features</span>
+            <h2 style="margin-top:10px">One pipeline, from resume to hire.</h2>
+            <p>Every applicant goes through the same steps and is scored the same way.</p>
+        </div>
+        <div class="bento">
+            <div class="card span-4">
+                <span class="icon-box"><i data-lucide="file-check" class="i-lg"></i></span>
+                <h3>ATS resume scoring</h3>
+                <p class="muted small" style="max-width:440px">An LLM reads the resume against the job description and returns a score, the skills it found and the ones that are missing.</p>
+                <div class="chip-cloud">
+                    <span class="badge badge-green" style="--i:0">Python</span>
+                    <span class="badge badge-green" style="--i:1">Django</span>
+                    <span class="badge badge-green" style="--i:2">PostgreSQL</span>
+                    <span class="badge badge-green" style="--i:3">Docker</span>
+                    <span class="badge badge-red badge-strike" style="--i:4">Kubernetes</span>
+                    <span class="badge badge-red badge-strike" style="--i:5">AWS</span>
+                </div>
+            </div>
+            <div class="card span-2">
+                <span class="icon-box"><i data-lucide="scan-eye" class="i-lg"></i></span>
+                <h3>Live proctoring</h3>
+                <p class="muted small">Face and gaze tracking in the browser, plus paste and typing-speed checks.</p>
+                <div class="eye-ring"><i data-lucide="eye" class="i-lg t-accent"></i></div>
+            </div>
+            <div class="card span-2">
+                <span class="icon-box"><i data-lucide="mic" class="i-lg"></i></span>
+                <h3>Tailored interviews</h3>
+                <p class="muted small">Five rounds built from the candidate's resume and the role, with feedback after every answer.</p>
+            </div>
+            <div class="card span-2">
+                <span class="icon-box"><i data-lucide="file-text" class="i-lg"></i></span>
+                <h3>PDF reports</h3>
+                <p class="muted small">Scores, a skills-gap analysis, every proctoring alert and the full transcript.</p>
+            </div>
+            <div class="card span-2">
+                <span class="icon-box"><i data-lucide="users" class="i-lg"></i></span>
+                <h3>Teams</h3>
+                <p class="muted small">Invite teammates with a single-use link. Each company sees only its own data.</p>
+            </div>
+        </div>
+    </section>
+
+    <section id="how" class="section container">
+        <div class="section-head">
+            <span class="label-caps t-accent">How it works</span>
+            <h2 style="margin-top:10px">Three steps. No scheduling.</h2>
+        </div>
+        <div class="timeline">
+            <div class="stack-sm reveal-me">
+                <span class="step-node">01</span>
+                <h3 style="margin-top:8px">Apply</h3>
+                <p class="muted small">The candidate uploads a PDF resume and gets an ATS score before the interview starts.</p>
+            </div>
+            <div class="stack-sm reveal-me">
+                <span class="step-node">02</span>
+                <h3 style="margin-top:8px">Interview</h3>
+                <p class="muted small">Five tailored questions with the camera on. Every step saves, so a reload never loses progress.</p>
+            </div>
+            <div class="stack-sm reveal-me">
+                <span class="step-node">03</span>
+                <h3 style="margin-top:8px">Decide</h3>
+                <p class="muted small">Recruiters compare candidates side by side, read the transcript and accept or reject.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="section container">
+        <div class="card cta">
+            <h2 style="font-size:clamp(30px,4.5vw,52px);letter-spacing:-0.05em">Ready when <span class="gradient-text">you are.</span></h2>
+            <p class="muted" style="margin:14px auto 28px;max-width:440px">Create a free account as a candidate or as a recruiter. It takes under a minute.</p>
+            <a href="/register/" class="btn btn-primary btn-lg">Get started <i data-lucide="arrow-right" class="i arrow"></i></a>
+        </div>
+    </section>
+
+    <footer class="footer">
+        <div class="container footer-inner">
+            <span>Hirely &copy; 2026</span>
+            <span class="row"><a href="/login/">Log in</a><a href="https://github.com/hr5ht/Hirely">GitHub</a></span>
+        </div>
+    </footer>
+{% endblock %}
+{% block scripts %}
+<script>
+    // Example interview: type out each question, then nudge the meters
+    const questions = [
+        "Your resume says you cut API latency by 40%. How did you find the bottleneck?",
+        "Walk me through how you'd design rate limiting for a public API.",
+        "Tell me about a time a deploy went wrong. What did you change afterwards?",
+    ];
+    const q = document.getElementById('demo-q');
+    const set = (id, v) => {
+        document.getElementById(id).textContent = v;
+        document.getElementById(id + '-bar').style.width = v + '%';
+    };
+    let round = 0;
+    function ask() {
+        const text = questions[round % questions.length];
+        document.getElementById('demo-round').textContent = `Round ${round % 5 + 1} of 5`;
+        q.textContent = '';
+        let i = 0;
+        const type = setInterval(() => {
+            q.textContent = text.slice(0, ++i);
+            if (i < text.length) return;
+            clearInterval(type);
+            set('demo-conf', 70 + Math.floor(Math.random() * 25));
+            set('demo-clar', 72 + Math.floor(Math.random() * 24));
+            round++;
+            setTimeout(ask, 2600);
+        }, 28);
+    }
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) q.textContent = questions[0]; else ask();
+</script>
+{% endblock %}

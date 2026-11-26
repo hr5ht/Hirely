@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}{{ heading }} | Hirely{% endblock %}
+{% block content %}
+    <main class="auth">
+        <div class="card auth-card beam">
+            <div class="auth-head">
+                <h1>{% block heading %}{% endblock %}</h1>
+            </div>
+            <div class="stack">
+                {% if error %}<div class="alert alert-error"><i data-lucide="alert-circle" class="i"></i>{{ error }}</div>{% endif %}
+                {% block card %}{% endblock %}
+            </div>
+            <p class="auth-foot"><a href="/login/" class="link">Back to log in</a></p>
+        </div>
+    </main>
+{% endblock %}

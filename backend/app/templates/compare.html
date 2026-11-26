@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Compare Candidates | Hirely{% endblock %}
+{% block content %}
+
+    {% include "partials/navbar.html" %}
+
+    <main class="page container stack-lg">
+        <a href="/dashboard/" class="text-btn" style="align-self:flex-start"><i data-lucide="arrow-left" class="i-sm"></i> Back to dashboard</a>
+        <header class="page-head" style="margin-bottom:0">
+            <h1>Compare candidates</h1>
+        </header>
+
+        {% if rows %}
+        <div class="card table-wrap">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th></th>
+                        {% for app, session in rows %}
+                        <th style="text-transform:none;letter-spacing:0">
+                            <div class="row">
+                                <span class="avatar">{{ app.candidate.username[:2]|upper }}</span>
+                                <div class="stack-xs" style="gap:0">
+                                    <a href="/ai/candidate-detail/{{ app.id }}/" class="strong" style="font-family:var(--sans);font-size:14px">{{ app.candidate.username }}</a>
+                                    <span class="faint" style="font-family:var(--sans)">{{ app.job.title }}</span>
+                                </div>
+                            </div>
+                        </th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><th>Status</th>{% for app, session in rows %}<td><span class="badge">{{ app.status_display }}</span></td>{% endfor %}</tr>
+                    <tr><th>ATS match</th>{% for app, session in rows %}<td class="mono strong">{{ app.ats_match_score|floatformat(0)|default("--", true) }}%</td>{% endfor %}</tr>
+                    <tr><th>Skills / experience fit</th>{% for app, session in rows %}<td class="mono">{{ app.ats_breakdown.skill_score|default("--", true) }}% / {{ app.ats_breakdown.semantic_score|default("--", true) }}%</td>{% endfor %}</tr>
+                    <tr><th>Integrity</th>{% for app, session in rows %}<td class="mono">{% if session %}{{ app.proctoring_score }}%{% else %}--{% endif %}</td>{% endfor %}</tr>
+                    <tr><th>Interview (weighted)</th>{% for app, session in rows %}<td class="mono strong">{% if app.interview_score is not none %}{{ app.interview_score }}%{% else %}--{% endif %}</td>{% endfor %}</tr>
+                    <tr><th>Technical</th>{% for app, session in rows %}<td class="mono">{% if session.session_status == 'completed' %}{{ session.tech_knowledge }}%{% else %}--{% endif %}</td>{% endfor %}</tr>
+                    <tr><th>Behavioral</th>{% for app, session in rows %}<td class="mono">{% if session.session_status == 'completed' %}{{ session.behavioral_iq }}%{% else %}--{% endif %}</td>{% endfor %}</tr>
+                    <tr><th>Problem solving</th>{% for app, session in rows %}<td class="mono">{% if session.session_status == 'completed' %}{{ session.problem_solving }}%{% else %}--{% endif %}</td>{% endfor %}</tr>
+                    <tr><th>Proctoring alerts</th>{% for app, session in rows %}<td class="mono">{{ session.proctoring_logs|length|default("0", true) }}</td>{% endfor %}</tr>
+                    <tr><th style="vertical-align:top">Missing skills</th>{% for app, session in rows %}<td class="small t-red" style="vertical-align:top">{{ app.ats_breakdown.missing_keywords|join(", ")|default("--", true) }}</td>{% endfor %}</tr>
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty">Select two or three applicants on the dashboard to compare them.</div>
+        {% endif %}
+    </main>
+
+    {% include "partials/footer.html" %}
+{% endblock %}

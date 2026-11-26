@@ -1,0 +1,345 @@
+{% extends "base.html" %}
+{% block title %}Recruiter Dashboard | Hirely{% endblock %}
+{% block head %}
+    <style>
+        .job-rail { display: flex; gap: 12px; overflow-x: auto; padding: 2px 2px 12px; scroll-snap-type: x mandatory; scrollbar-width: thin; }
+        .job-item-card { position: relative; flex: 0 0 320px; scroll-snap-align: start; cursor: pointer; display: flex; flex-direction: column; gap: 12px; }
+        .job-item-card.selected { border-color: var(--text); box-shadow: 0 0 0 1px var(--text), var(--shadow-hover); }
+        .analytics { display: grid; grid-template-columns: minmax(0, 1fr) repeat(3, minmax(0, 1.2fr)); gap: 12px 16px; align-items: center; font-size: 13px; }
+        .analytics .bar span:last-child { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+    </style>
+{% endblock %}
+{% block content %}
+
+    {% include "partials/navbar.html" %}
+
+    <main class="page container stack-lg">
+        <header class="page-head" style="margin-bottom:0">
+            <div>
+                <span class="eyebrow"><b>Recruiter</b> {{ company.name }}</span>
+                <h1>Hiring dashboard</h1>
+                <p class="lead">Post roles, review applicants and compare their scores.</p>
+            </div>
+            <div class="row">
+                <form method="post" action="/ai/invites/">
+                    {{ csrf_input }}
+                    <button type="submit" class="btn btn-secondary"><i data-lucide="user-plus" class="i"></i> Invite teammate</button>
+                </form>
+                <button onclick="openModal()" class="btn btn-primary"><i data-lucide="plus" class="i"></i> Post a job</button>
+            </div>
+        </header>
+
+        {% for message in messages %}
+        <div class="alert alert-break {% if message.tags == 'success' %}alert-success{% else %}alert-error{% endif %}">{{ message }}</div>
+        {% endfor %}
+
+        {% if open_invites %}
+        <details class="card card-pad-sm">
+            <summary class="strong small" style="cursor:pointer">Open teammate invites ({{ open_invites|length }})</summary>
+            <ul class="list" style="list-style:none;padding:0;margin-top:12px">
+                {% for invite, link in open_invites %}
+                <li class="row between">
+                    <div class="stack-xs" style="min-width:0">
+                        <p class="mono xs truncate">{{ link }}</p>
+                        <p class="faint xs">Created by {{ invite.created_by.username|default("a teammate", true) }} · expires {{ invite.expires_at|date("M d") }}</p>
+                    </div>
+                    <form method="post" action="/ai/invites/{{ invite.id }}/revoke/">
+                        {{ csrf_input }}
+                        <button type="submit" class="text-btn danger">Revoke</button>
+                    </form>
+                </li>
+                {% endfor %}
+            </ul>
+        </details>
+        {% endif %}
+
+        <!-- Stats -->
+        <div class="grid-3">
+            <div class="card card-pad stack-sm">
+                <span class="row between"><span class="label-caps">Open roles</span><i data-lucide="briefcase" class="i faint"></i></span>
+                <span class="stat-value">{{ total_jobs }}</span>
+            </div>
+            <div class="card card-pad stack-sm">
+                <span class="row between"><span class="label-caps">Candidates</span><i data-lucide="users" class="i faint"></i></span>
+                <span class="stat-value">{{ total_candidates }}</span>
+            </div>
+            <div class="card card-pad stack-sm">
+                <span class="row between"><span class="label-caps">Avg integrity</span><i data-lucide="shield-check" class="i faint"></i></span>
+                <span class="stat-value">{% if avg_proctoring_score is not none %}{{ avg_proctoring_score }}<span class="stat-unit">%</span>{% else %}--{% endif %}</span>
+            </div>
+        </div>
+
+        <!-- Per-job analytics: plain CSS bars, no chart library -->
+        <section class="card card-pad" aria-labelledby="analytics-title">
+            <div class="card-head">
+                <h2 id="analytics-title"><i data-lucide="bar-chart-3" class="i"></i> Hiring analytics</h2>
+                <span class="row-sm xs muted wrap">
+                    <span class="row-sm"><span class="dot" style="background:var(--accent)"></span>Applicants</span>
+                    <span class="row-sm"><span class="dot" style="background:var(--violet)"></span>ATS</span>
+                    <span class="row-sm"><span class="dot" style="background:var(--ok)"></span>Integrity</span>
+                </span>
+            </div>
+            <div class="analytics">
+                <span class="label-caps">Job</span>
+                <span class="label-caps">Applicants</span>
+                <span class="label-caps">Avg ATS</span>
+                <span class="label-caps">Avg integrity</span>
+                {% for job in jobs %}
+                <span class="strong truncate">{{ job.title }}</span>
+                <div class="bar"><span class="fill-blue" style="width: {{ (job.applicant_count / max_applicants * 100)|round|int }}%"></span><span>{{ job.applicant_count }}</span></div>
+                <div class="bar"><span class="fill-violet" style="width: {{ job.avg_ats|default(0, true)|floatformat(0) }}%"></span><span>{{ job.avg_ats|floatformat(0)|default("--", true) }}</span></div>
+                <div class="bar"><span class="fill-green" style="width: {{ job.avg_integrity|default(0, true)|floatformat(0) }}%"></span><span>{{ job.avg_integrity|floatformat(0)|default("--", true) }}</span></div>
+                {% else %}
+                <p class="faint small center" style="grid-column:1/-1;padding:16px">Post a job to see applicant, ATS and integrity numbers here.</p>
+                {% endfor %}
+            </div>
+        </section>
+
+        <!-- Job rail -->
+        <section class="stack">
+            <div class="row between">
+                <div class="stack-xs">
+                    <h2 style="font-size:17px">Your jobs</h2>
+                    <p class="faint xs">Select a job to see only its applicants</p>
+                </div>
+                <span class="badge">{{ jobs|length }} jobs</span>
+            </div>
+
+            <div class="job-rail">
+                {% for job in jobs %}
+                <div onclick="selectJob('{{ job.id }}')" data-title="{{ job.title }}" data-level="{{ job.experience_level }}" data-rounds="{{ job.interview_rounds }}" data-time-limit="{{ job.answer_time_limit }}" data-questions="{{ job.custom_questions|join("\n") }}" data-weights="{{ job.weight_tech }},{{ job.weight_behavioral }},{{ job.weight_problem_solving }}" data-description="{{ job.description }}" class="job-item-card card card-pad-sm card-hover{% if job == selected_job %} selected{% endif %}" data-job-id="{{ job.id }}">
+                    <div class="row between">
+                        <h4 class="truncate small" style="font-size:15px">{{ job.title }}</h4>
+                        <span class="badge shrink-0"><span class="dot {% if job.is_active %}dot-green{% endif %}"></span>{% if job.is_active %}Open{% else %}Closed{% endif %}</span>
+                    </div>
+                    <span class="label-caps">{{ job.experience_level|default("All levels", true) }}</span>
+                    <p class="muted xs clamp-2">{{ job.description }}</p>
+                    <div class="row between card-foot" style="padding-top:12px">
+                        <span class="row-sm">
+                            <button type="button" onclick="event.stopPropagation(); openModal(this.closest('.job-item-card'))" class="text-btn" title="Edit job" aria-label="Edit job"><i data-lucide="pencil" class="i-sm"></i></button>
+                            <form method="post" action="/ai/toggle-job/{{ job.id }}/" onclick="event.stopPropagation()">
+                                {{ csrf_input }}
+                                <button type="submit" class="text-btn {% if job.is_active %}danger{% else %}success{% endif %}">{% if job.is_active %}Close{% else %}Reopen{% endif %}</button>
+                            </form>
+                            {% if job.applicant_count %}
+                            <form method="post" action="/ai/rescore-job/{{ job.id }}/" onclick="event.stopPropagation()" onsubmit="this.querySelector('button').textContent = 'Scoring...'">
+                                {{ csrf_input }}
+                                <button type="submit" class="text-btn" title="Re-run the ATS scan on every applicant against the current description">Re-score</button>
+                            </form>
+                            {% endif %}
+                        </span>
+                        <span class="row-sm small strong">{{ job.applicant_count }} <span class="muted" style="font-weight:400">applicants</span> <i data-lucide="chevron-right" class="i-sm faint"></i></span>
+                    </div>
+                </div>
+                {% else %}
+                <div class="empty grow">No jobs posted yet. Post your first job to start receiving applications.</div>
+                {% endfor %}
+            </div>
+        </section>
+
+        <!-- Applicants -->
+        <section class="stack">
+            <div class="row between wrap">
+                <div class="row">
+                    <h2 style="font-size:17px">Applicants</h2>
+                    {% if selected_job %}
+                    <span id="filter-badge" class="badge badge-dark"><i data-lucide="tag" class="i-sm"></i><span id="filtered-job-title">{{ selected_job.title }}</span></span>
+                    {% endif %}
+                </div>
+                <form method="get" class="row-sm wrap">
+                    {% if selected_job %}<input type="hidden" name="job" value="{{ selected_job.id }}">{% endif %}
+                    <select name="status" onchange="this.form.submit()" aria-label="Status" class="input input-sm" style="width:auto">
+                        <option value="">Any status</option>
+                        {% for value, label in statuses %}<option value="{{ value }}" {% if value == status %}selected{% endif %}>{{ label }}</option>{% endfor %}
+                    </select>
+                    <input type="number" name="min_score" value="{{ min_score }}" min="0" max="100" placeholder="Min ATS %" aria-label="Minimum ATS score" class="input input-sm" style="width:110px">
+                    <button type="submit" class="btn btn-primary btn-sm">Filter</button>
+                    <a href="/ai/export-applicants/{{ querystring(page=None) }}" class="btn btn-secondary btn-sm"><i data-lucide="download" class="i-sm"></i> CSV</a>
+                </form>
+            </div>
+
+            <div class="card table-wrap">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th style="width:40px"><span class="sr-only">Compare</span></th>
+                            <th>Candidate</th>
+                            <th>Role</th>
+                            <th class="center">ATS</th>
+                            <th class="center">Integrity</th>
+                            <th class="center" title="Weighted by this job's technical / behavioral / problem-solving weights">Interview</th>
+                            <th>Status</th>
+                            <th class="right"><span class="sr-only">Actions</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for app in applications %}
+                        <tr class="applicant-row">
+                            <td>
+                                <input type="checkbox" name="ids" value="{{ app.id }}" form="compare-form" aria-label="Compare {{ app.candidate.username }}" class="compare-box">
+                            </td>
+                            <td>
+                                <div class="row">
+                                    <span class="avatar">{{ app.candidate.username[:2]|upper }}</span>
+                                    <div class="stack-xs" style="gap:0">
+                                        <span class="strong">{{ app.candidate.username }}</span>
+                                        <span class="faint xs">{{ app.candidate.email }}</span>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="stack-xs" style="gap:0">
+                                    <span>{{ app.job.title }}</span>
+                                    <span class="faint xs">{{ app.created_at|date("M d, Y") }}</span>
+                                </div>
+                            </td>
+                            <td class="center">
+                                <span class="badge mono {% if app.ats_match_score is none %}badge-amber{% elif app.ats_match_score >= 80 %}badge-green{% elif app.ats_match_score >= 60 %}badge-blue{% else %}badge-amber{% endif %}">{{ app.ats_match_score|floatformat(0)|default("--", true) }}%</span>
+                            </td>
+                            <td class="center">
+                                {% if app.status == 'evaluated' %}
+                                <span class="badge mono {% if app.proctoring_score >= 90 %}badge-green{% elif app.proctoring_score >= 70 %}badge-amber{% else %}badge-red{% endif %}">{{ app.proctoring_score }}%</span>
+                                {% elif app.status == 'interviewing' %}
+                                <span class="badge badge-blue"><span class="dot dot-blue dot-live"></span>Live</span>
+                                {% else %}
+                                <span class="faint xs">Not started</span>
+                                {% endif %}
+                            </td>
+                            <td class="center mono strong">
+                                {% with score=app.interview_score %}{% if score is not none %}{{ score }}%{% else %}<span class="faint">--</span>{% endif %}{% endwith %}
+                            </td>
+                            <td>
+                                <span class="badge {% if app.status == 'accepted' or app.status == 'evaluated' %}badge-green{% elif app.status == 'interviewing' %}badge-blue{% elif app.status == 'rejected' %}badge-red{% endif %}">{{ app.status_display }}</span>
+                            </td>
+                            <td class="right">
+                                <a href="/ai/candidate-detail/{{ app.id }}/" class="btn btn-secondary btn-sm">Review <i data-lucide="chevron-right" class="i-sm"></i></a>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="8" class="center faint" style="padding:40px">
+                                {% if selected_job or status or min_score %}No applicants match this selection.{% else %}No applications yet.{% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <form id="compare-form" action="/ai/compare/" method="get" class="row">
+                <button id="compare-btn" type="submit" disabled class="btn btn-primary btn-sm">Compare selected</button>
+                <span class="faint xs">Pick 2 or 3 candidates</span>
+            </form>
+
+            {% if applications.has_other_pages %}
+            <nav class="row" style="justify-content:center" aria-label="Applicant pages">
+                {% if applications.has_previous %}<a href="{{ querystring(page=applications.previous_page_number) }}" class="btn btn-secondary btn-sm">&larr; Previous</a>{% endif %}
+                <span class="mono xs muted">Page {{ applications.number }} of {{ applications.paginator.num_pages }}</span>
+                {% if applications.has_next %}<a href="{{ querystring(page=applications.next_page_number) }}" class="btn btn-secondary btn-sm">Next &rarr;</a>{% endif %}
+            </nav>
+            {% endif %}
+        </section>
+    </main>
+
+    <!-- Post or edit a job -->
+    <dialog id="jobModal" class="modal">
+        <div class="modal-head">
+            <h3 id="jobModalTitle">Post a job</h3>
+            <button onclick="closeModal()" aria-label="Close" class="btn btn-ghost btn-sm btn-icon"><i data-lucide="x" class="i"></i></button>
+        </div>
+        <form id="jobForm" action="/ai/post-job/" method="POST" style="display:contents">
+            {{ csrf_input }}
+            <div class="modal-body stack">
+                <div class="field">
+                    <label for="field-title">Job title</label>
+                    <input id="field-title" type="text" name="title" required placeholder="e.g. Senior Software Engineer" class="input">
+                </div>
+                <div class="field">
+                    <label for="field-experience-level">Experience level</label>
+                    <input id="field-experience-level" type="text" name="experience_level" placeholder="e.g. 5+ years, Mid-Senior" class="input">
+                </div>
+                <div class="grid" style="grid-template-columns:1fr 1fr">
+                    <div class="field">
+                        <label for="interview_rounds">Interview questions</label>
+                        <input type="number" id="interview_rounds" name="interview_rounds" value="5" min="1" max="10" class="input">
+                    </div>
+                    <div class="field">
+                        <label for="answer_time_limit">Seconds per answer</label>
+                        <input type="number" id="answer_time_limit" name="answer_time_limit" value="0" min="0" max="600" step="30" class="input" title="0 means no limit">
+                    </div>
+                </div>
+                <div class="field">
+                    <label for="field-description">Job description</label>
+                    <textarea id="field-description" name="description" required rows="5" placeholder="Responsibilities, tech stack, languages and what the interview should cover…" class="input"></textarea>
+                </div>
+                <div class="field">
+                    <label for="custom_questions">Must-ask questions <span class="faint" style="font-weight:400">(optional, one per line)</span></label>
+                    <textarea id="custom_questions" name="custom_questions" rows="3" placeholder="Asked in this order, between the AI's questions" class="input"></textarea>
+                </div>
+                <fieldset class="field" style="border:0;padding:0;margin:0">
+                    <legend class="field-label" style="margin-bottom:6px">Interview score weights</legend>
+                    <div class="grid" style="grid-template-columns:repeat(3,1fr);gap:10px">
+                        {% for name, label, value in weight_inputs %}
+                        <label for="field-{{ name }}" class="stack-xs xs muted">{{ label }}
+                            <input id="field-{{ name }}" type="number" name="{{ name }}" value="{{ value }}" min="0" max="100" class="input">
+                        </label>
+                        {% endfor %}
+                    </div>
+                </fieldset>
+            </div>
+            <div class="modal-foot">
+                <button type="button" onclick="closeModal()" class="btn btn-secondary">Cancel</button>
+                <button id="jobSubmit" type="submit" class="btn btn-primary">Publish job</button>
+            </div>
+        </form>
+    </dialog>
+
+    {% include "partials/footer.html" %}
+{% endblock %}
+{% block scripts %}
+<script>
+    const modal = document.getElementById('jobModal');
+    const jobForm = document.getElementById('jobForm');
+
+    function openModal(job = null) {
+        // The same form posts a new job or, given a job card, edits that job
+        jobForm.reset();
+        jobForm.action = job ? `/ai/edit-job/${job.dataset.jobId}/` : '/ai/post-job/';
+        if (job) {
+            jobForm.elements.title.value = job.dataset.title;
+            jobForm.elements.experience_level.value = job.dataset.level;
+            jobForm.elements.interview_rounds.value = job.dataset.rounds;
+            jobForm.elements.answer_time_limit.value = job.dataset.timeLimit;
+            jobForm.elements.custom_questions.value = job.dataset.questions;
+            const [tech, behavioral, problem] = job.dataset.weights.split(',');
+            jobForm.elements.weight_tech.value = tech;
+            jobForm.elements.weight_behavioral.value = behavioral;
+            jobForm.elements.weight_problem_solving.value = problem;
+            jobForm.elements.description.value = job.dataset.description;
+        }
+        document.getElementById('jobModalTitle').textContent = job ? 'Edit job' : 'Post a job';
+        document.getElementById('jobSubmit').textContent = job ? 'Save changes' : 'Publish job';
+        modal.showModal();
+    }
+
+    function closeModal() {
+        modal.close();
+    }
+
+    // Compare takes 2-3 candidates: lock the other boxes once three are ticked
+    document.querySelectorAll('.compare-box').forEach(box => box.addEventListener('change', () => {
+        const boxes = [...document.querySelectorAll('.compare-box')];
+        const picked = boxes.filter(b => b.checked).length;
+        boxes.forEach(b => b.disabled = !b.checked && picked >= 3);
+        document.getElementById('compare-btn').disabled = picked < 2;
+    }));
+
+    function selectJob(jobId) {
+        // Selection is a query param so the server can filter and paginate applicants per job
+        const params = new URLSearchParams(location.search);
+        if (params.get('job') === jobId) params.delete('job'); else params.set('job', jobId);
+        params.delete('page');
+        location.search = params;
+    }
+</script>
+{% endblock %}

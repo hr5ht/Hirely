@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}Scores | Hirely{% endblock %}
+{% block content %}
+
+    {% include "partials/navbar.html" %}
+
+    <main class="page container stack-lg">
+        <header class="page-head" style="margin-bottom:0">
+            <div>
+                <h1>Your scores</h1>
+                <p class="lead">How your interviews are going, across every role you've applied to.</p>
+            </div>
+        </header>
+
+        <div class="grid-3">
+            <div class="card card-pad stack-sm">
+                <span class="label-caps">Avg confidence</span>
+                <span class="stat-value stat-value-lg">{% if total_count %}{{ global_avg_conf }}<span class="stat-unit">%</span>{% else %}--{% endif %}</span>
+                <span class="faint xs">Across all answers</span>
+            </div>
+            <div class="card card-pad stack-sm">
+                <span class="label-caps">Interviews</span>
+                <span class="stat-value stat-value-lg">{{ total_count }}</span>
+                <span class="faint xs">Completed sessions</span>
+            </div>
+            <div class="card card-pad stack-sm">
+                <span class="label-caps">Avg clarity</span>
+                <span class="stat-value stat-value-lg">{% if total_count %}{{ global_avg_clar }}<span class="stat-unit">/100</span>{% else %}--{% endif %}</span>
+                <span class="faint xs">How clearly you explain</span>
+            </div>
+        </div>
+
+        <section class="card card-pad">
+            <div class="card-head">
+                <h3><i data-lucide="trending-up" class="i"></i> Skills</h3>
+            </div>
+            <div class="grid-2" style="gap:24px 48px">
+                <div class="stack-sm">
+                    <div class="row between small"><span class="muted">Technical knowledge</span><span class="mono strong">{% if total_count %}{{ global_tech }}%{% else %}--{% endif %}</span></div>
+                    <div class="meter meter-lg"><div class="meter-fill fill-blue" data-width="{{ global_tech }}"></div></div>
+                </div>
+                <div class="stack-sm">
+                    <div class="row between small"><span class="muted">Behavioral</span><span class="mono strong">{% if total_count %}{{ global_behav }}%{% else %}--{% endif %}</span></div>
+                    <div class="meter meter-lg"><div class="meter-fill fill-violet" data-width="{{ global_behav }}"></div></div>
+                </div>
+                <div class="stack-sm">
+                    <div class="row between small"><span class="muted">Problem solving</span><span class="mono strong">{% if total_count %}{{ global_prob }}%{% else %}--{% endif %}</span></div>
+                    <div class="meter meter-lg"><div class="meter-fill fill-pink" data-width="{{ global_prob }}"></div></div>
+                </div>
+                <div class="stack-sm">
+                    <div class="row between small"><span class="muted">Verbal clarity</span><span class="mono strong">{% if total_count %}{{ global_avg_clar }}%{% else %}--{% endif %}</span></div>
+                    <div class="meter meter-lg"><div class="meter-fill fill-gradient" data-width="{{ global_avg_clar }}"></div></div>
+                </div>
+            </div>
+        </section>
+
+        <section class="card card-pad" aria-labelledby="trend-title">
+            <div class="card-head">
+                <h3 id="trend-title"><i data-lucide="line-chart" class="i"></i> Interview history</h3>
+            </div>
+            <div class="list">
+                {% for s in trend %}
+                <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr));align-items:center">
+                    <div class="stack-xs">
+                        <span class="strong small truncate">{{ s.application.job.title }}</span>
+                        <span class="faint xs">{{ s.application.job.company.name }} · {{ s.created_at|date("M d") }}</span>
+                    </div>
+                    <div class="stack-sm" style="grid-column:span 2">
+                        {% for label, value, color in s.trend_bars %}
+                        <div class="row xs muted">
+                            <span style="width:110px" class="shrink-0">{{ label }}</span>
+                            <div class="meter grow"><div class="meter-fill {{ color }}" style="width: {{ value }}%"></div></div>
+                            <span class="mono strong right" style="width:32px">{{ value }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% else %}
+                <div class="empty empty-plain">
+                    <p class="strong">No completed interviews yet</p>
+                    <a href="/dashboard/" class="link small">Apply to a role and take your first interview</a>
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+    </main>
+
+    {% include "partials/footer.html" %}
+{% endblock %}
+{% block scripts %}
+<script>
+    // Bars grow in from zero once the page has painted
+    requestAnimationFrame(() => document.querySelectorAll('[data-width]').forEach(el => {
+        el.style.width = el.dataset.width + '%';
+    }));
+</script>
+{% endblock %}

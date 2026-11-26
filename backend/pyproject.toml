@@ -3,14 +3,18 @@ name = "hirely"
 version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
-    "dj-database-url>=3.1.2",
-    "django>=5.2,<6",
+    "asyncpg>=0.32.0",
+    "fastapi>=0.165.0",
     "httpx>=0.29.0",
+    "itsdangerous>=2.2.0",
+    "jinja2>=3.1.6",
     "langchain-google-genai>=4.5.3",
     "langchain-groq>=1.2.1",
-    "psycopg2-binary>=2.9.13",
     "pypdf2>=3.0.1",
     "python-dotenv>=1.2.4",
+    "python-multipart>=0.0.34",
     "reportlab>=5.1.2",
-    "whitenoise>=6.12.0",
+    "sqladmin>=0.32.0",
+    "sqlalchemy[asyncio]>=2.1.9",
+    "uvicorn[standard]>=0.54.0",
 ]

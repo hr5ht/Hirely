@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Sign up | Hirely{% endblock %}
+{% block content %}
+    <main class="auth">
+        <div class="card auth-card beam">
+            <div class="auth-head">
+                <h1>Create your account</h1>
+                <p>Practice with the AI recruiter, or hire with it.</p>
+            </div>
+
+            <div class="stack">
+                {% if error %}
+                <div class="alert alert-error"><i data-lucide="alert-circle" class="i"></i>{{ error }}</div>
+                {% endif %}
+
+                {% if invite %}
+                <div class="alert alert-info">You're joining&nbsp;<strong>{{ invite.company.name }}</strong>&nbsp;as a recruiter.</div>
+                {% endif %}
+
+                <form method="POST" class="stack">
+                    {{ csrf_input }}
+                    {% if invite %}<input type="hidden" name="invite" value="{{ invite.token }}">{% endif %}
+                    <div class="field">
+                        <label for="field-username">Username</label>
+                        <div class="input-icon">
+                            <i data-lucide="user" class="i"></i>
+                            <input id="field-username" class="input" type="text" name="username" placeholder="Choose a username" autocomplete="username" required>
+                        </div>
+                    </div>
+
+                    <div class="field">
+                        <label for="field-email">Email</label>
+                        <div class="input-icon">
+                            <i data-lucide="mail" class="i"></i>
+                            <input id="field-email" class="input" type="email" name="email" placeholder="you@example.com" autocomplete="email" required>
+                        </div>
+                    </div>
+
+                    <div class="field">
+                        <label for="field-password">Password</label>
+                        <div class="input-icon">
+                            <i data-lucide="lock" class="i"></i>
+                            <input id="field-password" class="input" type="password" name="password" placeholder="At least 8 characters" autocomplete="new-password" required>
+                        </div>
+                    </div>
+
+                    {% if not invite %}
+                    <div class="field">
+                        <span class="field-label">Account type</span>
+                        <input type="hidden" name="role" id="role-input" value="candidate">
+                        <div class="segmented" role="tablist" aria-label="Account type">
+                            <button type="button" role="tab" aria-selected="true" data-role="candidate" style="flex:1">Candidate</button>
+                            <button type="button" role="tab" aria-selected="false" data-role="recruiter" style="flex:1">Recruiter</button>
+                        </div>
+                    </div>
+
+                    <div class="field hidden" id="company-wrapper">
+                        <label for="company-input">Company name</label>
+                        <div class="input-icon">
+                            <i data-lucide="building-2" class="i"></i>
+                            <input type="text" name="company_name" id="company-input" class="input" placeholder="e.g. Acme Inc.">
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <button type="submit" class="btn btn-primary btn-block">Create account</button>
+                </form>
+            </div>
+
+            <p class="auth-foot">Already have an account? <a href="/login/" class="link">Log in</a></p>
+        </div>
+    </main>
+{% endblock %}
+{% block scripts %}
+<script>
+    // Candidate / recruiter switch: recruiters also need a company name
+    document.querySelectorAll('[data-role]').forEach(btn => btn.addEventListener('click', () => {
+        const recruiter = btn.dataset.role === 'recruiter';
+        document.getElementById('role-input').value = btn.dataset.role;
+        document.querySelectorAll('[data-role]').forEach(b => b.setAttribute('aria-selected', b === btn));
+        document.getElementById('company-wrapper').classList.toggle('hidden', !recruiter);
+        const company = document.getElementById('company-input');
+        company.required = recruiter;
+        if (!recruiter) company.value = '';
+    }));
+</script>
+{% endblock %}

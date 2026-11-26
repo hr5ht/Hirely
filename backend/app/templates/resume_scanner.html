@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}Resume Scanner | Hirely{% endblock %}
+{% block content %}
+
+    {% include "partials/navbar.html" %}
+
+    <main class="page container container-md stack-lg">
+        <!-- Input -->
+        <div id="input-stage" class="stack-lg">
+            <header class="page-head" style="margin-bottom:0">
+                <div>
+                    <h1>Scan your resume</h1>
+                    <p class="lead">Paste a job description to see how your saved resume matches it.</p>
+                </div>
+            </header>
+
+            <div class="card card-pad stack">
+                <div class="field">
+                    <label for="setup-jd">Job description</label>
+                    <textarea id="setup-jd" rows="8" placeholder="Paste the job description…" class="input"></textarea>
+                </div>
+                <button id="analyze-btn" class="btn btn-primary btn-block">Scan resume <i data-lucide="scan" class="i"></i></button>
+            </div>
+        </div>
+
+        <!-- Results -->
+        <div id="results-stage" class="hidden stack">
+            <div class="card card-pad stack center" style="align-items:center">
+                <span class="label-caps">ATS match score</span>
+                <span class="stat-value" style="font-size:64px"><span id="score-val">0</span><span class="stat-unit">/100</span></span>
+                <div class="row mono xs muted">
+                    <span><b id="semantic-score-val" class="strong">-</b>% semantic</span>
+                    <span class="vr"></span>
+                    <span><b id="skill-score-val" class="strong">-</b>% keywords</span>
+                </div>
+                <div id="feedback-txt" class="small muted" style="max-width:480px;text-align:left"></div>
+            </div>
+
+            <div class="grid-2">
+                <div class="card card-pad">
+                    <div class="card-head"><h3><i data-lucide="check-circle-2" class="i t-green"></i> Matches</h3></div>
+                    <ul id="match-list" class="bullets small"></ul>
+                </div>
+                <div class="card card-pad">
+                    <div class="card-head"><h3><i data-lucide="x-circle" class="i t-red"></i> Missing keywords</h3></div>
+                    <ul id="missing-list" class="bullets small"></ul>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    {% include "partials/footer.html" %}
+{% endblock %}
+{% block scripts %}
+<script>
+    const analyzeBtn = document.getElementById('analyze-btn');
+    const resultsStage = document.getElementById('results-stage');
+
+    // Keywords and suggestions come from the LLM: render them as text, never as markup
+    const items = (list, empty) => (list && list.length ? list : [empty])
+        .map(text => Object.assign(document.createElement('li'), { textContent: text }));
+
+    analyzeBtn.onclick = async () => {
+        const jdInput = document.getElementById('setup-jd').value;
+        if (!jdInput) {
+            alert('Please enter a Job Description.');
+            return;
+        }
+
+        analyzeBtn.disabled = true;
+        analyzeBtn.setAttribute('aria-busy', 'true');
+        const originalBtnText = analyzeBtn.innerHTML;
+        analyzeBtn.innerHTML = '<span class="spinner"></span> Scanning...';
+
+        const formData = new FormData();
+        formData.append('jd', jdInput);
+
+        try {
+            const response = await fetch('/ai/score-resume/', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+                body: formData
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || "Failed to process resume");
+
+            const score = document.getElementById('score-val');
+            score.innerText = data.score;
+            score.className = data.score < 50 ? 't-red' : data.score < 75 ? 't-amber' : 't-green';
+            document.getElementById('semantic-score-val').innerText = data.semantic_score ?? '-';
+            document.getElementById('skill-score-val').innerText = data.skill_score ?? '-';
+
+            const feedback = document.getElementById('feedback-txt');
+            if (data.improvement_suggestions && data.improvement_suggestions.length) {
+                const ul = Object.assign(document.createElement('ul'), { className: 'bullets' });
+                ul.append(...items(data.improvement_suggestions));
+                feedback.replaceChildren(ul);
+            } else {
+                feedback.innerText = data.feedback || '';
+            }
+            document.getElementById('match-list').replaceChildren(...items(data.matching_keywords, 'None found'));
+            document.getElementById('missing-list').replaceChildren(...items(data.missing_keywords, 'Nothing missing'));
+
+            resultsStage.classList.remove('hidden');
+            document.getElementById('input-stage').classList.add('hidden');
+        } catch (e) {
+            console.error(e);
+            alert("Scan failed: " + e.message);
+        } finally {
+            analyzeBtn.disabled = false;
+            analyzeBtn.removeAttribute('aria-busy');
+            analyzeBtn.innerHTML = originalBtnText;
+        }
+    };
+</script>
+{% endblock %}
