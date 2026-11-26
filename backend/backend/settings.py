@@ -156,5 +156,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.AutoField'
 # Users, roles and all data stay in this app's own database.
 SUPABASE_URL = os.environ.get('SUPABASE_URL', '').rstrip('/')
 SUPABASE_ANON_KEY = os.environ.get('SUPABASE_ANON_KEY', '')
-if not (SUPABASE_URL and SUPABASE_ANON_KEY):
-    raise ValueError("SUPABASE_URL and SUPABASE_ANON_KEY environment variables are required (sign-in runs on Supabase Auth).")
+# Without Supabase keys (local development), Django's own password auth is used instead
+USE_SUPABASE = bool(SUPABASE_URL and SUPABASE_ANON_KEY)
+if not (USE_SUPABASE or DEBUG):
+    raise ValueError("SUPABASE_URL and SUPABASE_ANON_KEY environment variables are required in production (sign-in runs on Supabase Auth).")

@@ -2,6 +2,7 @@
 
 Supabase Auth checks passwords and sends confirmation and reset emails. Users, roles and everything
 else stay in our own database (Neon); Django sessions keep people logged in. No passwords are stored here.
+Without Supabase keys (settings.USE_SUPABASE false, local development only) Django's own auth is used instead.
 """
 import base64
 import hashlib
@@ -11,7 +12,7 @@ import secrets
 import httpx
 from django.conf import settings
 from django.contrib import messages
-from django.contrib.auth import login, logout
+from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.contrib.auth.forms import PasswordResetForm, SetPasswordForm
 from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
@@ -81,7 +82,7 @@ def _pkce_pair():
 
 def _keep_refresh_token(request, data):
     """Remember the Supabase refresh token so the profile page can change the password later."""
-    if data.get('refresh_token'):
+    if data and data.get('refresh_token'):  # no data with Django's own auth
         request.session['sb_refresh'] = data['refresh_token']
 
 
@@ -93,16 +94,16 @@ def _find_invite(token):
     return invite, None
 
 
-def _create_account(username, email, role, company_name, invite, supabase_id):
+def _create_account(username, email, role, company_name, invite, supabase_id, password=None):
     """Create the user and profile, using up the invite if any. Returns (user, error).
-    The user gets no Django password: Supabase checks it."""
+    With Supabase the user gets no Django password (password=None): Supabase checks it."""
     with transaction.atomic():
         # Lock the invite so two people can't both register with the same link
         if invite:
             invite = CompanyInvite.objects.select_for_update().get(id=invite.id)
             if not invite.is_usable:
                 return None, "This invite link was just used. Ask your teammate for a new one."
-        user = User.objects.create_user(username=username, email=email)  # unusable password
+        user = User.objects.create_user(username=username, email=email, password=password)  # None = unusable
         profile, _ = UserProfile.objects.get_or_create(user=user)
         profile.role = role
         profile.supabase_id = supabase_id
@@ -144,6 +145,11 @@ def register_view(request):
             pass
         elif _throttled(request, 'register', 5, email, 3):
             error = TOO_MANY
+        elif not settings.USE_SUPABASE:
+            user, error = _create_account(username, email, role, company_name, invite, None, password)
+            if user:
+                login(request, user)
+                return redirect('dashboard')
         else:
             data, error = _supabase('signup', {'email': email, 'password': password},
                                     redirect_to=request.build_absolute_uri(reverse('login')))
@@ -178,7 +184,9 @@ def login_view(request):
         sb_id = UserProfile.objects.filter(user=found).values_list('supabase_id', flat=True).first() if found else None
 
         data, user = None, None
-        if sb_id:
+        if not settings.USE_SUPABASE:
+            user = authenticate(request, username=found.username, password=password) if found else None
+        elif sb_id:
             data, msg = _supabase('token', {'email': found.email, 'password': password}, grant_type='password')
             user = found if data and data.get('user', {}).get('id') == sb_id else None
             if msg and 'confirm' in msg.lower():
@@ -197,7 +205,8 @@ def login_view(request):
 
 
 def password_reset(request):
-    """Forgot password: Supabase emails a link (PKCE), then the new password is set at Supabase."""
+    """Forgot password: Supabase emails a link (PKCE), then the new password is set at Supabase.
+    Without Supabase, Django emails its own link to password_reset_confirm."""
     if (request.method == 'POST' or request.GET.get('code')) and _throttled(
             request, 'reset', 10, request.POST.get('email'), 3):
         return render(request, 'registration/password_reset_form.html',
@@ -225,6 +234,9 @@ def password_reset(request):
         return render(request, 'registration/password_reset_confirm.html', {'validlink': True, 'form': form})
 
     form = PasswordResetForm(request.POST or None)
+    if request.method == 'POST' and form.is_valid() and not settings.USE_SUPABASE:
+        form.save(request=request)
+        return render(request, 'registration/password_reset_done.html')
     if request.method == 'POST' and form.is_valid():
         verifier, challenge = _pkce_pair()
         request.session['sb_reset_verifier'] = verifier
@@ -259,6 +271,11 @@ def profile_view(request):
             new_password = request.POST.get('new_password', '')
             if (problem := _password_problem(new_password, request.user)):
                 messages.error(request, problem)
+            elif not settings.USE_SUPABASE:
+                request.user.set_password(new_password)
+                request.user.save(update_fields=['password'])
+                update_session_auth_hash(request, request.user)  # stay signed in
+                messages.success(request, 'Your password was successfully updated.')
             else:
                 fresh, msg = (_supabase('token', {'refresh_token': request.session['sb_refresh']}, grant_type='refresh_token')
                               if 'sb_refresh' in request.session else (None, None))

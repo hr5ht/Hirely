@@ -1,10 +1,10 @@
 from django.contrib import admin
-from django.contrib.auth.views import redirect_to_login
-from django.urls import include, path
+from django.contrib.auth.views import PasswordResetConfirmView, redirect_to_login
+from django.urls import include, path, reverse_lazy
 
 from ai_engine import views as ai_views
 
-# The admin has no password form of its own: staff sign in through Supabase like everyone else
+# The admin has no password form of its own: staff use the normal sign-in page like everyone else
 admin.site.login = lambda request, extra_context=None: redirect_to_login(request.GET.get('next', '/admin/'), '/login/')
 
 urlpatterns = [
@@ -23,6 +23,8 @@ urlpatterns = [
     path('resume-scanner/', ai_views.resume_scanner_view, name='resume_scanner'),
     path('upload-profile-resume/', ai_views.upload_profile_resume, name='upload_profile_resume'),
     path('password-reset/', ai_views.password_reset, name='password_reset'),
+    path('password-reset/<uidb64>/<token>/', PasswordResetConfirmView.as_view(success_url=reverse_lazy('login')),
+         name='password_reset_confirm'),
     path('admin/', admin.site.urls),
     path('ai/', include('ai_engine.urls')),
 ]
