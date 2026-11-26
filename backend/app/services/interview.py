@@ -207,7 +207,7 @@ async def end(db, session, data):
     # Lock the session row before the save touches the application row: the same order proctor() uses, so an
     # alert arriving with "end" waits instead of deadlocking it
     await _locked(db, session)
-    transcript =[t for t in session.transcript if 'answer' in t]  # drop the unanswered pending question
+    transcript = [t for t in session.transcript if 'answer' in t]  # drop the unanswered pending question
     valid_conf = [t['confidence'] for t in transcript if t.get('confidence', 0) > 0]
     valid_clar = [t['clarity'] for t in transcript if t.get('clarity', 0) > 0]
 
