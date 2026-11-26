@@ -134,23 +134,47 @@ With `DEBUG` off, the app needs `SECRET_KEY` and `DATABASE_URL`, and session coo
 
 ### Voice turns over the WebSocket
 
-Measured in November 2026 with 5 voice turns from Docker on a laptop, against the live APIs on their free tiers. Each turn streamed a 12-second spoken answer at real-time pace. Times are counted from the moment the candidate stops speaking:
+Measured in November 2026 from Docker on a laptop, against the live APIs on their free tiers, with a 6-second spoken answer streamed at real-time pace. Times are counted from the moment the candidate stops speaking.
 
-| | Median | Range |
+20 turns:
+
+| | Median | p95 |
 |---|---|---|
-| Transcript ready (Deepgram live) | 0.3 s | 0.30–0.37 s |
-| Next question text on screen | 1.5 s | 1.3–2.8 s |
-| Next question audio ready | 2.6 s | 2.1–3.7 s |
+| Transcript ready (Deepgram live) | 0.39 s | 0.49 s |
+| Next question text on screen | 1.56 s | 2.25 s |
 
-Inside each turn, Groq scored the answer in 0.4–0.8 s while the excerpt lookup and the next question (Groq, 0.3–0.5 s) ran alongside it, and ElevenLabs took 0.7–1.5 s.
+The 8 turns that also played the question's audio (ElevenLabs' free quota ran out after them), stage by stage:
 
-Since then, question audio streams: in 3 tries the first audio byte reached the browser in about 0.2 s (1.0 s on a cold first call), instead of after the whole 0.7–1.5 s clip, so the voice starts right after the question appears. The turns above haven't been re-run with streaming audio.
+| Stage | Median | p95 (slowest of 8) |
+|---|---|---|
+| Deepgram speech-to-text, after speech ends | 365 ms | 870 ms |
+| Groq: score the answer | 373 ms | 421 ms |
+| Gemini excerpt lookup | 782 ms | 1,232 ms |
+| Groq: write the next question | 384 ms | 463 ms |
+| ElevenLabs: audio stream starts | 550 ms | 914 ms |
+| **Total: next question on screen** | **1.65 s** | **2.27 s** |
+| **Total: question's voice starts** | **2.37 s** | **2.86 s** |
+
+Scoring runs alongside the lookup and the next question, so the slower of the two branches counts, not their sum. No turn needed the Groq fallback model.
+
+### Concurrent sessions
+
+One uvicorn process (one asyncio event loop) with the AI calls replaced by waits of their measured length, so a turn can't finish in under 1.05 s. Every socket was a separate candidate, repeating: stream 10 s of microphone chunks, wait for the next question, send a heartbeat.
+
+| Open sockets | Turns in 60 s | p50 | p95 | Errors |
+|---|---|---|---|---|
+| 100 | 541 | 1.08 s | 1.11 s | 0 |
+| 500 | 2,668 | 1.15 s | 1.37 s | 0 |
+| 1,000 | 4,513 | 3.17 s | 6.39 s | 0 |
+| 2,000 | 4,648 | 19.1 s | 32.9 s | 0.5% (database pool timeouts) |
+
+One process holds about 500 live interviews with little slowdown; past that it tops out near 75 turns a second. This was on a laptop, with the load generator on the same machine; real AI providers' rate limits (Groq's free tier especially) would cap concurrency long before this.
 
 ### Before (HTTP, Django)
 
 The same kind of turn over HTTP, measured earlier with 20 runs, took 4.5–7 s when Groq wasn't throttled (10.3 s median and 15.2 s p95 with free-tier throttling). The answer was uploaded whole and transcribed afterwards (about 2.3 s), and every step ran one after another.
 
-Groq's free tier allows 1,000 output tokens a minute. Throttled calls used to wait and retry (the 10 s+ turns above); they now switch to the fallback model at once (1.2 s for a score and a question in testing). Concurrent sessions haven't been load-tested on FastAPI yet.
+Groq's free tier allows 1,000 output tokens a minute. Throttled calls used to wait and retry (the 10 s+ turns above); they now switch to the fallback model at once (1.2 s for a score and a question in testing).
 
 ## Known Limits
 

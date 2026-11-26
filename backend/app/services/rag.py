@@ -9,7 +9,9 @@ import logging
 import math
 import os
 import re
+import time
 from collections import Counter
+from functools import lru_cache
 
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 
@@ -49,6 +51,13 @@ def _top_chunks(query_terms, text, top_k):
     return "\n...\n".join(chunks[i] for i in hits)
 
 
+@lru_cache(maxsize=2)
+def _embeddings(key):
+    """One client per API key for the app's lifetime: its connection to Google stays warm, which halves each
+    lookup (~800 ms with a new client every turn, ~400 ms reused)."""
+    return GoogleGenerativeAIEmbeddings(model=EMBED_MODEL, google_api_key=key, output_dimensionality=EMBED_DIMS)
+
+
 async def _semantic(query, resume_text, jd_text, top_k, cache=None):
     key = os.getenv("GOOGLE_API_KEY", "")
     if not key or "your_" in key:
@@ -58,7 +67,7 @@ async def _semantic(query, resume_text, jd_text, top_k, cache=None):
     if not texts:
         return "", ""
 
-    embeddings = GoogleGenerativeAIEmbeddings(model=EMBED_MODEL, google_api_key=key, output_dimensionality=EMBED_DIMS)
+    embeddings = _embeddings(key)
     # The fingerprint invalidates the cache if the job description is edited mid-interview
     fingerprint = hashlib.sha1(f"{EMBED_MODEL}:{EMBED_DIMS}\0{len(chunks['resume'])}\0".encode() + "\0".join(texts).encode()).hexdigest()
     if cache is not None and cache.get("fingerprint") == fingerprint:
@@ -85,8 +94,11 @@ async def retrieve(query, resume_text, jd_text, top_k=2, cache=None):
 
     cache: a dict persisted by the caller (the session's rag_cache); chunk vectors are stored in it and reused.
     """
+    start_time = time.perf_counter()
     try:
-        return await _semantic(query, resume_text, jd_text, top_k, cache)
+        excerpts = await _semantic(query, resume_text, jd_text, top_k, cache)
+        log.info("Gemini excerpt lookup took %.3fs", time.perf_counter() - start_time)
+        return excerpts
     except Exception as e:
         log.warning("Semantic retrieval unavailable (%s); using keyword ranking", e)
     terms = set(_tokens(query))
