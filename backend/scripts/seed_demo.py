@@ -8,10 +8,10 @@ from app.core.database import SessionLocal, create_tables
 from app.core.security import hash_password
 from app.models import Company, Job, User, UserProfile
 
-PASSWORD = 'hirely-demo-123'
+PASSWORD = config.DEMO_PASSWORD
 
 COMPANIES = [
-    ('Northwind Labs', 'northwind.dev', ('maya', 'Maya', 'Chen'), [
+    ('Northwind Labs', 'northwind.dev', (config.DEMO_RECRUITER, 'Maya', 'Chen'), [
         ('Senior Backend Engineer (Python)', 'Senior', 'Build and scale our Django and PostgreSQL services. '
          'You will design REST APIs, tune slow queries, and own background jobs in production. '
          'Requirements: 5+ years of Python, Django or FastAPI, PostgreSQL, Docker, CI/CD. '
@@ -38,7 +38,7 @@ COMPANIES = [
     ]),
 ]
 
-CANDIDATE = ('alex', 'Alex', 'Rivera')
+CANDIDATE = (config.DEMO_CANDIDATE, 'Alex', 'Rivera')
 
 
 

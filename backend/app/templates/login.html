@@ -17,7 +17,7 @@
                 <div class="alert alert-error"><i data-lucide="alert-circle" class="i"></i>{{ error }}</div>
                 {% endif %}
 
-                <form method="POST" class="stack">
+                <form method="POST" class="stack" id="login-form">
                     {{ csrf_input }}
                     <div class="field">
                         <label for="field-username">Username or email</label>
@@ -42,7 +42,46 @@
                 </form>
             </div>
 
+            {% if demo %}
+            <button type="button" class="btn btn-secondary btn-block" onclick="document.getElementById('demoModal').showModal()">
+                <i data-lucide="sparkles" class="i"></i> Use demo credentials
+            </button>
+            {% endif %}
+
             <p class="auth-foot">Don't have an account? <a href="/register/" class="link">Sign up</a></p>
         </div>
     </main>
+
+    {% if demo %}
+    <dialog id="demoModal" class="modal">
+        <div class="modal-head">
+            <div class="stack-xs">
+                <h3>Try the demo</h3>
+                <p class="faint xs">Sign in to a sample account with sample jobs</p>
+            </div>
+            <button type="button" onclick="document.getElementById('demoModal').close()" aria-label="Close" class="btn btn-ghost btn-sm btn-icon"><i data-lucide="x" class="i"></i></button>
+        </div>
+        <div class="modal-body stack">
+            <button type="button" class="btn btn-secondary btn-block" data-demo-user="{{ demo.candidate }}">
+                <i data-lucide="user" class="i"></i> Candidate: browse roles, apply and interview
+            </button>
+            <button type="button" class="btn btn-secondary btn-block" data-demo-user="{{ demo.recruiter }}">
+                <i data-lucide="briefcase" class="i"></i> Recruiter: post jobs and review applicants
+            </button>
+        </div>
+    </dialog>
+    {% endif %}
+{% endblock %}
+{% block scripts %}
+{% if demo %}
+<script>
+    // Fill the normal form and submit it, so demo sign-ins take the same path (and rate limits) as any other
+    document.querySelectorAll('[data-demo-user]').forEach(btn => btn.addEventListener('click', () => {
+        const form = document.getElementById('login-form');
+        form.elements.username.value = btn.dataset.demoUser;
+        form.elements.password.value = {{ demo.password|tojson }};
+        form.requestSubmit();
+    }));
+</script>
+{% endif %}
 {% endblock %}

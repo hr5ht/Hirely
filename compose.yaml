@@ -13,7 +13,8 @@ services:
 
   backend:
     build: ./backend
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload   # reloads on code edits
+    # Seeds the demo accounts and jobs on every start (adds only what's missing), then serves with reload on code edits
+    command: sh -c "python -m scripts.seed_demo && exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
     ports: ["${PORT:-8000}:8000"]   # PORT=8001 docker compose up, if 8000 is taken
     env_file:
       - path: backend/.env   # Groq, Gemini, Deepgram and ElevenLabs keys

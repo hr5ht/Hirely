@@ -27,6 +27,13 @@ RESET_MAX_AGE = 3600
 _reset_tokens = URLSafeTimedSerializer(config.SECRET_KEY, salt='password-reset')
 
 
+def _demo():
+    """The demo accounts for the login page's popup; never offered with DEBUG off."""
+    if not config.DEBUG:
+        return {}
+    return {'demo': {'candidate': config.DEMO_CANDIDATE, 'recruiter': config.DEMO_RECRUITER, 'password': config.DEMO_PASSWORD}}
+
+
 def _safe_next(url):
     """Only same-site paths, so ?next= can't send people to another site after signing in."""
     return url.startswith('/') and not url.startswith(('//', '/\\'))
@@ -117,7 +124,7 @@ async def login_view(request: Request, db: DB, user: CurrentUser):
         identifier = (form.get('username') or '').strip()
         password = form.get('password') or ''
         if await throttled(request, 'login', 20, identifier, 10):
-            return render(request, 'login.html', {'error': TOO_MANY}, status=429)
+            return render(request, 'login.html', {'error': TOO_MANY, **_demo()}, status=429)
         found = await db.scalar(select(User).where(or_(User.username == identifier, func.upper(User.email) == identifier.upper()))
                                 .order_by(User.id).limit(1))
         # A missing user still costs one hash check, so response time doesn't reveal which accounts exist
@@ -130,7 +137,7 @@ async def login_view(request: Request, db: DB, user: CurrentUser):
             return redirect(nxt if _safe_next(nxt) else '/dashboard/')
         error = "Invalid username or password."
 
-    return render(request, 'login.html', {'error': error})
+    return render(request, 'login.html', {'error': error, **_demo()})
 
 
 @router.api_route('/password-reset/', methods=['GET', 'POST'])

@@ -23,6 +23,11 @@ DATABASE_URL = re.sub(r'^postgres(ql)?://', 'postgresql+asyncpg://', DATABASE_UR
 
 LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO')
 
+# Demo accounts: created by scripts/seed_demo.py and offered on the login page, only with DEBUG on
+DEMO_PASSWORD = 'hirely-demo-123'
+DEMO_CANDIDATE = 'demo_candidate'
+DEMO_RECRUITER = 'demo_recruiter'
+
 # Email: SMTP when EMAIL_HOST is set, otherwise messages are printed to the log
 EMAIL_HOST = os.environ.get('EMAIL_HOST', '')
 EMAIL_PORT = int(os.environ.get('EMAIL_PORT') or 587)
