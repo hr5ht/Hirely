@@ -39,14 +39,13 @@
                     </div>
 
                     <button type="submit" class="btn btn-primary btn-block">Log in</button>
+                    {% if demo %}
+                    <button type="button" class="btn btn-secondary btn-block" onclick="document.getElementById('demoModal').showModal()">
+                        <i data-lucide="sparkles" class="i"></i> Use demo credentials
+                    </button>
+                    {% endif %}
                 </form>
             </div>
-
-            {% if demo %}
-            <button type="button" class="btn btn-secondary btn-block" onclick="document.getElementById('demoModal').showModal()">
-                <i data-lucide="sparkles" class="i"></i> Use demo credentials
-            </button>
-            {% endif %}
 
             <p class="auth-foot">Don't have an account? <a href="/register/" class="link">Sign up</a></p>
         </div>

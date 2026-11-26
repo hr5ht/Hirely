@@ -27,6 +27,7 @@ LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO')
 DEMO_PASSWORD = 'hirely-demo-123'
 DEMO_CANDIDATE = 'demo_candidate'
 DEMO_RECRUITER = 'demo_recruiter'
+DEMO_ADMIN = 'demo_admin'
 
 # Email: SMTP when EMAIL_HOST is set, otherwise messages are printed to the log
 EMAIL_HOST = os.environ.get('EMAIL_HOST', '')

@@ -40,6 +40,9 @@ async def security_headers(request: Request, call_next):
     response.headers.setdefault('X-Frame-Options', 'DENY')
     response.headers.setdefault('X-Content-Type-Options', 'nosniff')
     response.headers.setdefault('Referrer-Policy', 'same-origin')
+    if response.headers.get('content-type', '').startswith('text/html'):
+        # Pages show live, per-user data: no cached copy, so Back after logging out or in reloads instead
+        response.headers.setdefault('Cache-Control', 'no-store')
     return response
 
 

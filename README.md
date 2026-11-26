@@ -103,7 +103,15 @@ docker compose up --build           # Postgres + backend at http://127.0.0.1:800
 
 Compose sets `DATABASE_URL` to its own Postgres and `DEBUG=1`, and the backend reloads when you edit code. Tables are created on startup. If port 8000 is taken, run `PORT=8001 docker compose up`.
 
-Each start also seeds sample data, adding only what's missing: three companies with a recruiter each (`demo_recruiter`, `arjun`, `sofia`), six job posts and a candidate (`demo_candidate`), all with the password `hirely-demo-123`. On the login page, **Use demo credentials** opens a popup that signs you in as the demo candidate or the demo recruiter. Both the seed and the button only exist with `DEBUG=1`, so a production login page never shows the demo password.
+Each start also seeds demo data, adding only what's missing (it needs the database, so it runs when the container starts, not while the image builds):
+
+| Username | Role | Notes |
+|---|---|---|
+| `demo_admin` | Admin | Staff access to `/admin/` |
+| `demo_recruiter` | Recruiter | Northwind Labs, with 8 job openings |
+| `demo_candidate` | Candidate | Sees the 8 openings |
+
+All three use the password `hirely-demo-123`. On the login page, **Use demo credentials** opens a popup that signs you in as the demo candidate or the demo recruiter. Both the seed and the button only exist with `DEBUG=1`, so a production login page never shows the demo password.
 
 Sign up at `/register/` as a candidate, or as a recruiter with a company name.
 
@@ -111,7 +119,7 @@ To add a dependency, run `uv add <name>` in `backend/`, then `docker compose up 
 
 ### Admin access
 
-`/admin/` has no password form of its own: it sends you to the normal sign-in page. To make your account an admin, sign up first, then run:
+`/admin/` has no password form of its own: it sends you to the normal sign-in page. Locally, sign in as `demo_admin`. To make another account an admin, run:
 
 ```bash
 docker compose exec db psql -U hirely -c "update auth_user set is_staff = true where email = 'you@example.com'"
